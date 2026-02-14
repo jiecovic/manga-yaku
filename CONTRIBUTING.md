@@ -1,7 +1,9 @@
 # Contributing
 
-Thanks for helping with MangaYaku. This file keeps development notes and
-project conventions that are not part of the public README.
+Thanks for your interest in MangaYaku. This is primarily a personal project and
+my review bandwidth is limited. You are welcome to open issues or PRs, but I may
+be slow to respond or may not be able to merge everything. For larger changes,
+please open an issue first to confirm direction.
 
 ## Development Setup
 
