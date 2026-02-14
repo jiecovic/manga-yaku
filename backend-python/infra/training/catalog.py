@@ -173,12 +173,12 @@ def _build_prepared_dataset(dataset_dir: Path) -> dict:
             targets = [str(item) for item in raw_targets]
         val_split = (
             float(manifest["val_split"])
-            if isinstance(manifest.get("val_split"), (int, float))
+            if isinstance(manifest.get("val_split"), int | float)
             else None
         )
         test_split = (
             float(manifest["test_split"])
-            if isinstance(manifest.get("test_split"), (int, float))
+            if isinstance(manifest.get("test_split"), int | float)
             else None
         )
         image_mode = (
