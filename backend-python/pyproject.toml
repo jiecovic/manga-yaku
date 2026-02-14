@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mangayaku-backend"
+version = "0.1.0"
+description = "MangaYaku FastAPI backend"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.122.0",
+  "httpx==0.28.1",
+  "Jinja2==3.1.6",
+  "manga-ocr==0.1.14",
+  "openai==2.8.1",
+  "opencv-python==4.12.0.88",
+  "pillow==12.0.0",
+  "pydantic==2.12.4",
+  "pgvector==0.4.1",
+  "python-dotenv==1.2.1",
+  "python-multipart==0.0.20",
+  "PyYAML==6.0.3",
+  "psycopg[binary]==3.2.10",
+  "SQLAlchemy==2.0.43",
+  "torch==2.9.1",
+  "torchvision==0.24.1",
+  "transformers==4.57.3",
+  "ultralytics==8.4.13",
+  "uvicorn==0.38.0",
+]
+
+[tool.setuptools]
+py-modules = ["app", "config", "settings"]
+
+[tool.setuptools.package-data]
+"infra.prompts" = ["*.yml"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "core*", "infra*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+  ".venv",
+  "node_modules",
+  "data",
+  "training-data",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "DTZ", "B", "UP", "RUF"]
+ignore = ["E501"]
+

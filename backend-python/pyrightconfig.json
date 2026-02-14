@@ -1,0 +1,12 @@
+{
+  "include": ["core/**/*.py"],
+  "exclude": [
+    ".venv",
+    "**/__pycache__"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingTypeStubs": false
+}

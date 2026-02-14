@@ -1,0 +1,24 @@
+{
+  "name": "mangayaku-ai",
+  "private": true,
+  "scripts": {
+    "dev:backend": "node scripts/dev-backend.mjs",
+    "dev:backend:noreload": "node scripts/dev-backend.mjs --no-reload",
+    "dev:frontend": "cd frontend && npm run dev -- --port 5174",
+    "dev:raw": "concurrently -n backend,frontend \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "node scripts/dev.mjs",
+    "start:backend": "node scripts/dev-backend.mjs --no-reload",
+    "setup": "node scripts/setup.mjs",
+    "lint:backend": "python -m ruff check --config backend-python/pyproject.toml backend-python",
+    "lint:backend:fix": "python -m ruff check --config backend-python/pyproject.toml backend-python --fix",
+    "lint:types": "pyright -p backend-python/pyrightconfig.json",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "lint": "npm run lint:backend && npm run lint:types && npm run lint:frontend",
+    "lint:fix": "npm run lint:backend:fix && npm run lint:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "pyright": "^1.1.398"
+  }
+}
+

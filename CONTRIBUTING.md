@@ -1,0 +1,182 @@
+# Contributing
+
+Thanks for helping with MangaYaku. This file keeps development notes and
+project conventions that are not part of the public README.
+
+## Development Setup
+
+Requirements:
+- Python 3.10+
+- Node.js 18+
+- Docker (for Postgres)
+
+Common commands:
+
+```powershell
+npm run setup
+npm run dev
+npm run dev:backend
+npm run dev:backend:noreload
+npm run dev:frontend
+npm run start:backend
+```
+
+Backend only:
+
+```powershell
+cd backend-python
+python -m uvicorn app:app --port 8101 --reload
+python -m uvicorn app:app --port 8101
+```
+
+## Codebase Overview
+
+This repo is split into a Vite/React frontend and a FastAPI backend with a shared
+Postgres database.
+
+High-level structure:
+
+```
+frontend/        # React UI (Vite + TS)
+backend-python/  # FastAPI app + core logic
+data/            # runtime data (volumes, logs)
+training-data/   # local datasets + runs (gitignored)
+models/          # published model weights + manifests
+docs/            # status + internal notes
+```
+
+Backend layout (core vs infra):
+
+- `backend-python/api/` — FastAPI routers + schemas (HTTP surface area).
+- `backend-python/core/` — business logic (usecases, profiles, detection/ocr engines).
+- `backend-python/infra/` — DB, LLM clients, jobs, IO adapters.
+- `backend-python/app.py` — app wiring and router registration.
+
+Frontend layout:
+
+- `frontend/src/components/` — UI screens and panels.
+- `frontend/src/context/` — global state (settings, jobs, health, library).
+- `frontend/src/hooks/` — workflow helpers (job actions, library state).
+- `frontend/src/api/` — typed client wrappers around backend endpoints.
+- `frontend/src/ui/` — design tokens + primitives.
+
+## Database Layout (Postgres)
+
+The database schema lives in `backend-python/infra/db/db.py` and is created via
+`Base.metadata.create_all()` during init.
+
+Core tables:
+
+- `volumes` — manga volumes (name, created_at).
+- `pages` — pages within volumes (filename, page_index).
+- `boxes` — detected/annotated boxes (type, geometry, source, run_id).
+- `text_box_contents` — OCR text + translations per box.
+- `box_detection_runs` — metadata for each detection run (model + params).
+- `volume_context` — rolling summaries, character/glossary context per volume.
+- `page_context` — per-page summaries and snapshots.
+- `agent_sessions` / `agent_messages` — optional chat-style agent history.
+- `app_settings` — persisted settings (e.g., detection thresholds, defaults).
+- `ocr_profile_settings` — per-OCR profile overrides for agent use.
+- `agent_translate_settings` — default model/params for agent page translate.
+
+Indexes and constraints are defined directly in `db.py`.
+
+Relationships (high-level):
+
+- `volumes` -> `pages` (1:N)
+- `pages` -> `boxes` (1:N)
+- `boxes` -> `text_box_contents` (1:1)
+- `box_detection_runs` -> `boxes` (1:N via `boxes.run_id`)
+- `volumes` -> `volume_context` (1:1)
+- `pages` -> `page_context` (1:1)
+- `volumes` -> `agent_sessions` -> `agent_messages`
+
+Important constraints:
+
+- `pages` unique (`volume_id`, `filename`)
+- `boxes` unique (`page_id`, `box_id`) and constrained `type`/`source`
+- `agent_translate_settings` is a singleton row (`id = 1`)
+
+## Key Workflows
+
+Box detection:
+- UI picks a detection profile (Translate sidebar) or a default (Settings → Translation Agent).
+- Backend loads a YOLO profile and writes boxes to Postgres.
+
+OCR:
+- Uses local manga-ocr by default, optional OpenAI vision OCR.
+- OCR results are stored per box in Postgres.
+
+Agent translate page:
+- Detects boxes → runs OCR (multi-profile) → sends a structured prompt to the LLM
+  → writes translations + page context back to Postgres.
+- Default LLM model is configured in Settings → Translation Agent.
+
+Training:
+- Raw datasets live under `training-data/sources/` (ignored).
+- Prepared YOLO datasets under `training-data/prepared/` (ignored).
+- Training runs saved to `training-data/runs/`.
+- Published model weights and manifests live in `models/`.
+
+## Linting
+
+```powershell
+npm run lint
+npm run lint:backend
+npm run lint:frontend
+```
+
+## Testing (backend)
+
+```powershell
+cd backend-python
+$env:DB_INIT="false"
+python -m unittest discover -s tests
+```
+
+## Backend Package Conventions
+
+- Keep `__init__.py` files docstring-only for internal packages.
+- Use `__all__` and re-exports only for intentional public APIs
+  (for example: `core/usecases/*`, `infra/llm`, `infra/logging`).
+- Avoid side-effectful logic in `__init__.py` (I/O, env parsing, config resolution).
+
+## Local OpenAI-Compatible Server
+
+- `LOCAL_OPENAI_BASE_URL` and `LOCAL_OPENAI_MODEL` are optional.
+- The local translation profile is enabled only when the base URL is reachable.
+
+## Frontend UI Tokens
+
+The shared UI layer lives under `frontend/src/ui`.
+
+- `tokens.ts` holds reusable Tailwind class strings.
+- `primitives.tsx` provides small components that wrap those tokens.
+
+Conventions:
+- Prefer primitives for new UI, then fall back to tokens.
+- If a token string is reused 3+ times, consider a primitive or a new token.
+- Keep token names descriptive and grouped by domain.
+
+## Training Data
+
+Local training datasets live under `training-data/` and are not committed.
+
+Structure:
+
+```
+training-data/
+  sources/     # raw datasets (ignored)
+  prepared/    # generated YOLO-ready datasets (ignored)
+```
+
+Manga109s layout:
+
+```
+training-data/sources/manga109s/
+  images/
+  annotations/
+  annotations_COO/
+  annotations_Manga109Dialog/
+```
+

@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.4
+    hooks:
+      - id: ruff
+        args:
+          [
+            "--fix",
+            "--exit-non-zero-on-fix",
+            "--config",
+            "backend-python/pyproject.toml",
+          ]
+        files: ^backend-python/.*\.py$
+
+  - repo: local
+    hooks:
+      - id: pyright-backend
+        name: pyright (backend)
+        entry: npm run lint:types
+        language: system
+        pass_filenames: false
+        files: ^backend-python/.*\.py$
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.[tj]sx?$
