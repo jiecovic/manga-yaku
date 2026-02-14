@@ -35,18 +35,30 @@ From repo root:
 
 ```powershell
 docker compose up -d
+
+# one-time setup (creates venv + installs deps)
+npm run setup
+
+# run backend + frontend
 npm run dev
 ```
 
-This will set up backend and frontend dependencies if needed, then start:
+`npm run dev` uses the scripts in `scripts/` and starts:
 - FastAPI at http://localhost:8101
 - Vite at http://localhost:5174
+
+Run separately:
+
+```powershell
+npm run dev:backend
+npm run dev:frontend
+```
 
 ## Configuration
 
 Copy the example env files and adjust as needed:
-- `frontend/.env.example` → `frontend/.env` (set `VITE_API_BASE`)
-- `backend-python/.env.example` → `backend-python/.env` (set `OPENAI_API_KEY`, `DATABASE_URL`, etc.)
+- `frontend/.env.example` -> `frontend/.env` (set `VITE_API_BASE`)
+- `backend-python/.env.example` -> `backend-python/.env` (set `OPENAI_API_KEY`, `DATABASE_URL`, etc.)
 
 Optional overrides:
 - `MANGAYAKU_BACKEND_PORT=8101`
@@ -84,10 +96,10 @@ References:
 
 1. Aizawa, K., Fujimoto, A., Otsubo, A., Ogawa, T., Matsui, Y., Tsubota, K., Ikuta, H. (2020).
    Building a Manga Dataset "Manga109" with Annotations for Multimedia Applications.
-   IEEE MultiMedia, 27(2), 8–18. doi: 10.1109/MMUL.2020.2987895.
+   IEEE MultiMedia, 27(2), 8-18. doi: 10.1109/MMUL.2020.2987895.
 2. Matsui, Y., Ito, K., Aramaki, Y., Fujimoto, A., Ogawa, T., Yamasaki, T., Aizawa, K. (2017).
    Sketch-based Manga Retrieval using Manga109 Dataset.
-   Multimedia Tools and Applications, 76(20), 21811–21838. doi: 10.1007/s11042-016-4020-z.
+   Multimedia Tools and Applications, 76(20), 21811-21838. doi: 10.1007/s11042-016-4020-z.
 
 ## Development
 
@@ -96,4 +108,7 @@ See `CONTRIBUTING.md` for development setup, linting/testing, and internal conve
 ## License
 
 MIT License
+
+
+
 
