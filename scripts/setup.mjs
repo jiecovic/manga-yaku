@@ -20,6 +20,14 @@ function run(cmd, args, cwd = root) {
   }
 }
 
+function runNpm(args, cwd = root) {
+  if (process.platform === "win32") {
+    run("cmd", ["/d", "/s", "/c", "npm", ...args], cwd);
+    return;
+  }
+  run("npm", args, cwd);
+}
+
 if (!existsSync(venvDir)) {
   run("python", ["-m", "venv", venvDir]);
 }
@@ -33,9 +41,9 @@ run(venvPython, ["-m", "pip", "install", "--upgrade", "pip"]);
 run(venvPython, ["-m", "pip", "install", "-e", backendDir]);
 
 if (!existsSync(join(root, "node_modules"))) {
-  run("npm", ["install"]);
+  runNpm(["install"]);
 }
 
 if (!existsSync(join(frontendDir, "node_modules"))) {
-  run("npm", ["install"], frontendDir);
+  runNpm(["install"], frontendDir);
 }

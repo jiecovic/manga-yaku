@@ -14,6 +14,16 @@ const venvPython =
     ? join(venvDir, "Scripts", "python.exe")
     : join(venvDir, "bin", "python");
 
+function spawnNpm(args, cwd = root) {
+  if (process.platform === "win32") {
+    return spawn("cmd", ["/d", "/s", "/c", "npm", ...args], {
+      cwd,
+      stdio: "inherit",
+    });
+  }
+  return spawn("npm", args, { cwd, stdio: "inherit" });
+}
+
 const needsSetup =
   !existsSync(venvPython) ||
   !existsSync(join(root, "node_modules")) ||
@@ -36,11 +46,7 @@ if (needsSetup) {
   }
 }
 
-const dev = spawn("npm", ["run", "dev:raw"], {
-  cwd: root,
-  stdio: "inherit",
-  shell: true,
-});
+const dev = spawnNpm(["run", "dev:raw"], root);
 dev.on("exit", (code) => {
   process.exit(code ?? 1);
 });
