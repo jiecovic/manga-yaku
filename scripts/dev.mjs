@@ -29,12 +29,12 @@ const needsSetup =
   !existsSync(join(root, "node_modules")) ||
   !existsSync(join(frontendDir, "node_modules"));
 
+if (!process.env.VITE_API_BASE) {
+  process.env.VITE_API_BASE = "http://localhost:5174";
+}
+
 const backendPort = process.env.MANGAYAKU_BACKEND_PORT || "8101";
 const backendHost = process.env.MANGAYAKU_BACKEND_HOST || "127.0.0.1";
-if (!process.env.VITE_API_BASE) {
-  const frontendHost = backendHost === "0.0.0.0" ? "localhost" : backendHost;
-  process.env.VITE_API_BASE = `http://${frontendHost}:${backendPort}`;
-}
 
 if (needsSetup) {
   const setup = spawnSync("node", [join(root, "scripts", "setup.mjs")], {
