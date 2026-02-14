@@ -128,6 +128,27 @@ npm run lint:backend
 npm run lint:frontend
 ```
 
+## Pre-commit
+
+This repo includes a `.pre-commit-config.yaml` that runs:
+- `ruff` (backend)
+- `pyright` (backend types)
+- `eslint` (frontend)
+
+Setup:
+
+```powershell
+npm run setup
+python -m pip install pre-commit
+pre-commit install
+```
+
+Run on demand:
+
+```powershell
+pre-commit run --all-files
+```
+
 ## Testing (backend)
 
 ```powershell
