@@ -23,7 +23,8 @@ function getEnv(name: string): string | undefined {
 
 // --- API BASE --------------------------------------------------------
 
-const rawApiBase = getEnv("VITE_API_BASE");
+const rawApiBase =
+    getEnv("VITE_API_BASE") ?? (env.MODE === "development" ? "http://localhost:5174" : undefined);
 
 if (!rawApiBase) {
     throw new Error(
