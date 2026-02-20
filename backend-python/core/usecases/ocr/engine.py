@@ -41,7 +41,7 @@ except Exception as e:  # pragma: no cover
 # -------------------------------------------------------------------
 
 _has_openai_sdk = has_openai_sdk()
-_has_openai_vision = _has_openai_sdk and bool(OPENAI_API_KEY)
+_has_llm_ocr = _has_openai_sdk and bool(OPENAI_API_KEY)
 
 if _has_openai_sdk and not OPENAI_API_KEY:
     logger.warning("OPENAI_API_KEY not set; OpenAI OCR profiles disabled.")
@@ -50,7 +50,7 @@ elif not _has_openai_sdk:
 
 mark_ocr_availability(
     has_manga_ocr=_manga_ocr is not None,
-    has_openai_vision=_has_openai_vision,
+    has_llm_ocr=_has_llm_ocr,
 )
 
 
@@ -95,7 +95,7 @@ def _load_ocr_prompt_bundle(profile: OcrProfile) -> PromptBundle:
     return load_prompt_bundle(prompt_file)
 
 
-def _run_openai_vision_ocr_box(
+def _run_llm_ocr_box(
         profile: OcrProfile,
         volume_id: str,
         filename: str,
@@ -105,7 +105,7 @@ def _run_openai_vision_ocr_box(
         height: float,
 ) -> str:
     """
-    OpenAI OCR via chat+vision.
+    LLM OCR via chat/image input.
 
     Model-agnostic:
     - The engine does NOT care which exact model is used.
@@ -195,8 +195,8 @@ def run_ocr_box(
 
     if provider == "manga_ocr":
         text = _run_manga_ocr_box(volume_id, filename, x, y, width, height)
-    elif provider == "openai_vision_chat":
-        text = _run_openai_vision_ocr_box(profile, volume_id, filename, x, y, width, height)
+    elif provider == "llm_ocr_chat":
+        text = _run_llm_ocr_box(profile, volume_id, filename, x, y, width, height)
     else:
         raise RuntimeError(f"Unknown OCR provider '{provider}' for '{profile_id}'")
 

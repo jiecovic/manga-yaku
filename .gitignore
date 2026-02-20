@@ -241,3 +241,6 @@ runs/**
 yolo_training/.yolo-venv/
 yolo_training/.yolo-venv/**
 
+# Local agent notes
+/AGENT.md
+

@@ -18,5 +18,5 @@ user_template: |
   Output the text only.
 
 meta:
-  description: "Strict, deterministic OCR system prompt for OpenAI Vision or local vision OCR models."
+  description: "Strict, deterministic OCR system prompt for LLM OCR or local OCR models."
   version: 2

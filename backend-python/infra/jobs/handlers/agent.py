@@ -136,7 +136,7 @@ class AgentTranslatePageJobHandler(JobHandler):
                 profile = get_ocr_profile(profile_id)
             except Exception:
                 continue
-            if profile.get("provider") == "openai_vision_chat":
+            if profile.get("provider") == "llm_ocr_chat":
                 llm_profiles.add(profile_id)
 
         agent_settings = resolve_agent_translate_settings()

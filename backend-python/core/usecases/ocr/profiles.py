@@ -36,11 +36,11 @@ OCR_PROFILES: dict[str, OcrProfile] = {
     "openai_fast_ocr": {
         "id": "openai_fast_ocr",
         "label": "LLM OCR (fast)",
-        "description": "Fast LLM vision OCR",
+        "description": "Fast LLM OCR",
         "llm_hint": (
             "Fast; ok for simple bubbles."
         ),
-        "provider": "openai_vision_chat",
+        "provider": "llm_ocr_chat",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -54,11 +54,11 @@ OCR_PROFILES: dict[str, OcrProfile] = {
     "openai_quality_ocr": {
         "id": "openai_quality_ocr",
         "label": "LLM OCR (quality)",
-        "description": "Higher-accuracy LLM vision OCR",
+        "description": "Higher-accuracy LLM OCR",
         "llm_hint": (
             "More accurate; slower/costlier."
         ),
-        "provider": "openai_vision_chat",
+        "provider": "llm_ocr_chat",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -76,7 +76,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "llm_hint": (
             "Best accuracy; highest cost."
         ),
-        "provider": "openai_vision_chat",
+        "provider": "llm_ocr_chat",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -107,7 +107,7 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
     if profile_id in label_overrides:
         profile["label"] = str(label_overrides[profile_id])
     provider = base.get("provider")
-    if provider == "openai_vision_chat":
+    if provider == "llm_ocr_chat":
         from .profile_settings import resolve_ocr_profile_settings
 
         profile_settings = resolve_ocr_profile_settings().get(profile_id, {})
@@ -128,7 +128,7 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
     return profile
 
 
-def mark_ocr_availability(*, has_manga_ocr: bool, has_openai_vision: bool) -> None:
+def mark_ocr_availability(*, has_manga_ocr: bool, has_llm_ocr: bool) -> None:
     """
     Called by the engine at import/startup to toggle 'enabled' flags
     based on runtime capabilities.
@@ -136,7 +136,7 @@ def mark_ocr_availability(*, has_manga_ocr: bool, has_openai_vision: bool) -> No
     if "manga_ocr_default" in OCR_PROFILES:
         OCR_PROFILES["manga_ocr_default"]["enabled"] = has_manga_ocr
 
-    if has_openai_vision:
+    if has_llm_ocr:
         for key in ("openai_fast_ocr", "openai_quality_ocr", "openai_ultra_ocr"):
             if key in OCR_PROFILES:
                 OCR_PROFILES[key]["enabled"] = True
