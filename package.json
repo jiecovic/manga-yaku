@@ -12,8 +12,9 @@
     "lint:backend": "python -m ruff check --config backend-python/pyproject.toml backend-python",
     "lint:backend:fix": "python -m ruff check --config backend-python/pyproject.toml backend-python --fix",
     "lint:types": "pyright -p backend-python/pyrightconfig.json",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
     "lint:frontend": "npm --prefix frontend run lint",
-    "lint": "npm run lint:backend && npm run lint:types && npm run lint:frontend",
+    "lint": "npm run lint:backend && npm run lint:types && npm run typecheck:frontend && npm run lint:frontend",
     "lint:fix": "npm run lint:backend:fix && npm run lint:frontend"
   },
   "devDependencies": {
