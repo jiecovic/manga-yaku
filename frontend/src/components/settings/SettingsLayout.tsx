@@ -16,6 +16,11 @@ import { TranslationAgentCard } from "./sections/TranslationAgentCard";
 import { type AgentDraft, type OcrDraftProfile, toIntWithFallback } from "./types";
 
 const SETTINGS_AUTOSAVE_KEY = "settings.autosave.enabled";
+type SettingsTab =
+    | "translation"
+    | "detection"
+    | "ocr_profiles"
+    | "ocr_workers";
 
 export function SettingsLayout() {
     const {
@@ -62,6 +67,7 @@ export function SettingsLayout() {
         BoxDetectionProfile[]
     >([]);
     const [agentDetectionLoading, setAgentDetectionLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<SettingsTab>("translation");
 
     useEffect(() => {
         if (settings?.values) {
@@ -598,8 +604,67 @@ export function SettingsLayout() {
                         <div className={ui.trainingMetaSmall}>Saving OCR settings…</div>
                     )}
 
-                    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-                        <div className="space-y-4">
+                    <div
+                        role="tablist"
+                        aria-label="Settings categories"
+                        className={ui.trainingTabs}
+                    >
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === "translation"}
+                            onClick={() => setActiveTab("translation")}
+                            className={`${ui.trainingTab} ${
+                                activeTab === "translation"
+                                    ? ui.trainingTabActive
+                                    : ui.trainingTabInactive
+                            }`}
+                        >
+                            Translation
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === "detection"}
+                            onClick={() => setActiveTab("detection")}
+                            className={`${ui.trainingTab} ${
+                                activeTab === "detection"
+                                    ? ui.trainingTabActive
+                                    : ui.trainingTabInactive
+                            }`}
+                        >
+                            Detection
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === "ocr_profiles"}
+                            onClick={() => setActiveTab("ocr_profiles")}
+                            className={`${ui.trainingTab} ${
+                                activeTab === "ocr_profiles"
+                                    ? ui.trainingTabActive
+                                    : ui.trainingTabInactive
+                            }`}
+                        >
+                            OCR Profiles
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === "ocr_workers"}
+                            onClick={() => setActiveTab("ocr_workers")}
+                            className={`${ui.trainingTab} ${
+                                activeTab === "ocr_workers"
+                                    ? ui.trainingTabActive
+                                    : ui.trainingTabInactive
+                            }`}
+                        >
+                            OCR Workers
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {activeTab === "translation" && (
                             <TranslationAgentCard
                                 agentDraft={agentDraft}
                                 agentModelOptions={agentModelOptions}
@@ -612,23 +677,27 @@ export function SettingsLayout() {
                                 agentDetectionOptions={agentDetectionOptions}
                                 hasAgentDetectionOptions={hasAgentDetectionOptions}
                             />
+                        )}
 
+                        {activeTab === "detection" && (
                             <DetectionDefaultsCard
                                 confThreshold={confThreshold}
                                 iouThreshold={iouThreshold}
                                 containmentThreshold={containmentThreshold}
                                 onUpdateDraft={updateDraft}
                             />
-                        </div>
+                        )}
 
-                        <div className="space-y-4">
+                        {activeTab === "ocr_profiles" && (
                             <OcrProfilesCard
                                 ocrDraft={ocrDraft}
                                 ocrModelOptions={ocrModelOptions}
                                 ocrReasoningOptions={ocrReasoningOptions}
                                 onUpdateOcrProfile={updateOcrProfile}
                             />
+                        )}
 
+                        {activeTab === "ocr_workers" && (
                             <OcrParallelismCard
                                 ocrParallelismLocal={ocrParallelismLocal}
                                 ocrParallelismRemote={ocrParallelismRemote}
@@ -637,7 +706,7 @@ export function SettingsLayout() {
                                 ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
                                 onUpdateDraft={updateDraft}
                             />
-                        </div>
+                        )}
                     </div>
                 </section>
             </main>
