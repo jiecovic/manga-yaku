@@ -58,6 +58,71 @@ mark_ocr_availability(
 # Core engines
 # -------------------------------------------------------------------
 
+
+def _to_int(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed < 1:
+        return None
+    return parsed
+
+
+def _bump_token_limit(
+    cfg: dict[str, Any],
+    *,
+    cap: int = 768,
+) -> tuple[dict[str, Any], int, int] | None:
+    for key in ("max_output_tokens", "max_completion_tokens", "max_tokens"):
+        current = _to_int(cfg.get(key))
+        if current is None:
+            continue
+        new_limit = min(max(current * 2, current + 64), cap)
+        if new_limit <= current:
+            return None
+        retry_cfg = dict(cfg)
+        retry_cfg[key] = new_limit
+        return retry_cfg, current, new_limit
+    return None
+
+
+def _responses_truncated(response: Any) -> bool:
+    status = getattr(response, "status", None)
+    if status is None and isinstance(response, dict):
+        status = response.get("status")
+    if status != "incomplete":
+        return False
+
+    details = getattr(response, "incomplete_details", None)
+    if details is None and isinstance(response, dict):
+        details = response.get("incomplete_details") or {}
+
+    reason = None
+    if isinstance(details, dict):
+        reason = details.get("reason")
+    else:
+        reason = getattr(details, "reason", None)
+    return reason == "max_output_tokens"
+
+
+def _chat_completions_truncated(response: Any) -> bool:
+    choices = getattr(response, "choices", None)
+    if choices is None and isinstance(response, dict):
+        choices = response.get("choices")
+    if not isinstance(choices, list):
+        return False
+
+    for choice in choices:
+        finish_reason = None
+        if isinstance(choice, dict):
+            finish_reason = choice.get("finish_reason")
+        else:
+            finish_reason = getattr(choice, "finish_reason", None)
+        if finish_reason == "length":
+            return True
+    return False
+
 def _run_manga_ocr_box(
         volume_id: str,
         filename: str,
@@ -149,6 +214,19 @@ def _run_llm_ocr_box(
 
         params = build_response_params(cfg, input_payload)
         resp = client.responses.create(**params)
+        if _responses_truncated(resp):
+            bumped = _bump_token_limit(cfg)
+            if bumped is not None:
+                retry_cfg, before, after = bumped
+                logger.debug(
+                    "LLM OCR truncated for %s/%s; retrying with token limit %s -> %s",
+                    volume_id,
+                    filename,
+                    before,
+                    after,
+                )
+                retry_params = build_response_params(retry_cfg, input_payload)
+                resp = client.responses.create(**retry_params)
         text = extract_response_text(resp)
         return text.strip()
 
@@ -166,6 +244,19 @@ def _run_llm_ocr_box(
     params = build_chat_params(cfg, messages)
 
     resp = client.chat.completions.create(**params)
+    if _chat_completions_truncated(resp):
+        bumped = _bump_token_limit(cfg)
+        if bumped is not None:
+            retry_cfg, before, after = bumped
+            logger.debug(
+                "LLM OCR truncated for %s/%s (chat); retrying with token limit %s -> %s",
+                volume_id,
+                filename,
+                before,
+                after,
+            )
+            retry_params = build_chat_params(retry_cfg, messages)
+            resp = client.chat.completions.create(**retry_params)
     text = resp.choices[0].message.content or ""
     return text.strip()
 
