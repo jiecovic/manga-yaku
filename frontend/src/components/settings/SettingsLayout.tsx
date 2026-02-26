@@ -19,8 +19,7 @@ const SETTINGS_AUTOSAVE_KEY = "settings.autosave.enabled";
 type SettingsTab =
     | "translation"
     | "detection"
-    | "ocr_profiles"
-    | "ocr_workers";
+    | "ocr";
 
 export function SettingsLayout() {
     const {
@@ -638,28 +637,15 @@ export function SettingsLayout() {
                         <button
                             type="button"
                             role="tab"
-                            aria-selected={activeTab === "ocr_profiles"}
-                            onClick={() => setActiveTab("ocr_profiles")}
+                            aria-selected={activeTab === "ocr"}
+                            onClick={() => setActiveTab("ocr")}
                             className={`${ui.trainingTab} ${
-                                activeTab === "ocr_profiles"
+                                activeTab === "ocr"
                                     ? ui.trainingTabActive
                                     : ui.trainingTabInactive
                             }`}
                         >
-                            OCR Profiles
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === "ocr_workers"}
-                            onClick={() => setActiveTab("ocr_workers")}
-                            className={`${ui.trainingTab} ${
-                                activeTab === "ocr_workers"
-                                    ? ui.trainingTabActive
-                                    : ui.trainingTabInactive
-                            }`}
-                        >
-                            OCR Workers
+                            OCR
                         </button>
                     </div>
 
@@ -688,24 +674,23 @@ export function SettingsLayout() {
                             />
                         )}
 
-                        {activeTab === "ocr_profiles" && (
-                            <OcrProfilesCard
-                                ocrDraft={ocrDraft}
-                                ocrModelOptions={ocrModelOptions}
-                                ocrReasoningOptions={ocrReasoningOptions}
-                                onUpdateOcrProfile={updateOcrProfile}
-                            />
-                        )}
-
-                        {activeTab === "ocr_workers" && (
-                            <OcrParallelismCard
-                                ocrParallelismLocal={ocrParallelismLocal}
-                                ocrParallelismRemote={ocrParallelismRemote}
-                                ocrParallelismMaxWorkers={ocrParallelismMaxWorkers}
-                                ocrParallelismLeaseSeconds={ocrParallelismLeaseSeconds}
-                                ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
-                                onUpdateDraft={updateDraft}
-                            />
+                        {activeTab === "ocr" && (
+                            <>
+                                <OcrProfilesCard
+                                    ocrDraft={ocrDraft}
+                                    ocrModelOptions={ocrModelOptions}
+                                    ocrReasoningOptions={ocrReasoningOptions}
+                                    onUpdateOcrProfile={updateOcrProfile}
+                                />
+                                <OcrParallelismCard
+                                    ocrParallelismLocal={ocrParallelismLocal}
+                                    ocrParallelismRemote={ocrParallelismRemote}
+                                    ocrParallelismMaxWorkers={ocrParallelismMaxWorkers}
+                                    ocrParallelismLeaseSeconds={ocrParallelismLeaseSeconds}
+                                    ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
+                                    onUpdateDraft={updateDraft}
+                                />
+                            </>
                         )}
                     </div>
                 </section>

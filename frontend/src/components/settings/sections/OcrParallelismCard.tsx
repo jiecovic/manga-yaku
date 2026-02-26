@@ -86,6 +86,10 @@ export function OcrParallelismCard({
                     />
                 </Field>
                 <div className={ui.trainingHelp}>
+                    Local = on-device OCR (manga-ocr). Remote = API OCR (LLM
+                    profiles).
+                </div>
+                <div className={ui.trainingHelp}>
                     Effective workers = min(local + remote, max workers).
                 </div>
             </div>
