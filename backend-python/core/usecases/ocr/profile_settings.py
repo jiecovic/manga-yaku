@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.settings.service import get_setting_value
+from core.usecases.settings.service import resolve_ocr_label_overrides
 from infra.db.ocr_profile_settings_store import (
     list_ocr_profile_settings,
     upsert_ocr_profile_setting,
@@ -40,7 +40,7 @@ def resolve_ocr_profile_settings() -> dict[str, dict[str, Any]]:
 
 def list_ocr_profiles_with_settings() -> list[dict[str, Any]]:
     settings = resolve_ocr_profile_settings()
-    label_overrides = get_setting_value("ocr.label_overrides") or {}
+    label_overrides = resolve_ocr_label_overrides().values
     results: list[dict[str, Any]] = []
     for pid, profile in OCR_PROFILES.items():
         cfg = profile.get("config", {}) or {}

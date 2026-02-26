@@ -1,7 +1,7 @@
 # backend-python/core/usecases/box_detection/postprocess.py
 from __future__ import annotations
 
-from core.usecases.settings.service import get_setting_value
+from core.usecases.settings.service import resolve_detection_settings
 
 from .profiles import BoxDetectionProfile
 
@@ -10,9 +10,9 @@ def resolve_containment_threshold(profile: BoxDetectionProfile) -> float:
     """Return the effective containment threshold (profile override + global override)."""
     cfg = profile.get("config", {}) or {}
     threshold = float(cfg.get("containment_threshold", 0.9))
-    global_threshold = get_setting_value("detection.containment_threshold")
-    if global_threshold is not None:
-        threshold = float(global_threshold)
+    detection_settings = resolve_detection_settings()
+    if detection_settings.containment_threshold is not None:
+        threshold = detection_settings.containment_threshold
     return threshold
 
 

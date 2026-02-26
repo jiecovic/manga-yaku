@@ -353,6 +353,113 @@ class AgentTranslateSetting(Base):
     )
 
 
+class WorkflowRun(Base):
+    __tablename__ = "workflow_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    workflow_type = Column(String, nullable=False)
+    volume_id = Column(String, nullable=False, index=True)
+    filename = Column(String, nullable=False, index=True)
+    page_revision = Column(String, nullable=True)
+    state = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    cancel_requested = Column(Boolean, nullable=False, default=False)
+    error_message = Column(Text, nullable=True)
+    result_json = Column(JSONB, nullable=True)
+    deadline_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    tasks = relationship(
+        "TaskRun",
+        back_populates="workflow",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_workflow_runs_type_created", "workflow_type", "created_at"),
+        Index("ix_workflow_runs_status_updated", "status", "updated_at"),
+        CheckConstraint(
+            "status IN ('queued', 'running', 'completed', 'failed', 'canceled')",
+            name="ck_workflow_runs_status",
+        ),
+    )
+
+
+class TaskRun(Base):
+    __tablename__ = "task_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    workflow_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    stage = Column(String, nullable=False)
+    box_id = Column(Integer, nullable=True)
+    profile_id = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="queued")
+    attempt = Column(Integer, nullable=False, default=0)
+    lease_until = Column(DateTime(timezone=True), nullable=True)
+    next_retry_at = Column(DateTime(timezone=True), nullable=True)
+    error_code = Column(String, nullable=True)
+    error_detail = Column(Text, nullable=True)
+    input_json = Column(JSONB, nullable=True)
+    result_json = Column(JSONB, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    workflow = relationship("WorkflowRun", back_populates="tasks")
+    attempt_events = relationship(
+        "TaskAttemptEvent",
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_task_runs_workflow_stage", "workflow_id", "stage"),
+        Index("ix_task_runs_status_stage", "status", "stage"),
+        Index("ix_task_runs_retry", "next_retry_at", "status"),
+        CheckConstraint(
+            "status IN ('queued', 'running', 'completed', 'failed', 'timed_out', 'canceled')",
+            name="ck_task_runs_status",
+        ),
+        CheckConstraint("attempt >= 0", name="ck_task_runs_attempt_nonnegative"),
+    )
+
+
+class TaskAttemptEvent(Base):
+    __tablename__ = "task_attempt_events"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("task_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    attempt = Column(Integer, nullable=False)
+    tool_name = Column(String, nullable=False)
+    model_id = Column(String, nullable=True)
+    prompt_version = Column(String, nullable=True)
+    params_snapshot = Column(JSONB, nullable=True)
+    token_usage = Column(JSONB, nullable=True)
+    finish_reason = Column(String, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    error_detail = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+    task = relationship("TaskRun", back_populates="attempt_events")
+
+    __table_args__ = (
+        Index("ix_task_attempt_events_task_attempt", "task_id", "attempt"),
+        CheckConstraint("attempt >= 1", name="ck_task_attempt_events_attempt_positive"),
+    )
+
+
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(
     bind=engine,

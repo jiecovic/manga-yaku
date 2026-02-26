@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from config import PROJECT_ROOT, VOLUMES_ROOT, safe_join
-from core.usecases.settings.service import get_setting_value
+from core.usecases.settings.service import resolve_detection_settings
 from infra.db.db_store import create_detection_run, replace_boxes_for_type
 from PIL import Image
 
@@ -15,6 +15,7 @@ from .postprocess import filter_contained_boxes, resolve_containment_threshold
 from .profiles import (
     BoxDetectionProfile,
     get_box_detection_profile,
+    is_git_lfs_pointer_model,
     pick_default_box_detection_profile_id,
 )
 
@@ -90,6 +91,11 @@ def _get_yolo_model(profile: BoxDetectionProfile):
             f"YOLO model file not found at '{model_path}'. "
             "Place your weights under training-data/ultralytics/weights and "
             "update model_path in box_detection/profiles.py if needed."
+        )
+    if is_git_lfs_pointer_model(model_path):
+        raise RuntimeError(
+            f"YOLO model file at '{model_path}' is a Git LFS pointer, not real weights. "
+            "Fetch the actual model file (for example: `git lfs pull`) or train a model first."
         )
 
     if model_path in _YOLO_MODEL_CACHE:
@@ -177,12 +183,11 @@ def resolve_detection_thresholds(profile: BoxDetectionProfile) -> tuple[float, f
     cfg = profile.get("config", {}) or {}
     conf_th = float(cfg.get("conf_threshold", 0.25))
     iou_th = float(cfg.get("iou_threshold", 0.45))
-    global_conf = get_setting_value("detection.conf_threshold")
-    global_iou = get_setting_value("detection.iou_threshold")
-    if global_conf is not None:
-        conf_th = float(global_conf)
-    if global_iou is not None:
-        iou_th = float(global_iou)
+    detection_settings = resolve_detection_settings()
+    if detection_settings.conf_threshold is not None:
+        conf_th = detection_settings.conf_threshold
+    if detection_settings.iou_threshold is not None:
+        iou_th = detection_settings.iou_threshold
     return conf_th, iou_th
 
 
@@ -447,4 +452,3 @@ def detect_text_boxes_for_page(
         task="text",
         replace_existing=replace_existing,
     )
-

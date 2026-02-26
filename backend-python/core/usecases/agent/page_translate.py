@@ -135,10 +135,6 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 
 def _repair_json(raw: str) -> str:
-    """
-    Best-effort cleanup for minor JSON format issues from LLM output.
-    Avoids heavy parsing; only handles common missing commas/trailing commas.
-    """
     text = raw.strip()
     text = re.sub(r",\s*([}\]])", r"\1", text)
     text = re.sub(r"}\s*{", "},{", text)
@@ -339,20 +335,24 @@ def run_agent_translate_page(
         "max_output_tokens": max_output,
     }
     if str(resolved_model).startswith("gpt-5"):
-        effort = reasoning_effort or AGENT_TRANSLATE_REASONING_EFFORT or AGENT_REASONING_EFFORT
+        effort = (
+            reasoning_effort
+            or AGENT_TRANSLATE_REASONING_EFFORT
+            or AGENT_REASONING_EFFORT
+        )
         if effort not in {"low", "medium", "high"}:
             effort = "medium"
         cfg["reasoning"] = {"effort": effort}
     else:
-        cfg["temperature"] = temperature if temperature is not None else AGENT_TEMPERATURE
+        cfg["temperature"] = (
+            temperature if temperature is not None else AGENT_TEMPERATURE
+        )
     cfg.setdefault("text", {"format": _build_text_format()})
 
     client = create_openai_client({})
     params = build_response_params(cfg, input_payload)
     resp = client.responses.create(**params)
     raw_text = extract_response_text(resp, raise_on_refusal=True)
-    # Retry once with a larger budget when the model reports truncation.
-    # Partial text can still be incomplete JSON, so retry even if non-empty.
     if _should_retry(resp):
         retry_cfg = dict(cfg)
         retry_cfg["max_output_tokens"] = max(max_output * 2, max_output + 512)

@@ -18,6 +18,7 @@ class CreateOcrBoxJobRequest(BaseModel):
 
 class CreateOcrPageJobRequest(BaseModel):
     profileId: str
+    profileIds: list[str] | None = None
     volumeId: str
     filename: str
     skipExisting: bool = True

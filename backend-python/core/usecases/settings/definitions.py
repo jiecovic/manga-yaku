@@ -31,9 +31,45 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         min_value=0.0,
         max_value=1.0,
     ),
+    "detection.containment_threshold": SettingSpec(
+        default=None,
+        value_type=(float, int, type(None)),
+        min_value=0.0,
+        max_value=1.0,
+    ),
     "agent.translate.detection_profile_id": SettingSpec(
         default="",
         value_type=str,
+    ),
+    "ocr.parallelism.local": SettingSpec(
+        default=4,
+        value_type=int,
+        min_value=1,
+        max_value=32,
+    ),
+    "ocr.parallelism.remote": SettingSpec(
+        default=2,
+        value_type=int,
+        min_value=1,
+        max_value=32,
+    ),
+    "ocr.parallelism.max_workers": SettingSpec(
+        default=6,
+        value_type=int,
+        min_value=1,
+        max_value=64,
+    ),
+    "ocr.parallelism.lease_seconds": SettingSpec(
+        default=180,
+        value_type=int,
+        min_value=30,
+        max_value=3600,
+    ),
+    "ocr.parallelism.task_timeout_seconds": SettingSpec(
+        default=180,
+        value_type=int,
+        min_value=15,
+        max_value=3600,
     ),
 }
 

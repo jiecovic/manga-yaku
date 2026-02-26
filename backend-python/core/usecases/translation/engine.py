@@ -14,6 +14,7 @@ from infra.llm import (
     build_chat_params,
     build_response_params,
     create_openai_client,
+    extract_response_text,
     has_openai_sdk,
     is_openai_base_url_reachable,
 )
@@ -88,9 +89,12 @@ def _run_openai_translate(
     user_content: str,
 ) -> str:
     """
-    Generic translation runner for all OpenAI-chat-compatible profiles:
+    Generic translation runner for OpenAI-backed profiles.
     - Cloud OpenAI (gpt-4o-mini, gpt-4.1-mini, gpt-5.1, ...)
     - Local OpenAI-compatible servers (via base_url in profile.config)
+
+    Uses Responses API by default; falls back to Chat Completions for
+    local endpoints if needed.
     """
     cfg = profile.get("config", {}) or {}
     client = _get_openai_client_for_profile(profile)
@@ -100,12 +104,6 @@ def _run_openai_translate(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
-
-    if base_url:
-        params = build_chat_params(cfg, messages)
-        resp = client.chat.completions.create(**params)
-        raw = (resp.choices[0].message.content or "")
-        return normalize_translation_output(raw)
 
     if not hasattr(client, "responses"):
         params = build_chat_params(cfg, messages)
@@ -125,36 +123,20 @@ def _run_openai_translate(
     ]
 
     params = build_response_params(cfg, input_payload)
-    resp = client.responses.create(**params)
-
-    raw = getattr(resp, "output_text", None)
-    if raw:
+    try:
+        resp = client.responses.create(**params)
+        return normalize_translation_output(extract_response_text(resp))
+    except Exception as exc:
+        if not base_url:
+            raise
+        logger.warning(
+            "Responses API failed for local translation endpoint; falling back to chat API: %s",
+            exc,
+        )
+        chat_params = build_chat_params(cfg, messages)
+        chat_resp = client.chat.completions.create(**chat_params)
+        raw = (chat_resp.choices[0].message.content or "")
         return normalize_translation_output(raw)
-
-    output = getattr(resp, "output", None)
-    if output:
-        parts: list[str] = []
-        for item in output:
-            content = getattr(item, "content", None)
-            if content is None and isinstance(item, dict):
-                content = item.get("content")
-            if not content:
-                continue
-            for chunk in content:
-                chunk_type = None
-                text_value = None
-                if isinstance(chunk, dict):
-                    chunk_type = chunk.get("type")
-                    text_value = chunk.get("text")
-                else:
-                    chunk_type = getattr(chunk, "type", None)
-                    text_value = getattr(chunk, "text", None)
-                if text_value and (chunk_type in (None, "output_text", "text")):
-                    parts.append(str(text_value))
-        if parts:
-            return normalize_translation_output("\n".join(parts))
-
-    return ""
 
 
 # =====================================================================
@@ -251,4 +233,3 @@ def run_translate_box_with_context(
     )
 
     return translation
-

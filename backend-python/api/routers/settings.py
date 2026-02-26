@@ -1,6 +1,9 @@
 # backend-python/api/routers/settings.py
 from __future__ import annotations
 
+import logging
+import os
+import time
 from typing import Any
 
 from api.schemas.settings import (
@@ -23,16 +26,50 @@ from core.usecases.ocr.profile_settings import (
 )
 from core.usecases.settings.definitions import DEFAULT_SETTINGS
 from core.usecases.settings.service import resolve_settings, update_settings
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 router = APIRouter(tags=["settings"])
+logger = logging.getLogger(__name__)
 
 
 def _build_options() -> dict[str, Any]:
     return {
         "detection.conf_threshold": {"min": 0.0, "max": 1.0},
         "detection.iou_threshold": {"min": 0.0, "max": 1.0},
+        "detection.containment_threshold": {"min": 0.0, "max": 1.0},
+        "ocr.parallelism.local": {"min": 1, "max": 32},
+        "ocr.parallelism.remote": {"min": 1, "max": 32},
+        "ocr.parallelism.max_workers": {"min": 1, "max": 64},
+        "ocr.parallelism.lease_seconds": {"min": 30, "max": 3600},
+        "ocr.parallelism.task_timeout_seconds": {"min": 15, "max": 3600},
     }
+
+
+def _is_restart_enabled() -> bool:
+    raw = os.environ.get("MANGAYAKU_SELF_RESTART_ENABLED", "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _restart_exit_code() -> int:
+    raw = os.environ.get("MANGAYAKU_BACKEND_RESTART_EXIT_CODE", "75")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 75
+    if value < 0 or value > 255:
+        return 75
+    return value
+
+
+def _exit_process_later(delay_seconds: float = 0.25) -> None:
+    logger.info(
+        "Backend restart requested: exiting process in %.2fs (pid=%s, exit_code=%s)",
+        max(0.0, delay_seconds),
+        os.getpid(),
+        _restart_exit_code(),
+    )
+    time.sleep(max(0.0, delay_seconds))
+    os._exit(_restart_exit_code())
 
 
 @router.get("/settings", response_model=SettingsResponse)
@@ -59,6 +96,28 @@ async def put_settings(req: UpdateSettingsRequest) -> SettingsResponse:
         defaults=DEFAULT_SETTINGS,
         options=_build_options(),
     )
+
+
+@router.post("/settings/backend/restart")
+async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
+    enabled = _is_restart_enabled()
+    logger.info(
+        "Restart endpoint called (pid=%s, enabled=%s, exit_code=%s)",
+        os.getpid(),
+        enabled,
+        _restart_exit_code(),
+    )
+    if not enabled:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Backend restart is not enabled in this runtime. "
+                "Start backend via `npm run dev:backend` or set "
+                "`MANGAYAKU_SELF_RESTART_ENABLED=1`."
+            ),
+        )
+    background_tasks.add_task(_exit_process_later)
+    return {"status": "restarting"}
 
 
 @router.get(

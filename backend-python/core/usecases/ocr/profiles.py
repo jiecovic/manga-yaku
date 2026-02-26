@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, TypedDict, cast
 
-from core.usecases.settings.service import get_setting_value
+from core.usecases.settings.service import resolve_ocr_label_overrides
 
 
 class OcrProfile(TypedDict, total=False):
@@ -40,7 +40,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "llm_hint": (
             "Fast; ok for simple bubbles."
         ),
-        "provider": "llm_ocr_chat",
+        "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -58,7 +58,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "llm_hint": (
             "More accurate; slower/costlier."
         ),
-        "provider": "llm_ocr_chat",
+        "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -76,7 +76,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "llm_hint": (
             "Best accuracy; highest cost."
         ),
-        "provider": "llm_ocr_chat",
+        "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,
         "config": {
@@ -102,12 +102,13 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
     except KeyError as exc:
         raise ValueError(f"OCR profile '{profile_id}' not found") from exc
 
-    label_overrides = get_setting_value("ocr.label_overrides") or {}
+    label_overrides = resolve_ocr_label_overrides().values
     profile = cast(OcrProfile, dict(base))
     if profile_id in label_overrides:
         profile["label"] = str(label_overrides[profile_id])
     provider = base.get("provider")
-    if provider == "llm_ocr_chat":
+    # Keep legacy provider id support for older in-memory/profile variants.
+    if provider in {"llm_ocr", "llm_ocr_chat"}:
         from .profile_settings import resolve_ocr_profile_settings
 
         profile_settings = resolve_ocr_profile_settings().get(profile_id, {})

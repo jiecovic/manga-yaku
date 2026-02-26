@@ -1,4 +1,4 @@
-# backend-python/infra/jobs/handlers/translation.py
+# backend-python/legacy/ocr_translation_jobs/translation_job_handler_legacy.py
 from __future__ import annotations
 
 import asyncio
@@ -8,10 +8,9 @@ from typing import Any, TypedDict
 from core.usecases.translation.engine import run_translate_box_with_context
 from core.usecases.translation.profiles import get_translation_profile
 from infra.db.db_store import load_page
+from infra.jobs.handlers.base import JobHandler
+from infra.jobs.handlers.utils import apply_model_metadata, list_text_boxes, make_snippet
 from infra.jobs.store import Job, JobStatus, JobStore
-
-from .base import JobHandler
-from .utils import apply_model_metadata, list_text_boxes, make_snippet
 
 
 class TranslateBoxResult(TypedDict):

@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
-from typing import Any
+from typing import Any, cast
 
 from config import OPENAI_API_KEY
 from core.domain.pages import set_box_ocr_text_by_id
@@ -123,6 +123,46 @@ def _chat_completions_truncated(response: Any) -> bool:
             return True
     return False
 
+
+def _run_llm_ocr_box_chat_fallback(
+        client: Any,
+        cfg: dict[str, Any],
+        *,
+        system_prompt: str,
+        user_template: str,
+        data_url: str,
+        volume_id: str,
+        filename: str,
+) -> str:
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_template},
+                {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+            ],
+        },
+    ]
+
+    params = build_chat_params(cfg, messages)
+    resp = client.chat.completions.create(**params)
+    if _chat_completions_truncated(resp):
+        bumped = _bump_token_limit(cfg)
+        if bumped is not None:
+            retry_cfg, before, after = bumped
+            logger.debug(
+                "LLM OCR truncated for %s/%s (chat); retrying with token limit %s -> %s",
+                volume_id,
+                filename,
+                before,
+                after,
+            )
+            retry_params = build_chat_params(retry_cfg, messages)
+            resp = client.chat.completions.create(**retry_params)
+    text = resp.choices[0].message.content or ""
+    return text.strip()
+
 def _run_manga_ocr_box(
         volume_id: str,
         filename: str,
@@ -170,12 +210,10 @@ def _run_llm_ocr_box(
         height: float,
 ) -> str:
     """
-    LLM OCR via chat/image input.
+    LLM OCR via Responses API with image input.
 
-    Model-agnostic:
-    - The engine does NOT care which exact model is used.
-    - It just builds `messages` and forwards config keys into
-      `client.chat.completions.create(...)`.
+    Falls back to chat completions only for local OpenAI-compatible
+    endpoints when Responses is not available.
     """
     client = _get_openai_client_for_ocr_profile(profile)
     bundle = _load_ocr_prompt_bundle(profile)
@@ -191,73 +229,87 @@ def _run_llm_ocr_box(
 
     cfg = dict(profile.get("config", {}) or {})
 
-    model_id = str(cfg.get("model") or "")
-    if model_id.startswith("gpt-5"):
-        cfg.setdefault("text", {"format": {"type": "text"}})
-        input_payload: list[dict[str, Any]] = [
-            {
-                "role": "system",
-                "content": [{"type": "input_text", "text": system_prompt}],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": user_template},
-                    {
-                        "type": "input_image",
-                        "image_url": data_url,
-                        "detail": "high",
-                    },
-                ],
-            },
-        ]
-
-        params = build_response_params(cfg, input_payload)
-        resp = client.responses.create(**params)
-        if _responses_truncated(resp):
-            bumped = _bump_token_limit(cfg)
-            if bumped is not None:
-                retry_cfg, before, after = bumped
-                logger.debug(
-                    "LLM OCR truncated for %s/%s; retrying with token limit %s -> %s",
-                    volume_id,
-                    filename,
-                    before,
-                    after,
-                )
-                retry_params = build_response_params(retry_cfg, input_payload)
-                resp = client.responses.create(**retry_params)
-        text = extract_response_text(resp)
-        return text.strip()
-
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system_prompt},
+    cfg.setdefault("text", {"format": {"type": "text"}})
+    input_payload: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": [{"type": "input_text", "text": system_prompt}],
+        },
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": user_template},
-                {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+                {"type": "input_text", "text": user_template},
+                {
+                    "type": "input_image",
+                    "image_url": data_url,
+                    "detail": "high",
+                },
             ],
         },
     ]
 
-    params = build_chat_params(cfg, messages)
+    if not hasattr(client, "responses"):
+        return _run_llm_ocr_box_chat_fallback(
+            client,
+            cfg,
+            system_prompt=system_prompt,
+            user_template=user_template,
+            data_url=data_url,
+            volume_id=volume_id,
+            filename=filename,
+        )
 
-    resp = client.chat.completions.create(**params)
-    if _chat_completions_truncated(resp):
+    params = build_response_params(cfg, input_payload)
+    try:
+        resp = client.responses.create(**params)
+    except Exception as exc:
+        if cfg.get("base_url"):
+            logger.warning(
+                "LLM OCR responses API failed for local endpoint; falling back to chat API: %s",
+                exc,
+            )
+            return _run_llm_ocr_box_chat_fallback(
+                client,
+                cfg,
+                system_prompt=system_prompt,
+                user_template=user_template,
+                data_url=data_url,
+                volume_id=volume_id,
+                filename=filename,
+            )
+        raise
+
+    if _responses_truncated(resp):
         bumped = _bump_token_limit(cfg)
         if bumped is not None:
             retry_cfg, before, after = bumped
             logger.debug(
-                "LLM OCR truncated for %s/%s (chat); retrying with token limit %s -> %s",
+                "LLM OCR truncated for %s/%s; retrying with token limit %s -> %s",
                 volume_id,
                 filename,
                 before,
                 after,
             )
-            retry_params = build_chat_params(retry_cfg, messages)
-            resp = client.chat.completions.create(**retry_params)
-    text = resp.choices[0].message.content or ""
+            retry_params = build_response_params(retry_cfg, input_payload)
+            try:
+                resp = client.responses.create(**retry_params)
+            except Exception as exc:
+                if cfg.get("base_url"):
+                    logger.warning(
+                        "LLM OCR responses retry failed for local endpoint; falling back to chat API: %s",
+                        exc,
+                    )
+                    return _run_llm_ocr_box_chat_fallback(
+                        client,
+                        cfg,
+                        system_prompt=system_prompt,
+                        user_template=user_template,
+                        data_url=data_url,
+                        volume_id=volume_id,
+                        filename=filename,
+                    )
+                raise
+    text = extract_response_text(resp)
     return text.strip()
 
 
@@ -276,8 +328,15 @@ def run_ocr_box(
         height: float,
         *,
         persist: bool = True,
+        config_override: dict[str, Any] | None = None,
 ) -> str:
     profile = get_ocr_profile(profile_id)
+    if config_override:
+        merged = dict(profile)
+        cfg = dict(profile.get("config", {}) or {})
+        cfg.update(config_override)
+        merged["config"] = cfg
+        profile = cast(OcrProfile, merged)
 
     if not profile.get("enabled", True):
         raise RuntimeError(f"OCR profile '{profile_id}' is disabled")
@@ -286,7 +345,7 @@ def run_ocr_box(
 
     if provider == "manga_ocr":
         text = _run_manga_ocr_box(volume_id, filename, x, y, width, height)
-    elif provider == "llm_ocr_chat":
+    elif provider in {"llm_ocr", "llm_ocr_chat"}:
         text = _run_llm_ocr_box(profile, volume_id, filename, x, y, width, height)
     else:
         raise RuntimeError(f"Unknown OCR provider '{provider}' for '{profile_id}'")
@@ -300,4 +359,3 @@ def run_ocr_box(
         )
 
     return text
-

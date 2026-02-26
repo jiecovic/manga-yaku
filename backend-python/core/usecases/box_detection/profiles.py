@@ -216,6 +216,22 @@ def _resolve_model_path(raw_path: str) -> Path:
     return model_path
 
 
+def _is_git_lfs_pointer(path: Path) -> bool:
+    """
+    Detect a Git LFS pointer file (text stub) instead of real model weights.
+    """
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(256)
+    except OSError:
+        return False
+    return head.startswith(b"version https://git-lfs.github.com/spec/v1")
+
+
+def is_git_lfs_pointer_model(path: Path) -> bool:
+    return _is_git_lfs_pointer(path)
+
+
 def _is_profile_available(profile: BoxDetectionProfile) -> bool:
     if not profile.get("enabled", True):
         return False
@@ -227,7 +243,11 @@ def _is_profile_available(profile: BoxDetectionProfile) -> bool:
         model_path = _resolve_model_path(str(raw_path))
     except Exception:
         return True
-    return model_path.is_file()
+    if not model_path.is_file():
+        return False
+    if _is_git_lfs_pointer(model_path):
+        return False
+    return True
 
 
 def _parse_manifest_time(raw: str | None) -> datetime | None:
