@@ -351,15 +351,20 @@ def run_agent_translate_page(
     params = build_response_params(cfg, input_payload)
     resp = client.responses.create(**params)
     raw_text = extract_response_text(resp, raise_on_refusal=True)
-    if not raw_text and _should_retry(resp):
+    # Retry once with a larger budget when the model reports truncation.
+    # Partial text can still be incomplete JSON, so retry even if non-empty.
+    if _should_retry(resp):
         retry_cfg = dict(cfg)
         retry_cfg["max_output_tokens"] = max(max_output * 2, max_output + 512)
         retry_params = build_response_params(retry_cfg, input_payload)
         retry_params.setdefault("text", {"format": _build_text_format()})
-        resp = client.responses.create(**retry_params)
-        raw_text = extract_response_text(resp, raise_on_refusal=True)
-        cfg = retry_cfg
-        params = retry_params
+        retry_resp = client.responses.create(**retry_params)
+        retry_text = extract_response_text(retry_resp, raise_on_refusal=True)
+        if retry_text:
+            resp = retry_resp
+            raw_text = retry_text
+            cfg = retry_cfg
+            params = retry_params
 
     debug_payload = {
         "job_id": debug_id,
