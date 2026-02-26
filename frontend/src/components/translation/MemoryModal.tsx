@@ -1,6 +1,6 @@
 // src/components/translation/MemoryModal.tsx
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPageMemory, fetchVolumeMemory } from "../../api/memory";
 import type {
@@ -9,6 +9,7 @@ import type {
     PageMemory,
     VolumeMemory,
 } from "../../api/memory";
+import { useJobs } from "../../context/useJobs";
 import { Button } from "../../ui/primitives";
 import { ui } from "../../ui/tokens";
 
@@ -38,6 +39,11 @@ const emptyPageMemory: PageMemory = {
     openThreads: [],
     glossary: [],
 };
+
+interface AgentTranslateJobPayload {
+    volumeId?: string;
+    filename?: string;
+}
 
 function formatStamp(value?: string | null) {
     if (!value) {
@@ -158,6 +164,7 @@ export function MemoryModal({
     pageCount,
     onClose,
 }: MemoryModalProps) {
+    const { jobs } = useJobs();
     const [activeTab, setActiveTab] = useState<MemoryTab>("volume");
     const [volumeMemory, setVolumeMemory] = useState<VolumeMemory>(
         emptyVolumeMemory,
@@ -167,6 +174,7 @@ export function MemoryModal({
     const [pageLoading, setPageLoading] = useState(false);
     const [volumeError, setVolumeError] = useState<string | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
+    const lastSyncedJobUpdateRef = useRef(0);
 
     const pageLabel = useMemo(() => {
         if (!filename) {
@@ -216,6 +224,33 @@ export function MemoryModal({
         }
     }, [volumeId, filename]);
 
+    const latestFinishedAgentJobUpdate = useMemo(() => {
+        if (!volumeId) {
+            return 0;
+        }
+        let latest = 0;
+        jobs.forEach((job) => {
+            if (job.type !== "agent_translate_page") {
+                return;
+            }
+            if (job.status !== "finished") {
+                return;
+            }
+            const payload = (job.payload ?? {}) as AgentTranslateJobPayload;
+            if (payload.volumeId !== volumeId) {
+                return;
+            }
+            if (filename && payload.filename !== filename) {
+                return;
+            }
+            const updatedAt = Number(job.updated_at ?? 0);
+            if (Number.isFinite(updatedAt) && updatedAt > latest) {
+                latest = updatedAt;
+            }
+        });
+        return latest;
+    }, [jobs, volumeId, filename]);
+
     useEffect(() => {
         if (!open) {
             return;
@@ -223,6 +258,28 @@ export function MemoryModal({
         void loadVolume();
         void loadPage();
     }, [open, loadVolume, loadPage]);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+        if (latestFinishedAgentJobUpdate <= 0) {
+            return;
+        }
+        if (latestFinishedAgentJobUpdate <= lastSyncedJobUpdateRef.current) {
+            return;
+        }
+        lastSyncedJobUpdateRef.current = latestFinishedAgentJobUpdate;
+        void loadVolume();
+        void loadPage();
+    }, [open, latestFinishedAgentJobUpdate, loadVolume, loadPage]);
+
+    useEffect(() => {
+        if (open) {
+            return;
+        }
+        lastSyncedJobUpdateRef.current = 0;
+    }, [open]);
 
     useEffect(() => {
         if (!open) {
