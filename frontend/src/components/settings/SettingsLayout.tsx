@@ -137,6 +137,14 @@ export function SettingsLayout() {
         return value === null || value === undefined ? "" : String(value);
     }, [draft]);
 
+    const translateSingleBoxUseContext = useMemo(() => {
+        const value = draft["translation.single_box.use_context"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
     const ocrParallelismLocal = useMemo(() => {
         const value = draft["ocr.parallelism.local"];
         return value === null || value === undefined ? "" : String(value);
@@ -199,6 +207,7 @@ export function SettingsLayout() {
                 ? Number(containmentThreshold)
                 : null,
             "agent.translate.detection_profile_id": agentDetectionProfileId,
+            "translation.single_box.use_context": translateSingleBoxUseContext,
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -225,6 +234,7 @@ export function SettingsLayout() {
             iouThreshold,
             containmentThreshold,
             agentDetectionProfileId,
+            translateSingleBoxUseContext,
             ocrParallelismLocal,
             ocrParallelismRemote,
             ocrParallelismMaxWorkers,
@@ -588,41 +598,46 @@ export function SettingsLayout() {
                         <div className={ui.trainingMetaSmall}>Saving OCR settings…</div>
                     )}
 
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <TranslationAgentCard
-                            agentDraft={agentDraft}
-                            agentModelOptions={agentModelOptions}
-                            agentReasoningOptions={agentReasoningOptions}
-                            onUpdateAgentDraft={updateAgentDraft}
-                            agentDetectionProfileId={agentDetectionProfileId}
-                            onUpdateDraft={updateDraft}
-                            agentDetectionLoading={agentDetectionLoading}
-                            agentDetectionOptions={agentDetectionOptions}
-                            hasAgentDetectionOptions={hasAgentDetectionOptions}
-                        />
+                    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+                        <div className="space-y-4">
+                            <TranslationAgentCard
+                                agentDraft={agentDraft}
+                                agentModelOptions={agentModelOptions}
+                                agentReasoningOptions={agentReasoningOptions}
+                                onUpdateAgentDraft={updateAgentDraft}
+                                agentDetectionProfileId={agentDetectionProfileId}
+                                translateSingleBoxUseContext={translateSingleBoxUseContext}
+                                onUpdateDraft={updateDraft}
+                                agentDetectionLoading={agentDetectionLoading}
+                                agentDetectionOptions={agentDetectionOptions}
+                                hasAgentDetectionOptions={hasAgentDetectionOptions}
+                            />
 
-                        <OcrProfilesCard
-                            ocrDraft={ocrDraft}
-                            ocrModelOptions={ocrModelOptions}
-                            ocrReasoningOptions={ocrReasoningOptions}
-                            onUpdateOcrProfile={updateOcrProfile}
-                        />
+                            <DetectionDefaultsCard
+                                confThreshold={confThreshold}
+                                iouThreshold={iouThreshold}
+                                containmentThreshold={containmentThreshold}
+                                onUpdateDraft={updateDraft}
+                            />
+                        </div>
 
-                        <DetectionDefaultsCard
-                            confThreshold={confThreshold}
-                            iouThreshold={iouThreshold}
-                            containmentThreshold={containmentThreshold}
-                            onUpdateDraft={updateDraft}
-                        />
+                        <div className="space-y-4">
+                            <OcrProfilesCard
+                                ocrDraft={ocrDraft}
+                                ocrModelOptions={ocrModelOptions}
+                                ocrReasoningOptions={ocrReasoningOptions}
+                                onUpdateOcrProfile={updateOcrProfile}
+                            />
 
-                        <OcrParallelismCard
-                            ocrParallelismLocal={ocrParallelismLocal}
-                            ocrParallelismRemote={ocrParallelismRemote}
-                            ocrParallelismMaxWorkers={ocrParallelismMaxWorkers}
-                            ocrParallelismLeaseSeconds={ocrParallelismLeaseSeconds}
-                            ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
-                            onUpdateDraft={updateDraft}
-                        />
+                            <OcrParallelismCard
+                                ocrParallelismLocal={ocrParallelismLocal}
+                                ocrParallelismRemote={ocrParallelismRemote}
+                                ocrParallelismMaxWorkers={ocrParallelismMaxWorkers}
+                                ocrParallelismLeaseSeconds={ocrParallelismLeaseSeconds}
+                                ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
+                                onUpdateDraft={updateDraft}
+                            />
+                        </div>
                     </div>
                 </section>
             </main>

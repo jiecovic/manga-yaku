@@ -14,6 +14,7 @@ type Props = {
     agentReasoningOptions: string[];
     onUpdateAgentDraft: (key: keyof AgentDraft, value: string) => void;
     agentDetectionProfileId: string;
+    translateSingleBoxUseContext: boolean;
     onUpdateDraft: (key: string, value: unknown) => void;
     agentDetectionLoading: boolean;
     agentDetectionOptions: DetectionOption[];
@@ -26,6 +27,7 @@ export function TranslationAgentCard({
     agentReasoningOptions,
     onUpdateAgentDraft,
     agentDetectionProfileId,
+    translateSingleBoxUseContext,
     onUpdateDraft,
     agentDetectionLoading,
     agentDetectionOptions,
@@ -87,6 +89,26 @@ export function TranslationAgentCard({
                             </option>
                         ))}
                     </Select>
+                </Field>
+
+                <Field
+                    label="Single-box context"
+                    layout="row"
+                    labelClassName={ui.label}
+                >
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+                        <input
+                            type="checkbox"
+                            checked={translateSingleBoxUseContext}
+                            onChange={(e) =>
+                                onUpdateDraft(
+                                    "translation.single_box.use_context",
+                                    e.target.checked,
+                                )
+                            }
+                        />
+                        include page + volume context
+                    </label>
                 </Field>
 
                 <Field label="Max output" layout="row" labelClassName={ui.label}>

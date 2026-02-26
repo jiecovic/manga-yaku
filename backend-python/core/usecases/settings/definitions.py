@@ -41,6 +41,10 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default="",
         value_type=str,
     ),
+    "translation.single_box.use_context": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
     "ocr.parallelism.local": SettingSpec(
         default=4,
         value_type=int,

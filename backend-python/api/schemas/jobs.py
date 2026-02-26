@@ -29,7 +29,7 @@ class CreateTranslateBoxJobRequest(BaseModel):
     volumeId: str
     filename: str
     boxId: int
-    usePageContext: bool = False
+    usePageContext: bool | None = None
     boxOrder: int | None = None
 
 

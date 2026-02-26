@@ -40,14 +40,19 @@ export function usePageJobActions({
         typeof settings?.values?.["agent.translate.detection_profile_id"] === "string"
             ? settings.values["agent.translate.detection_profile_id"].trim()
             : "";
+    const translateBoxUseContext =
+        typeof settings?.values?.["translation.single_box.use_context"] === "boolean"
+            ? settings.values["translation.single_box.use_context"]
+            : true;
     const standaloneOcrJobsDetached = false;
-    const standaloneTranslationJobsDetached = true;
+    const standaloneTranslationPageJobsDetached = true;
+    const standaloneTranslationBoxJobsDetached = false;
 
     // =========================================
     // TRANSLATE PAGE (classic)
     // =========================================
     const handleTranslatePage = async () => {
-        if (standaloneTranslationJobsDetached) return;
+        if (standaloneTranslationPageJobsDetached) return;
         if (!volumeId || !filename) return;
         if (!boxes || boxes.length === 0) return;
 
@@ -177,7 +182,7 @@ export function usePageJobActions({
     // (re-run allowed, still requires OCR text)
     // =========================================
     const handleTranslateBox = async (id: number) => {
-        if (standaloneTranslationJobsDetached) return;
+        if (standaloneTranslationBoxJobsDetached) return;
         if (!volumeId || !filename) return;
 
         const box = boxes.find(
@@ -202,7 +207,7 @@ export function usePageJobActions({
                 volumeId,
                 filename,
                 boxId: id,
-                usePageContext: false,
+                usePageContext: translateBoxUseContext,
                 boxOrder:
                     box.orderIndex && box.orderIndex > 0
                         ? box.orderIndex

@@ -15,6 +15,7 @@ from api.schemas.jobs import (
     CreateTranslateBoxJobRequest,
     CreateTranslatePageJobRequest,
 )
+from core.usecases.settings.service import get_setting_value
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from infra.db.db_store import load_page
@@ -273,13 +274,23 @@ async def create_ocr_page_job(
 async def create_translate_box_job(
     req: CreateTranslateBoxJobRequest,
 ) -> CreateJobResponse:
-    raise HTTPException(
-        status_code=409,
-        detail=(
-            "Standalone translation jobs are temporarily disabled during workflow rewrite. "
-            "Use agent translate page workflow path."
-        ),
+    use_page_context: bool
+    if req.usePageContext is None:
+        raw = get_setting_value("translation.single_box.use_context")
+        use_page_context = bool(raw) if isinstance(raw, bool) else True
+    else:
+        use_page_context = bool(req.usePageContext)
+
+    payload = req.dict()
+    payload["usePageContext"] = use_page_context
+    job_id = _enqueue_job(
+        job_type="translate_box",
+        payload=payload,
+        progress=0,
+        message="Queued",
     )
+    await STORE.queue.put(job_id)
+    return CreateJobResponse(jobId=job_id)
 
 
 @router.post("/jobs/translate_page", response_model=CreateJobResponse)

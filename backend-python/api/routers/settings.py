@@ -37,6 +37,7 @@ def _build_options() -> dict[str, Any]:
         "detection.conf_threshold": {"min": 0.0, "max": 1.0},
         "detection.iou_threshold": {"min": 0.0, "max": 1.0},
         "detection.containment_threshold": {"min": 0.0, "max": 1.0},
+        "translation.single_box.use_context": {"type": "boolean"},
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},
