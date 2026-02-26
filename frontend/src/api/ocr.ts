@@ -17,6 +17,7 @@ export interface CreateOcrBoxJobRequest {
 
 export interface CreateOcrPageJobRequest {
     profileId: string;
+    profileIds?: string[];
     volumeId: string;
     filename: string;
     skipExisting?: boolean;

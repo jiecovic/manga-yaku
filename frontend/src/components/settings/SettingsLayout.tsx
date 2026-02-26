@@ -1,33 +1,21 @@
 // src/components/settings/SettingsLayout.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { JobsPanel } from "../JobsPanel";
-import { useSettings } from "../../context/SettingsContext";
+
+import { fetchBoxDetectionProfiles, restartBackend } from "../../api";
 import { useAgentSettings } from "../../context/AgentSettingsContext";
-import { fetchBoxDetectionProfiles } from "../../api";
+import { useSettings } from "../../context/SettingsContext";
 import type { BoxDetectionProfile } from "../../types";
-import { normalizeBoxType } from "../../utils/boxes";
-import { Button, Field, Select } from "../../ui/primitives";
+import { Button } from "../../ui/primitives";
 import { ui } from "../../ui/tokens";
+import { normalizeBoxType } from "../../utils/boxes";
+import { JobsPanel } from "../JobsPanel";
+import { DetectionDefaultsCard } from "./sections/DetectionDefaultsCard";
+import { OcrParallelismCard } from "./sections/OcrParallelismCard";
+import { OcrProfilesCard } from "./sections/OcrProfilesCard";
+import { TranslationAgentCard } from "./sections/TranslationAgentCard";
+import { type AgentDraft, type OcrDraftProfile, toIntWithFallback } from "./types";
 
-type AgentDraft = {
-    model_id: string;
-    max_output_tokens: string;
-    reasoning_effort: string;
-    temperature: string;
-};
-
-type OcrDraftProfile = {
-    id: string;
-    label: string;
-    description?: string | null;
-    kind: string;
-    enabled: boolean;
-    agent_enabled: boolean;
-    model_id?: string | null;
-    max_output_tokens?: number | null;
-    reasoning_effort?: string | null;
-    temperature?: number | null;
-};
+const SETTINGS_AUTOSAVE_KEY = "settings.autosave.enabled";
 
 export function SettingsLayout() {
     const {
@@ -57,7 +45,19 @@ export function SettingsLayout() {
     const [agentAutoSaving, setAgentAutoSaving] = useState(false);
     const [ocrAutoSaving, setOcrAutoSaving] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [restartingBackend, setRestartingBackend] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
+    const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(() => {
+        if (typeof window === "undefined") {
+            return true;
+        }
+        const raw = window.localStorage.getItem(SETTINGS_AUTOSAVE_KEY);
+        if (raw === null) {
+            return true;
+        }
+        const normalized = raw.trim().toLowerCase();
+        return normalized !== "0" && normalized !== "false";
+    });
     const [agentDetectionProfiles, setAgentDetectionProfiles] = useState<
         BoxDetectionProfile[]
     >([]);
@@ -132,6 +132,108 @@ export function SettingsLayout() {
         return value === null || value === undefined ? "" : String(value);
     }, [draft]);
 
+    const containmentThreshold = useMemo(() => {
+        const value = draft["detection.containment_threshold"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelismLocal = useMemo(() => {
+        const value = draft["ocr.parallelism.local"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelismRemote = useMemo(() => {
+        const value = draft["ocr.parallelism.remote"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelismMaxWorkers = useMemo(() => {
+        const value = draft["ocr.parallelism.max_workers"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelismLeaseSeconds = useMemo(() => {
+        const value = draft["ocr.parallelism.lease_seconds"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelismTaskTimeoutSeconds = useMemo(() => {
+        const value = draft["ocr.parallelism.task_timeout_seconds"];
+        return value === null || value === undefined ? "" : String(value);
+    }, [draft]);
+
+    const ocrParallelDefaults = useMemo(
+        () => ({
+            local: toIntWithFallback(
+                String(settings?.defaults?.["ocr.parallelism.local"] ?? "4"),
+                4,
+            ),
+            remote: toIntWithFallback(
+                String(settings?.defaults?.["ocr.parallelism.remote"] ?? "2"),
+                2,
+            ),
+            maxWorkers: toIntWithFallback(
+                String(settings?.defaults?.["ocr.parallelism.max_workers"] ?? "6"),
+                6,
+            ),
+            leaseSeconds: toIntWithFallback(
+                String(settings?.defaults?.["ocr.parallelism.lease_seconds"] ?? "180"),
+                180,
+            ),
+            taskTimeoutSeconds: toIntWithFallback(
+                String(
+                    settings?.defaults?.["ocr.parallelism.task_timeout_seconds"] ??
+                        "180",
+                ),
+                180,
+            ),
+        }),
+        [settings],
+    );
+
+    const buildBaseSettingsPayload = useCallback(
+        () => ({
+            "detection.conf_threshold": confThreshold ? Number(confThreshold) : null,
+            "detection.iou_threshold": iouThreshold ? Number(iouThreshold) : null,
+            "detection.containment_threshold": containmentThreshold
+                ? Number(containmentThreshold)
+                : null,
+            "agent.translate.detection_profile_id": agentDetectionProfileId,
+            "ocr.parallelism.local": toIntWithFallback(
+                ocrParallelismLocal,
+                ocrParallelDefaults.local,
+            ),
+            "ocr.parallelism.remote": toIntWithFallback(
+                ocrParallelismRemote,
+                ocrParallelDefaults.remote,
+            ),
+            "ocr.parallelism.max_workers": toIntWithFallback(
+                ocrParallelismMaxWorkers,
+                ocrParallelDefaults.maxWorkers,
+            ),
+            "ocr.parallelism.lease_seconds": toIntWithFallback(
+                ocrParallelismLeaseSeconds,
+                ocrParallelDefaults.leaseSeconds,
+            ),
+            "ocr.parallelism.task_timeout_seconds": toIntWithFallback(
+                ocrParallelismTaskTimeoutSeconds,
+                ocrParallelDefaults.taskTimeoutSeconds,
+            ),
+        }),
+        [
+            confThreshold,
+            iouThreshold,
+            containmentThreshold,
+            agentDetectionProfileId,
+            ocrParallelismLocal,
+            ocrParallelismRemote,
+            ocrParallelismMaxWorkers,
+            ocrParallelismLeaseSeconds,
+            ocrParallelismTaskTimeoutSeconds,
+            ocrParallelDefaults,
+        ],
+    );
+
     const agentDetectionOptions = useMemo(() => {
         const normalizedTask = normalizeBoxType("text");
         const enabledProfiles = agentDetectionProfiles.filter(
@@ -140,17 +242,13 @@ export function SettingsLayout() {
         const availableProfiles = enabledProfiles.filter((profile) => {
             const tasks = profile.tasks ?? [];
             if (tasks.length > 0) {
-                return tasks.some(
-                    (task) => normalizeBoxType(task) === normalizedTask,
-                );
+                return tasks.some((task) => normalizeBoxType(task) === normalizedTask);
             }
             const classes = profile.classes ?? [];
             if (classes.length === 0) {
                 return true;
             }
-            return classes.some(
-                (name) => normalizeBoxType(name) === normalizedTask,
-            );
+            return classes.some((name) => normalizeBoxType(name) === normalizedTask);
         });
         if (
             agentDetectionProfileId &&
@@ -190,10 +288,7 @@ export function SettingsLayout() {
         setAgentDirty(true);
     };
 
-    const updateOcrProfile = (
-        id: string,
-        updates: Partial<OcrDraftProfile>,
-    ) => {
+    const updateOcrProfile = (id: string, updates: Partial<OcrDraftProfile>) => {
         setOcrDraft((prev) =>
             prev.map((profile) =>
                 profile.id === id ? { ...profile, ...updates } : profile,
@@ -241,7 +336,20 @@ export function SettingsLayout() {
     }, [refreshDetectionProfiles]);
 
     useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        window.localStorage.setItem(
+            SETTINGS_AUTOSAVE_KEY,
+            autoSaveEnabled ? "1" : "0",
+        );
+    }, [autoSaveEnabled]);
+
+    useEffect(() => {
         if (!baseDirty) {
+            return;
+        }
+        if (!autoSaveEnabled) {
             return;
         }
         if (baseLoading) {
@@ -249,15 +357,9 @@ export function SettingsLayout() {
         }
         const handle = setTimeout(() => {
             setBaseAutoSaving(true);
-            save({
-                "detection.conf_threshold": confThreshold
-                    ? Number(confThreshold)
-                    : null,
-                "detection.iou_threshold": iouThreshold ? Number(iouThreshold) : null,
-                "agent.translate.detection_profile_id": agentDetectionProfileId,
-            })
+            save(buildBaseSettingsPayload())
                 .then(() => {
-                    setSaveMessage("Detection settings saved.");
+                    setSaveMessage("Base settings saved.");
                     setBaseDirty(false);
                 })
                 .catch(() => {
@@ -268,10 +370,19 @@ export function SettingsLayout() {
                 });
         }, 400);
         return () => clearTimeout(handle);
-    }, [baseDirty, baseLoading, save, confThreshold, iouThreshold, agentDetectionProfileId]);
+    }, [
+        baseDirty,
+        autoSaveEnabled,
+        baseLoading,
+        save,
+        buildBaseSettingsPayload,
+    ]);
 
     useEffect(() => {
         if (!agentDirty || !agentDraft) {
+            return;
+        }
+        if (!autoSaveEnabled) {
             return;
         }
         if (agentLoading) {
@@ -301,10 +412,13 @@ export function SettingsLayout() {
                 });
         }, 400);
         return () => clearTimeout(handle);
-    }, [agentDirty, agentDraft, agentLoading, saveAgent]);
+    }, [agentDirty, agentDraft, autoSaveEnabled, agentLoading, saveAgent]);
 
     useEffect(() => {
         if (!ocrDirty || ocrDraft.length === 0) {
+            return;
+        }
+        if (!autoSaveEnabled) {
             return;
         }
         if (agentLoading) {
@@ -325,19 +439,20 @@ export function SettingsLayout() {
                 });
         }, 400);
         return () => clearTimeout(handle);
-    }, [ocrDirty, ocrDraft.length, agentLoading, saveOcrProfiles, buildOcrPayload]);
+    }, [
+        ocrDirty,
+        ocrDraft.length,
+        autoSaveEnabled,
+        agentLoading,
+        saveOcrProfiles,
+        buildOcrPayload,
+    ]);
 
     const handleSave = async () => {
         setSaving(true);
         setSaveMessage(null);
         try {
-            await save({
-                "detection.conf_threshold": confThreshold
-                    ? Number(confThreshold)
-                    : null,
-                "detection.iou_threshold": iouThreshold ? Number(iouThreshold) : null,
-                "agent.translate.detection_profile_id": agentDetectionProfileId,
-            });
+            await save(buildBaseSettingsPayload());
 
             if (agentDraft) {
                 await saveAgent({
@@ -367,6 +482,34 @@ export function SettingsLayout() {
         }
     };
 
+    const handleRestartBackend = async () => {
+        if (typeof window !== "undefined") {
+            const confirmed = window.confirm(
+                "Restart backend now? Active requests may be interrupted.",
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+        setRestartingBackend(true);
+        setSaveMessage(null);
+        try {
+            await restartBackend();
+            setSaveMessage("Backend restart requested.");
+        } catch (err) {
+            console.error("Failed to request backend restart", err);
+            const message =
+                err instanceof Error && err.message
+                    ? err.message
+                    : "Failed to request backend restart.";
+            setSaveMessage(message);
+        } finally {
+            setTimeout(() => {
+                setRestartingBackend(false);
+            }, 1000);
+        }
+    };
+
     const loading = baseLoading || agentLoading;
     const error = baseError || agentError;
 
@@ -377,14 +520,20 @@ export function SettingsLayout() {
                 <section className={ui.trainingSection}>
                     <div className={ui.trainingSectionHeader}>
                         <div>
-                            <div className={ui.trainingSectionTitle}>
-                                Settings
-                            </div>
+                            <div className={ui.trainingSectionTitle}>Settings</div>
                             <div className={ui.trainingSectionMeta}>
                                 Persisted in the database
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <label className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300">
+                                <input
+                                    type="checkbox"
+                                    checked={autoSaveEnabled}
+                                    onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                                />
+                                Auto-save
+                            </label>
                             <Button
                                 type="button"
                                 variant="ghostSmall"
@@ -396,6 +545,14 @@ export function SettingsLayout() {
                                 disabled={loading}
                             >
                                 Refresh
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghostSmall"
+                                onClick={handleRestartBackend}
+                                disabled={loading || restartingBackend}
+                            >
+                                {restartingBackend ? "Restarting..." : "Restart backend"}
                             </Button>
                             <Button
                                 type="button"
@@ -412,9 +569,14 @@ export function SettingsLayout() {
                     {saveMessage && (
                         <div className={ui.trainingMetaSmall}>{saveMessage}</div>
                     )}
+                    {!autoSaveEnabled && (
+                        <div className={ui.trainingMetaSmall}>
+                            Auto-save disabled. Use “Save changes” to persist edits.
+                        </div>
+                    )}
                     {baseAutoSaving && (
                         <div className={ui.trainingMetaSmall}>
-                            Saving detection settings…
+                            Saving base settings…
                         </div>
                     )}
                     {agentAutoSaving && (
@@ -423,392 +585,44 @@ export function SettingsLayout() {
                         </div>
                     )}
                     {ocrAutoSaving && (
-                        <div className={ui.trainingMetaSmall}>
-                            Saving OCR settings…
-                        </div>
+                        <div className={ui.trainingMetaSmall}>Saving OCR settings…</div>
                     )}
 
                     <div className="grid gap-4 lg:grid-cols-2">
-                        <div className={ui.trainingCard}>
-                            <div className={ui.trainingSubTitle}>
-                                Translation Agent
-                            </div>
-                            <div className="mt-3 space-y-3">
-                                <Field
-                                    label="Model"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <Select
-                                        value={agentDraft?.model_id ?? ""}
-                                        onChange={(e) =>
-                                            updateAgentDraft(
-                                                "model_id",
-                                                e.target.value,
-                                            )
-                                        }
-                                    >
-                                        {agentModelOptions.map((model) => (
-                                            <option key={model} value={model}>
-                                                {model}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </Field>
+                        <TranslationAgentCard
+                            agentDraft={agentDraft}
+                            agentModelOptions={agentModelOptions}
+                            agentReasoningOptions={agentReasoningOptions}
+                            onUpdateAgentDraft={updateAgentDraft}
+                            agentDetectionProfileId={agentDetectionProfileId}
+                            onUpdateDraft={updateDraft}
+                            agentDetectionLoading={agentDetectionLoading}
+                            agentDetectionOptions={agentDetectionOptions}
+                            hasAgentDetectionOptions={hasAgentDetectionOptions}
+                        />
 
-                                <Field
-                                    label="Detection"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <Select
-                                        value={agentDetectionProfileId}
-                                        onChange={(e) =>
-                                            updateDraft(
-                                                "agent.translate.detection_profile_id",
-                                                e.target.value,
-                                            )
-                                        }
-                                        disabled={agentDetectionLoading}
-                                    >
-                                        <option value="">
-                                            Use sidebar selection
-                                        </option>
-                                        {agentDetectionOptions.map((profile) => (
-                                            <option key={profile.id} value={profile.id}>
-                                                {profile.label}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </Field>
-                                {!agentDetectionLoading &&
-                                    !hasAgentDetectionOptions && (
-                                        <div className={ui.trainingHelp}>
-                                            No text detection models available. Train a model to enable agent detection.
-                                        </div>
-                                    )}
+                        <OcrProfilesCard
+                            ocrDraft={ocrDraft}
+                            ocrModelOptions={ocrModelOptions}
+                            ocrReasoningOptions={ocrReasoningOptions}
+                            onUpdateOcrProfile={updateOcrProfile}
+                        />
 
-                                <Field
-                                    label="Reasoning"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <Select
-                                        value={agentDraft?.reasoning_effort ?? "low"}
-                                        onChange={(e) =>
-                                            updateAgentDraft(
-                                                "reasoning_effort",
-                                                e.target.value,
-                                            )
-                                        }
-                                    >
-                                        {agentReasoningOptions.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </Field>
+                        <DetectionDefaultsCard
+                            confThreshold={confThreshold}
+                            iouThreshold={iouThreshold}
+                            containmentThreshold={containmentThreshold}
+                            onUpdateDraft={updateDraft}
+                        />
 
-                                <Field
-                                    label="Max output"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <input
-                                        className={ui.trainingInput}
-                                        type="number"
-                                        min={128}
-                                        value={agentDraft?.max_output_tokens ?? ""}
-                                        onChange={(e) =>
-                                            updateAgentDraft(
-                                                "max_output_tokens",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-
-                                <Field
-                                    label="Temperature"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <input
-                                        className={ui.trainingInput}
-                                        type="number"
-                                        step="0.1"
-                                        min={0}
-                                        max={2}
-                                        value={agentDraft?.temperature ?? ""}
-                                        onChange={(e) =>
-                                            updateAgentDraft(
-                                                "temperature",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-                                <div className={ui.trainingHelp}>
-                                    Temperature is ignored by GPT-5 models.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={ui.trainingCard}>
-                            <div className={ui.trainingSubTitle}>LLM OCR</div>
-                            <div className="mt-3 space-y-2">
-                                {ocrDraft.map((profile) => {
-                                    const isLocal = profile.kind === "local";
-                                    const options = new Set(ocrModelOptions);
-                                    if (profile.model_id) {
-                                        options.add(profile.model_id);
-                                    }
-                                    return (
-                                        <div
-                                            key={profile.id}
-                                            className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-950/60 p-2"
-                                        >
-                                            <label
-                                                className={`flex items-center gap-2 text-xs ${
-                                                    profile.enabled
-                                                        ? "text-slate-200"
-                                                        : "text-slate-500"
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={profile.agent_enabled}
-                                                    disabled={!profile.enabled}
-                                                    onChange={(e) =>
-                                                        updateOcrProfile(profile.id, {
-                                                            agent_enabled:
-                                                                e.target.checked,
-                                                        })
-                                                    }
-                                                />
-                                                {profile.label}
-                                            </label>
-
-                                            {isLocal ? (
-                                                <div className={ui.trainingLabelTiny}>
-                                                    Local OCR
-                                                </div>
-                                            ) : (
-                                                <div className="grid gap-2 md:grid-cols-2">
-                                                    <Field
-                                                        label="Model"
-                                                        layout="stack"
-                                                        labelClassName={
-                                                            ui.trainingLabelTiny
-                                                        }
-                                                    >
-                                                        <Select
-                                                            variant="training"
-                                                            value={
-                                                                profile.model_id ??
-                                                                ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                updateOcrProfile(
-                                                                    profile.id,
-                                                                    {
-                                                                        model_id:
-                                                                            e.target
-                                                                                .value ||
-                                                                            null,
-                                                                    },
-                                                                )
-                                                            }
-                                                        >
-                                                            {Array.from(options).map(
-                                                                (model) => (
-                                                                    <option
-                                                                        key={model}
-                                                                        value={model}
-                                                                    >
-                                                                        {model}
-                                                                    </option>
-                                                                ),
-                                                            )}
-                                                        </Select>
-                                                    </Field>
-
-                                                    <Field
-                                                        label="Max output"
-                                                        layout="stack"
-                                                        labelClassName={
-                                                            ui.trainingLabelTiny
-                                                        }
-                                                    >
-                                                        <input
-                                                            className={ui.trainingInput}
-                                                            type="number"
-                                                            min={1}
-                                                            value={
-                                                                profile.max_output_tokens ??
-                                                                ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                updateOcrProfile(
-                                                                    profile.id,
-                                                                    {
-                                                                        max_output_tokens:
-                                                                            e.target
-                                                                                .value ===
-                                                                            ""
-                                                                                ? null
-                                                                                : Number(
-                                                                                      e
-                                                                                          .target
-                                                                                          .value,
-                                                                                  ),
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </Field>
-
-                                                    <Field
-                                                        label="Reasoning"
-                                                        layout="stack"
-                                                        labelClassName={
-                                                            ui.trainingLabelTiny
-                                                        }
-                                                    >
-                                                        <Select
-                                                            variant="training"
-                                                            value={
-                                                                profile.reasoning_effort ??
-                                                                ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                updateOcrProfile(
-                                                                    profile.id,
-                                                                    {
-                                                                        reasoning_effort:
-                                                                            e.target
-                                                                                .value ||
-                                                                            null,
-                                                                    },
-                                                                )
-                                                            }
-                                                        >
-                                                            <option value="">
-                                                                default
-                                                            </option>
-                                                            {ocrReasoningOptions.map(
-                                                                (option) => (
-                                                                    <option
-                                                                        key={option}
-                                                                        value={option}
-                                                                    >
-                                                                        {option}
-                                                                    </option>
-                                                                ),
-                                                            )}
-                                                        </Select>
-                                                    </Field>
-
-                                                    <Field
-                                                        label="Temperature"
-                                                        layout="stack"
-                                                        labelClassName={
-                                                            ui.trainingLabelTiny
-                                                        }
-                                                    >
-                                                        <input
-                                                            className={ui.trainingInput}
-                                                            type="number"
-                                                            step="0.1"
-                                                            min={0}
-                                                            max={2}
-                                                            value={
-                                                                profile.temperature ??
-                                                                ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                updateOcrProfile(
-                                                                    profile.id,
-                                                                    {
-                                                                        temperature:
-                                                                            e.target
-                                                                                .value ===
-                                                                            ""
-                                                                                ? null
-                                                                                : Number(
-                                                                                      e
-                                                                                          .target
-                                                                                          .value,
-                                                                                  ),
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </Field>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            <div className={ui.trainingHelp}>
-                                Toggle which OCR profiles the agent may use.
-                            </div>
-                        </div>
-
-                        <div className={ui.trainingCard}>
-                            <div className={ui.trainingSubTitle}>
-                                Detection Defaults (YOLO)
-                            </div>
-                            <div className="mt-3 space-y-3">
-                                <Field
-                                    label="Conf threshold"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <input
-                                        className={ui.trainingInput}
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        max={1}
-                                        value={confThreshold}
-                                        onChange={(e) =>
-                                            updateDraft(
-                                                "detection.conf_threshold",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-
-                                <Field
-                                    label="IOU threshold"
-                                    layout="row"
-                                    labelClassName={ui.label}
-                                >
-                                    <input
-                                        className={ui.trainingInput}
-                                        type="number"
-                                        step="0.01"
-                                        min={0}
-                                        max={1}
-                                        value={iouThreshold}
-                                        onChange={(e) =>
-                                            updateDraft(
-                                                "detection.iou_threshold",
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-                                <div className={ui.trainingHelp}>
-                                    Leave blank to use Ultralytics defaults
-                                    (conf 0.25, IoU 0.45).
-                                </div>
-                            </div>
-                        </div>
+                        <OcrParallelismCard
+                            ocrParallelismLocal={ocrParallelismLocal}
+                            ocrParallelismRemote={ocrParallelismRemote}
+                            ocrParallelismMaxWorkers={ocrParallelismMaxWorkers}
+                            ocrParallelismLeaseSeconds={ocrParallelismLeaseSeconds}
+                            ocrParallelismTaskTimeoutSeconds={ocrParallelismTaskTimeoutSeconds}
+                            onUpdateDraft={updateDraft}
+                        />
                     </div>
                 </section>
             </main>

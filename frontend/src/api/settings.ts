@@ -13,6 +13,10 @@ export interface UpdateSettingsRequest {
     values: Record<string, unknown>;
 }
 
+export interface RestartBackendResponse {
+    status: string;
+}
+
 export async function fetchSettings(
     scope = "global",
 ): Promise<SettingsResponse> {
@@ -39,4 +43,15 @@ export async function updateSettings(
     });
 
     return res.json() as Promise<SettingsResponse>;
+}
+
+export async function restartBackend(): Promise<RestartBackendResponse> {
+    const res = await apiFetch(`${API_BASE}/api/settings/backend/restart`, {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+        },
+    });
+
+    return res.json() as Promise<RestartBackendResponse>;
 }

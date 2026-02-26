@@ -40,11 +40,14 @@ export function usePageJobActions({
         typeof settings?.values?.["agent.translate.detection_profile_id"] === "string"
             ? settings.values["agent.translate.detection_profile_id"].trim()
             : "";
+    const standaloneOcrJobsDetached = false;
+    const standaloneTranslationJobsDetached = true;
 
     // =========================================
     // TRANSLATE PAGE (classic)
     // =========================================
     const handleTranslatePage = async () => {
+        if (standaloneTranslationJobsDetached) return;
         if (!volumeId || !filename) return;
         if (!boxes || boxes.length === 0) return;
 
@@ -105,18 +108,21 @@ export function usePageJobActions({
     // (only boxes without OCR text)
     // =========================================
     const handleOcrPage = async () => {
+        if (standaloneOcrJobsDetached) return;
         if (!volumeId || !filename) return;
         if (!boxes || boxes.length === 0) return;
 
         const profileId = ocrProfileId || "manga_ocr_default";
+        const profileIds = [profileId];
 
         try {
             console.log(
-                `Queuing OCR page job for ${volumeId}/${filename} with profile ${profileId}`,
+                `Queuing OCR page job for ${volumeId}/${filename} with profiles ${profileIds.join(",")}`,
             );
 
             await createOcrPageJob({
                 profileId,
+                profileIds,
                 volumeId,
                 filename,
                 skipExisting: true,
@@ -130,6 +136,7 @@ export function usePageJobActions({
     // OCR SINGLE BOX
     // =========================================
     const handleOcrBox = async (id: number) => {
+        if (standaloneOcrJobsDetached) return;
         if (!volumeId || !filename) return;
 
         const box = boxes.find(
@@ -170,6 +177,7 @@ export function usePageJobActions({
     // (re-run allowed, still requires OCR text)
     // =========================================
     const handleTranslateBox = async (id: number) => {
+        if (standaloneTranslationJobsDetached) return;
         if (!volumeId || !filename) return;
 
         const box = boxes.find(

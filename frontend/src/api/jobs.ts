@@ -35,6 +35,39 @@ export interface Job {
     } | null;
 }
 
+export interface JobTaskRun {
+    id: string;
+    stage: string;
+    box_id?: number | null;
+    profile_id?: string | null;
+    status: string;
+    attempt?: number;
+    error_code?: string | null;
+    result_json?: Record<string, unknown> | null;
+    attempt_events?: JobTaskAttemptEvent[] | null;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface JobTaskAttemptEvent {
+    id: number;
+    attempt: number;
+    tool_name: string;
+    model_id?: string | null;
+    prompt_version?: string | null;
+    params_snapshot?: Record<string, unknown> | null;
+    token_usage?: Record<string, unknown> | null;
+    finish_reason?: string | null;
+    latency_ms?: number | null;
+    error_detail?: string | null;
+    created_at?: string;
+}
+
+export interface JobTasksResponse {
+    workflowRunId: string | null;
+    tasks: JobTaskRun[];
+}
+
 export async function fetchJobs(): Promise<Job[]> {
     const res = await apiFetch(`${API_BASE}/api/jobs`, {
         headers: {
@@ -63,6 +96,16 @@ export async function cancelJob(jobId: string): Promise<void> {
     });
 }
 
+export async function resumeJob(jobId: string): Promise<CreateJobResponse> {
+    const res = await apiFetch(`${API_BASE}/api/jobs/${jobId}/resume`, {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+        },
+    });
+    return res.json() as Promise<CreateJobResponse>;
+}
+
 export async function deleteJob(jobId: string): Promise<void> {
     await apiFetch(`${API_BASE}/api/jobs/${jobId}`, {
         method: "DELETE",
@@ -70,4 +113,13 @@ export async function deleteJob(jobId: string): Promise<void> {
             Accept: "application/json",
         },
     });
+}
+
+export async function fetchJobTasks(jobId: string): Promise<JobTasksResponse> {
+    const res = await apiFetch(`${API_BASE}/api/jobs/${jobId}/tasks`, {
+        headers: {
+            Accept: "application/json",
+        },
+    });
+    return res.json() as Promise<JobTasksResponse>;
 }

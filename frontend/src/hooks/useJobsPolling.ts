@@ -4,6 +4,7 @@ import {
     fetchJobs,
     clearFinishedJobs,
     cancelJob,
+    resumeJob as apiResumeJob,
     deleteJob,
     type Job,
 } from "../api";
@@ -15,6 +16,7 @@ interface UseJobsPollingResult {
     jobsLoading: boolean;
     clearFinished: () => Promise<void>;
     cancelJob: (jobId: string) => Promise<void>;
+    resumeJob: (jobId: string) => Promise<void>;
     deleteJob: (jobId: string) => Promise<void>;
 }
 
@@ -165,6 +167,10 @@ export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult 
         );
     };
 
+    const resumeJobById = async (jobId: string) => {
+        await apiResumeJob(jobId);
+    };
+
     const deleteJobById = async (jobId: string) => {
         await deleteJob(jobId);
         setJobs((prev) => prev.filter((job) => job.id !== jobId));
@@ -176,6 +182,7 @@ export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult 
         jobsLoading,
         clearFinished,
         cancelJob: cancelJobById,
+        resumeJob: resumeJobById,
         deleteJob: deleteJobById,
     };
 }

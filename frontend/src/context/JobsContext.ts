@@ -8,6 +8,7 @@ export interface JobsContextValue {
     jobsLoading: boolean;
     clearFinished: () => Promise<void>;
     cancelJob: (jobId: string) => Promise<void>;
+    resumeJob: (jobId: string) => Promise<void>;
     deleteJob: (jobId: string) => Promise<void>;
 }
 

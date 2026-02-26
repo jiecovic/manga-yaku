@@ -54,9 +54,9 @@ export function RightSidebarProfilesSection({
                                     onChangeOcrEngine(e.target.value)
                                 }
                             >
-                                {enabledOcrProviders.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.label}
+                                {ocrProviders.map((p) => (
+                                    <option key={p.id} value={p.id} disabled={!p.enabled}>
+                                        {p.enabled ? p.label : `${p.label} (unavailable)`}
                                     </option>
                                 ))}
                             </Select>
