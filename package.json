@@ -1,6 +1,11 @@
 {
   "name": "mangayaku-ai",
   "private": true,
+  "packageManager": "npm@11.10.1",
+  "engines": {
+    "node": ">=20.20.0 <21",
+    "npm": ">=11.10.1 <12"
+  },
   "scripts": {
     "dev:backend": "node scripts/dev-backend.mjs",
     "dev:backend:noreload": "node scripts/dev-backend.mjs --no-reload",
@@ -22,4 +27,3 @@
     "pyright": "^1.1.398"
   }
 }
-

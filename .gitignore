@@ -240,7 +240,8 @@ runs/
 runs/**
 yolo_training/.yolo-venv/
 yolo_training/.yolo-venv/**
+*.pt
+!models/**/*.pt
 
 # Local agent notes
 /AGENTS.md
-

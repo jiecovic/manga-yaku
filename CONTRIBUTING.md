@@ -9,8 +9,13 @@ please open an issue first to confirm direction.
 
 Requirements:
 - Python 3.10+
-- Node.js 18+
+- Node.js 20.20.x
+- npm 11.10.x
 - Docker (for Postgres)
+
+Tooling consistency:
+- Use `.nvmrc` (`nvm use`) before installing dependencies.
+- Prefer `npm ci` for clean/reproducible installs (especially in CI).
 
 Common commands:
 
@@ -202,4 +207,3 @@ training-data/sources/manga109s/
   annotations_COO/
   annotations_Manga109Dialog/
 ```
-
