@@ -33,7 +33,11 @@ See `docs/STATUS.md` for more detail.
 
 From repo root:
 
-```powershell
+```text
+# if you use published model weights under models/, make sure LFS objects are fetched
+git lfs install
+git lfs pull
+
 docker compose up -d
 
 # one-time setup (creates venv + installs deps)
@@ -49,7 +53,7 @@ npm run dev
 
 Run separately:
 
-```powershell
+```text
 npm run dev:backend
 npm run dev:frontend
 ```
@@ -69,6 +73,7 @@ Optional overrides:
 - Backend unreachable or DB unavailable: run `docker compose up -d` and restart the backend. `/api/health` returns `503` when the DB is down.
 - OpenAI providers disabled: set `OPENAI_API_KEY` in `backend-python/.env` and restart the backend.
 - Box detection shows no models: train a model first so weights exist under `training-data/runs`.
+- Box detection fails with `invalid load key, 'v'`: the `.pt` file is likely a Git LFS pointer. Run `git lfs install && git lfs pull` and restart backend.
 
 ## Data
 
@@ -108,7 +113,5 @@ See `CONTRIBUTING.md` for development setup, linting/testing, and internal conve
 ## License
 
 MIT License
-
-
 
 

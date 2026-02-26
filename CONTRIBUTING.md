@@ -12,14 +12,22 @@ Requirements:
 - Node.js 20.20.x
 - npm 11.10.x
 - Docker (for Postgres)
+- Git LFS (for published model weights under `models/`)
 
 Tooling consistency:
 - Use `.nvmrc` (`nvm use`) before installing dependencies.
 - Prefer `npm ci` for clean/reproducible installs (especially in CI).
 
+Model weights setup:
+
+```text
+git lfs install
+git lfs pull
+```
+
 Common commands:
 
-```powershell
+```text
 npm run setup
 npm run dev
 npm run dev:backend
@@ -30,7 +38,7 @@ npm run start:backend
 
 Backend only:
 
-```powershell
+```text
 cd backend-python
 python -m uvicorn app:app --port 8101 --reload
 python -m uvicorn app:app --port 8101
@@ -127,7 +135,7 @@ Training:
 
 ## Linting
 
-```powershell
+```text
 npm run lint
 npm run lint:backend
 npm run lint:frontend
@@ -142,7 +150,7 @@ This repo includes a `.pre-commit-config.yaml` that runs:
 
 Setup:
 
-```powershell
+```text
 npm run setup
 python -m pip install pre-commit
 pre-commit install
@@ -150,16 +158,18 @@ pre-commit install
 
 Run on demand:
 
-```powershell
+```text
 pre-commit run --all-files
 ```
 
 ## Testing (backend)
 
-```powershell
+```text
 cd backend-python
-$env:DB_INIT="false"
-python -m unittest discover -s tests
+# POSIX shells
+DB_INIT=false python -m unittest discover -s tests
+# PowerShell
+$env:DB_INIT="false"; python -m unittest discover -s tests
 ```
 
 ## Backend Package Conventions
