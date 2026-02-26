@@ -533,3 +533,33 @@ Output:
 - active `agent_translate_page` handler switched to new detect-only workflow runner
 - current behavior intentionally stops after detect stage; OCR/translation stages are pending rewrite
 - old `core.usecases.agent.page_translate.run_agent_translate_page` path explicitly detached (fail-fast guard)
+- standalone OCR/translation job handlers frozen under `backend-python/legacy/ocr_translation_jobs/`
+- `/api/jobs/ocr_*` and `/api/jobs/translate_*` creation endpoints now return `409` during rewrite
+
+### 2026-02-26: workflow + OCR fan-out rewrite
+
+- `workflow_runs`, `task_runs`, `task_attempt_events` tables added for durable workflow/task tracking.
+- New DB workflow store module added (`infra/db/workflow_store.py`) and wired from agent workflow.
+- `agent_translate_page` workflow now runs detect -> OCR fan-out/fan-in -> translate -> commit path in new runner.
+- OCR runner now supports bounded LLM retries for empty/invalid output with token/reasoning adjustments.
+- Standalone OCR endpoints (`/jobs/ocr_box`, `/jobs/ocr_page`) re-enabled; `ocr_page` now runs parallel fan-out over boxes/profiles.
+- Frontend OCR page action now sends multiple OCR profiles for fan-out execution.
+- Replaced legacy modules removed:
+  - `legacy/agent_translate_page/job_handler_legacy.py`
+  - `legacy/agent_translate_page/page_translate_legacy.py`
+  - `legacy/ocr_translation_jobs/ocr_job_handler_legacy.py`
+
+### 2026-02-26: restart visibility + manual resume
+
+- Jobs API now merges persisted `workflow_runs` with in-memory jobs list, so agent workflows stay visible after backend restart.
+- Startup now marks previously `running` workflow rows as interrupted (`failed`) rather than auto-resuming.
+- Manual resume endpoint added (`POST /api/jobs/{job_id}/resume`) for agent workflow jobs.
+- Jobs panel now shows `Resume` action for failed/canceled `agent_translate_page` rows.
+
+### 2026-02-26: OCR page DB-worker cutover + cleanup
+
+- `ocr_page` submission moved to DB-first creation (`workflow_runs` + `task_runs`) without in-memory queue execution.
+- New DB OCR worker loop added to claim/lease tasks and execute OCR fan-out from `task_runs`.
+- In-memory `OcrPageJobHandler` path removed from handler registry (single source of execution is now DB worker).
+- Legacy reference folder remains as archive-only reference (`backend-python/legacy/`), detached from runtime routing.
+- Unused standalone translation job handler module removed from job handler registry path.

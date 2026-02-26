@@ -31,6 +31,10 @@ if (cliReload) {
   enableReload = true;
 }
 const debug = process.env.MANGAYAKU_BACKEND_DEBUG === "1";
+const restartExitCode = Number.parseInt(
+  process.env.MANGAYAKU_BACKEND_RESTART_EXIT_CODE || "75",
+  10,
+);
 const logDebug = (...args) => {
   if (debug) {
     console.log("[dev-backend]", ...args);
@@ -75,6 +79,10 @@ let isShuttingDown = false;
 const childEnv = {
   ...process.env,
   PYTHONDONTWRITEBYTECODE: "1",
+  MANGAYAKU_SELF_RESTART_ENABLED: "1",
+  MANGAYAKU_BACKEND_RESTART_EXIT_CODE: String(
+    Number.isFinite(restartExitCode) ? restartExitCode : 75,
+  ),
 };
 
 if (useUvicornReload) {
@@ -100,6 +108,14 @@ const spawnServer = () => {
   child.on("exit", (code, signal) => {
     logDebug("Backend exited", { code, signal });
     if (isRestarting || isShuttingDown) {
+      return;
+    }
+    if (
+      Number.isFinite(restartExitCode) &&
+      code === restartExitCode
+    ) {
+      logDebug("Restart requested by backend process");
+      spawnServer();
       return;
     }
     process.exit(code ?? 1);
@@ -214,4 +230,3 @@ spawnServer();
 if (enableReload && !useUvicornReload) {
   startWatchers();
 }
-
