@@ -646,10 +646,16 @@ async def run_agent_translate_page_workflow(
             else finish_status
         )
         raw_latency = meta.get("latency_ms")
-        try:
+        latency_ms = 0
+        if isinstance(raw_latency, int):
+            latency_ms = max(0, raw_latency)
+        elif isinstance(raw_latency, float):
             latency_ms = max(0, int(raw_latency))
-        except (TypeError, ValueError):
-            latency_ms = 0
+        elif isinstance(raw_latency, str):
+            try:
+                latency_ms = max(0, int(raw_latency.strip()))
+            except ValueError:
+                latency_ms = 0
         raw_model = meta.get("model_id")
         model_for_event = str(raw_model).strip() if isinstance(raw_model, str) else None
         if not model_for_event:
