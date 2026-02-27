@@ -3,11 +3,9 @@ import re
 from pathlib import Path
 from typing import Annotated
 
+from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-
-from config import VOLUMES_ROOT, safe_join
 from infra.db.db import check_db
 from infra.db.db_store import (
     create_volume as create_volume_record,
@@ -30,6 +28,7 @@ from infra.db.db_store import (
 from infra.db.db_store import (
     set_page_context as save_page_context,
 )
+from pydantic import BaseModel
 
 from .volumes_memory_service import (
     clear_page_memory as clear_page_memory_data,

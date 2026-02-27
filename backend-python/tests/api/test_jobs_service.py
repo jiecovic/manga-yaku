@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import unittest
 
-from fastapi import HTTPException
-
 from api.routers.jobs_service import (
     cancel_job,
     delete_job,
@@ -23,6 +21,7 @@ from api.routers.jobs_service import (
     get_job_tasks_payload,
     get_resume_agent_payload,
 )
+from fastapi import HTTPException
 from infra.jobs.store import Job, JobStatus, JobStore
 
 

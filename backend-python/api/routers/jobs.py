@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
-
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
@@ -18,6 +15,8 @@ from api.schemas.jobs import (
     JobCapability,
     JobsCapabilitiesResponse,
 )
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from infra.jobs.runtime import STORE
 from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources

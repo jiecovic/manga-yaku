@@ -6,7 +6,6 @@ import time
 from typing import Any
 
 import yaml
-
 from config import (
     AGENT_MAX_OUTPUT_TOKENS,
     AGENT_MODEL,

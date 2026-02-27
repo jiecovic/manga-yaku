@@ -17,11 +17,10 @@ import json
 import unittest
 from unittest.mock import patch
 
-from fastapi.responses import JSONResponse
-
 from api.routers.jobs import list_jobs
 from api.routers.training import list_training_models
 from api.routers.volumes import health
+from fastapi.responses import JSONResponse
 
 
 class ApiSmokeTests(unittest.TestCase):

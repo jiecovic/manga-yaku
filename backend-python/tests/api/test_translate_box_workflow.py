@@ -16,12 +16,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
-
 from api.routers.jobs import create_translate_box_job
 from api.routers.jobs_creation_service import create_translate_box_workflow
 from api.routers.jobs_workflow_helpers import create_translate_workflow_with_task
 from api.schemas.jobs import CreateTranslateBoxJobRequest
+from fastapi import HTTPException
 
 
 class TranslateWorkflowHelpersTests(unittest.TestCase):

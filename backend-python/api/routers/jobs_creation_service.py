@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi import HTTPException
-
 from api.schemas.jobs import (
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
@@ -11,6 +9,7 @@ from api.schemas.jobs import (
 )
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
+from fastapi import HTTPException
 from infra.db.db_store import load_page
 from infra.jobs.handlers.utils import list_text_boxes
 from infra.jobs.store import Job, JobStatus, JobStore

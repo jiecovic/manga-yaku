@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
-
 from infra.db.workflow_store import (
     cancel_workflow_run,
     delete_terminal_workflow_runs,

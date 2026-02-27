@@ -15,14 +15,13 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
-
 from api.routers.volumes_memory_service import (
     clear_page_memory,
     clear_volume_derived_state_payload,
     get_page_memory_payload,
     get_volume_memory_payload,
 )
+from fastapi import HTTPException
 
 
 class VolumesMemoryServiceTests(unittest.TestCase):

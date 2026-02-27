@@ -2,9 +2,6 @@
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from api.errors import register_exception_handlers
 from api.routers import (
     agent,
@@ -22,6 +19,8 @@ from api.routers import (
     settings as settings_router,
 )
 from core.usecases.ocr import initialize_ocr_runtime
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from infra.db.db import init_db
 from infra.domain_bindings import bind_domain_ports
 from infra.jobs.runtime import start_jobs_runtime, stop_jobs_runtime
