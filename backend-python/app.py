@@ -1,5 +1,9 @@
 # backend-python/app.py
 import sys
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.errors import register_exception_handlers
 from api.routers import (
@@ -17,9 +21,8 @@ from api.routers import (
 from api.routers import (
     settings as settings_router,
 )
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from infra.db.db import init_db
+from infra.jobs.runtime import start_jobs_runtime, stop_jobs_runtime
 from infra.logging import setup_logging
 from settings import settings
 
@@ -28,7 +31,20 @@ setup_logging(settings.log_level)
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-app = FastAPI(title="MangaYaku Python Backend")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if settings.db_init:
+        init_db()
+
+    await start_jobs_runtime()
+    try:
+        yield
+    finally:
+        await stop_jobs_runtime()
+
+
+app = FastAPI(title="MangaYaku Python Backend", lifespan=lifespan)
 register_exception_handlers(app)
 
 cors_origins = settings.cors_origins
@@ -57,11 +73,4 @@ app.include_router(box_detection.router, prefix="/api")
 app.include_router(training.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
-
-
-@app.on_event("startup")
-async def startup_db() -> None:
-    if settings.db_init:
-        init_db()
-
 
