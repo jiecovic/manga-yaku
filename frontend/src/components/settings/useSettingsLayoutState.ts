@@ -68,7 +68,7 @@ export function useSettingsLayoutState() {
         BoxDetectionProfile[]
     >([]);
     const [agentDetectionLoading, setAgentDetectionLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<SettingsTab>("translation");
+    const [activeTab, setActiveTab] = useState<SettingsTab>("agent");
 
     useEffect(() => {
         if (settings?.values) {

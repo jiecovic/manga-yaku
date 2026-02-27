@@ -3,6 +3,7 @@ import { Button } from "../../ui/primitives";
 import { ui } from "../../ui/tokens";
 import { JobsPanel } from "../JobsPanel";
 import { DetectionDefaultsCard } from "./sections/DetectionDefaultsCard";
+import { AgentMergeCard } from "./sections/AgentMergeCard";
 import { OcrParallelismCard } from "./sections/OcrParallelismCard";
 import { OcrProfilesCard } from "./sections/OcrProfilesCard";
 import { TranslationAgentCard } from "./sections/TranslationAgentCard";
@@ -144,7 +145,7 @@ export function SettingsLayout() {
                     />
 
                     <div className="space-y-4">
-                        {activeTab === "translation" && (
+                        {activeTab === "agent" && (
                             <>
                                 <TranslationAgentCard
                                     agentDraft={agentDraft}
@@ -157,13 +158,22 @@ export function SettingsLayout() {
                                     includePriorCharacters={includePriorCharacters}
                                     includePriorOpenThreads={includePriorOpenThreads}
                                     includePriorGlossary={includePriorGlossary}
-                                    mergeMaxOutputTokens={mergeMaxOutputTokens}
-                                    mergeReasoningEffort={mergeReasoningEffort}
                                     onUpdateDraft={updateDraft}
                                     agentDetectionLoading={agentDetectionLoading}
                                     agentDetectionOptions={agentDetectionOptions}
                                     hasAgentDetectionOptions={hasAgentDetectionOptions}
                                 />
+                                <AgentMergeCard
+                                    mergeMaxOutputTokens={mergeMaxOutputTokens}
+                                    mergeReasoningEffort={mergeReasoningEffort}
+                                    reasoningOptions={agentReasoningOptions}
+                                    onUpdateDraft={updateDraft}
+                                />
+                            </>
+                        )}
+
+                        {activeTab === "translation" && (
+                            <>
                                 <TranslationProfilesCard
                                     translationDraft={translationDraft}
                                     translationModelOptions={translationModelOptions}

@@ -1,6 +1,6 @@
 import { ui } from "../../ui/tokens";
 
-export type SettingsTab = "translation" | "detection" | "ocr";
+export type SettingsTab = "agent" | "translation" | "detection" | "ocr";
 
 type Props = {
     activeTab: SettingsTab;
@@ -14,6 +14,19 @@ export function SettingsTabs({ activeTab, onChangeTab }: Props) {
             aria-label="Settings categories"
             className={ui.trainingTabs}
         >
+            <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "agent"}
+                onClick={() => onChangeTab("agent")}
+                className={`${ui.trainingTab} ${
+                    activeTab === "agent"
+                        ? ui.trainingTabActive
+                        : ui.trainingTabInactive
+                }`}
+            >
+                Agent
+            </button>
             <button
                 type="button"
                 role="tab"
