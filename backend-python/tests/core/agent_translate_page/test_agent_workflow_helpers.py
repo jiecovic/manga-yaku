@@ -1,8 +1,14 @@
-# backend-python/tests/test_agent_workflow_helpers.py
-"""Unit tests for workflow helper pure functions and payload mapping.
+# backend-python/tests/core/agent_translate_page/test_agent_workflow_helpers.py
+"""Unit tests for workflow helper mapping and normalization functions.
 
-These tests patch storage-side effects and focus on deterministic helper
-behavior for OCR profile resolution, box mapping, and translation apply logic.
+What is tested:
+- OCR profile resolution (dedupe, unknown filtering, disabled filtering).
+- Translation input box construction from persisted page/box records.
+- Translation payload application back onto page boxes.
+
+How it is tested:
+- In-memory payloads plus targeted patching of write-side helper functions.
+- Focused on helper behavior; DB/worker execution is not exercised here.
 """
 
 from __future__ import annotations

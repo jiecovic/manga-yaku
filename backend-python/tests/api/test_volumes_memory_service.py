@@ -1,8 +1,13 @@
-# backend-python/tests/test_volumes_memory_service.py
+# backend-python/tests/api/test_volumes_memory_service.py
 """Unit tests for extracted volumes memory service helpers.
 
-These tests validate memory payload shaping and error/status behavior moved
-out of `api/routers/volumes.py` into `api/routers/volumes_memory_service.py`.
+What is tested:
+- Memory payload shaping for page-level and volume-level endpoints.
+- Clear operations and error/status mapping behavior.
+
+How it is tested:
+- Volume/context repository calls are patched at service boundaries.
+- Service helpers are exercised directly without starting API app lifecycle.
 """
 
 from __future__ import annotations

@@ -1,8 +1,13 @@
-# backend-python/tests/test_retry_policies.py
-"""Unit tests for OCR/translation retry policy and normalization helpers.
+# backend-python/tests/core/usecases/test_retry_policies.py
+"""Unit tests for OCR/translation retry policy helper functions.
 
-These tests validate deterministic retry override generation and post-response
-sanitization logic for empty/invalid outputs.
+What is tested:
+- Retry override escalation behavior across attempts.
+- Output sanitization/normalization for empty or invalid model responses.
+
+How it is tested:
+- Pure helper functions are invoked with deterministic input values.
+- No external providers or async infrastructure are involved.
 """
 
 from __future__ import annotations

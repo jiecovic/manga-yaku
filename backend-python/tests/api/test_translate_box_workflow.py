@@ -1,8 +1,14 @@
-# backend-python/tests/test_translate_box_workflow.py
-"""Unit tests for persisted translate-box workflow wiring.
+# backend-python/tests/api/test_translate_box_workflow.py
+"""Unit tests for persisted translate-box workflow orchestration wiring.
 
-These tests verify that translate-box job creation uses workflow/task persistence
-and that helper payloads are shaped correctly for downstream DB workers.
+What is tested:
+- Translate-box workflow and task creation wiring for queue-backed execution.
+- Request/payload shaping before enqueueing downstream worker tasks.
+- Guardrails for invalid input and expected HTTP error behavior.
+
+How it is tested:
+- Workflow/repository helpers are patched with deterministic return values.
+- Router/service helpers are called directly without starting workers.
 """
 
 from __future__ import annotations

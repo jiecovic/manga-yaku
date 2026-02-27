@@ -1,8 +1,13 @@
-# backend-python/tests/test_jobs_runtime.py
-"""Unit tests for jobs runtime startup and shutdown lifecycle.
+# backend-python/tests/infra/jobs/test_jobs_runtime.py
+"""Unit tests for jobs runtime startup/shutdown lifecycle.
 
-These tests mock worker loops to verify idempotent startup and clean shutdown
-behavior without hitting the real database-backed OCR worker.
+What is tested:
+- Runtime startup is idempotent and launches expected worker tasks.
+- Shutdown toggles termination signals and allows tasks to drain.
+
+How it is tested:
+- Worker loops are patched with controllable async stubs.
+- Assertions focus on runtime state flags and task lifecycle behavior.
 """
 
 from __future__ import annotations

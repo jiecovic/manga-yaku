@@ -1,8 +1,14 @@
-# backend-python/tests/test_agent_workflow_stages.py
-"""Unit tests for extracted workflow stage modules.
+# backend-python/tests/core/agent_translate_page/test_agent_workflow_stages.py
+"""Unit tests for extracted agent workflow stage modules.
 
-These tests use mocks for DB/LLM integration points to verify stage contracts,
-status updates, and error handling paths.
+What is tested:
+- Commit stage persistence mapping and normalized output shaping.
+- Translate stage success/error paths and stage-specific exception behavior.
+- Status/progress side effects emitted by stage handlers.
+
+How it is tested:
+- Async stage calls with mocked DB, OCR, and LLM integration boundaries.
+- Stage contracts are asserted without running the full workflow loop.
 """
 
 from __future__ import annotations

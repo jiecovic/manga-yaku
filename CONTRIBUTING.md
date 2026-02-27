@@ -175,7 +175,7 @@ Notes:
 - The test suite defaults to offline Hugging Face/Transformers mode via
   `tests/conftest.py` (`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`).
 - For quick local checks, you can run focused files such as:
-  `pytest -q tests/test_agent_state_machine.py tests/test_retry_policies.py`.
+  `pytest -q tests/core/agent_translate_page/test_agent_state_machine.py tests/core/usecases/test_retry_policies.py`.
 - Test module coverage map and targeted command groups are documented in:
   `backend-python/tests/README.md`.
 

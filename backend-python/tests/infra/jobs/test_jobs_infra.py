@@ -1,8 +1,13 @@
-# backend-python/tests/test_jobs_infra.py
-"""Unit tests for in-memory job store and worker behavior.
+# backend-python/tests/infra/jobs/test_jobs_infra.py
+"""Unit tests for in-memory jobs store and generic worker behavior.
 
-These tests exercise SSE serialization safety and unknown-job failure handling
-using an async in-process worker loop.
+What is tested:
+- Job serialization remains SSE/JSON safe.
+- Unknown job handlers fail deterministically with expected job status updates.
+
+How it is tested:
+- In-process async worker loop with short-lived test jobs.
+- Uses only the in-memory store; no database-backed queue access.
 """
 
 from __future__ import annotations

@@ -1,8 +1,13 @@
-# backend-python/tests/test_jobs_service.py
-"""Unit tests for jobs router service helpers.
+# backend-python/tests/api/test_jobs_service.py
+"""Unit tests for jobs service helper functions used by routers.
 
-These tests verify non-HTTP orchestration logic extracted from
-`api/routers/jobs.py` into `api/routers/jobs_service.py`.
+What is tested:
+- Read/control helper behavior for get, cancel, delete, and resume payloads.
+- Correct HTTPException behavior for missing/invalid job operations.
+
+How it is tested:
+- In-memory `JobStore` instances with deterministic fixture jobs.
+- Service functions are exercised directly, outside HTTP request handling.
 """
 
 from __future__ import annotations

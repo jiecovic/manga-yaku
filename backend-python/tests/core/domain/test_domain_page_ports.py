@@ -1,8 +1,13 @@
-# backend-python/tests/test_domain_page_ports.py
-"""Unit tests for core domain page write port binding and delegation.
+# backend-python/tests/core/domain/test_domain_page_ports.py
+"""Unit tests for core domain page write-port binding and delegation.
 
-These tests verify domain helpers route writes through the configured port and
-that missing-port failures remain explicit.
+What is tested:
+- Domain write helpers delegate calls to the currently bound page-write port.
+- Missing binding failures stay explicit and actionable.
+
+How it is tested:
+- A small fake port captures calls for assertion.
+- Tests bind/unbind the domain port directly without DB involvement.
 """
 
 from __future__ import annotations

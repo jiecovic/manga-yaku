@@ -1,8 +1,14 @@
-# backend-python/tests/test_agent_state_machine.py
-"""Unit tests for agent workflow state transitions and terminal checks.
+# backend-python/tests/core/agent_translate_page/test_agent_state_machine.py
+"""Unit tests for the agent workflow state machine contract.
 
-These tests assert allowed transition paths and confirm invalid transitions
-raise errors.
+What is tested:
+- Allowed transitions across the happy path and cancellation paths.
+- Terminal-state detection for completed/failed/canceled states.
+- Rejection of invalid transition events.
+
+How it is tested:
+- Deterministic enum transitions with direct calls to transition helpers.
+- No async runtime, DB, or HTTP layers involved.
 """
 
 from __future__ import annotations

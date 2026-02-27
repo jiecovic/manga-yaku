@@ -15,54 +15,63 @@ pytest -q tests
 State machine and workflow stages:
 
 ```bash
-pytest -q tests/test_agent_state_machine.py tests/test_agent_workflow_stages.py
+pytest -q \
+  tests/core/agent_translate_page/test_agent_state_machine.py \
+  tests/core/agent_translate_page/test_agent_workflow_stages.py
 ```
 
 OCR and translation execution:
 
 ```bash
-pytest -q tests/test_ocr_execution.py tests/test_translation_execution.py tests/test_ocr_providers.py
+pytest -q \
+  tests/core/usecases/ocr/test_ocr_execution.py \
+  tests/core/usecases/ocr/test_ocr_providers.py \
+  tests/core/usecases/translation/test_translation_execution.py \
+  tests/core/usecases/test_retry_policies.py
 ```
 
 Jobs runtime and persistence adapters:
 
 ```bash
-pytest -q tests/test_jobs_runtime.py tests/test_jobs_service.py tests/test_jobs_worker_repo_adapters.py
+pytest -q \
+  tests/infra/jobs/test_jobs_runtime.py \
+  tests/infra/jobs/test_jobs_worker_repo_adapters.py \
+  tests/api/test_jobs_service.py
 ```
 
 ## Test module map
 
-- `test_api_smoke.py`
+- `api/test_api_smoke.py`
   - smoke-level router contract checks without full ASGI lifespan boot.
-- `test_agent_state_machine.py`
+- `core/agent_translate_page/test_agent_state_machine.py`
   - workflow status transitions and cancellation semantics.
-- `test_agent_workflow_stages.py`
+- `core/agent_translate_page/test_agent_workflow_stages.py`
   - detect/ocr/translate/commit stage behavior and wiring.
-- `test_agent_workflow_helpers.py`
+- `core/agent_translate_page/test_agent_workflow_helpers.py`
   - helper utilities used by agent workflow orchestration.
-- `test_agent_page_translate_helpers.py`
+- `core/agent_translate_page/test_agent_page_translate_helpers.py`
   - stage result normalization and OCR no-text consensus guard logic.
-- `test_retry_policies.py`
+- `core/usecases/test_retry_policies.py`
   - retry-policy behavior for failure/transient conditions.
-- `test_ocr_execution.py`
+- `core/usecases/ocr/test_ocr_execution.py`
   - shared OCR task execution helper behavior.
-- `test_translation_execution.py`
+- `core/usecases/translation/test_translation_execution.py`
   - shared translation task execution helper behavior.
-- `test_ocr_providers.py`
+- `core/usecases/ocr/test_ocr_providers.py`
   - provider availability regression checks (hide unavailable manga-ocr).
-- `test_jobs_runtime.py`
+- `infra/jobs/test_jobs_runtime.py`
   - startup/shutdown behavior of in-process job runtime.
-- `test_jobs_service.py`
+- `api/test_jobs_service.py`
   - non-HTTP jobs service orchestration logic.
-- `test_jobs_worker_repo_adapters.py`
+- `infra/jobs/test_jobs_worker_repo_adapters.py`
   - DB worker adapter mapping around workflow repo helpers.
-- `test_jobs_infra.py`
+- `infra/jobs/test_jobs_infra.py`
   - lower-level jobs infra behavior.
-- `test_translate_box_workflow.py`
+- `api/test_translate_box_workflow.py`
   - persisted translate-box workflow creation/wiring.
-- `test_domain_page_ports.py`
+- `core/domain/test_domain_page_ports.py`
   - core-domain page write port binding/delegation.
-- `test_volumes_memory_service.py`
+- `api/test_volumes_memory_service.py`
   - volumes memory and derived-state service behavior.
 - `conftest.py`
   - shared fixtures and offline test defaults.

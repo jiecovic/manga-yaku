@@ -1,4 +1,14 @@
 # backend-python/tests/conftest.py
+"""Shared test bootstrap for backend unit tests.
+
+What this file configures:
+- Offline environment flags to prevent model/download side effects at import time.
+- Domain port bindings required by tests that touch core page write helpers.
+
+How it is used:
+- Imported automatically by pytest before collecting/running tests.
+- Keeps the suite deterministic and independent of external services.
+"""
 from __future__ import annotations
 
 import os

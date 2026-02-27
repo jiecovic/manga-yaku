@@ -1,8 +1,13 @@
-# backend-python/tests/test_jobs_worker_repo_adapters.py
-"""Unit tests for worker adapters around shared workflow repository helpers.
+# backend-python/tests/infra/jobs/test_jobs_worker_repo_adapters.py
+"""Unit tests for DB worker adapters over shared workflow repo helpers.
 
-These tests verify per-worker payload shaping stays stable while claim/requeue
-SQL access is delegated to infra.jobs.workflow_repo.
+What is tested:
+- Claim adapter payload mapping from repository shape to worker-consumable shape.
+- Requeue adapter delegation and argument forwarding.
+
+How it is tested:
+- Repository functions are patched and assertions target adapter boundaries.
+- No real SQL execution is performed in this module.
 """
 
 from __future__ import annotations

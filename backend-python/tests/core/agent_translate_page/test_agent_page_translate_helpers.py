@@ -1,8 +1,13 @@
-# backend-python/tests/test_agent_page_translate_helpers.py
-"""Unit tests for page-translate helper sanitizers and OCR consensus guards.
+# backend-python/tests/core/agent_translate_page/test_agent_page_translate_helpers.py
+"""Unit coverage for page-translate helper sanitizers and OCR consensus guards.
 
-These tests use deterministic in-memory payloads to validate normalization and
-no-text override logic without calling external services.
+What is tested:
+- `normalize_translate_stage_result` cleans malformed stage-1 payload fields.
+- `apply_no_text_consensus_guard` enforces conservative no-text outcomes.
+
+How it is tested:
+- Pure in-memory dictionaries with intentionally invalid/mixed types.
+- No DB, no filesystem, and no external LLM/API calls.
 """
 
 from __future__ import annotations

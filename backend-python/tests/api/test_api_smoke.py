@@ -1,8 +1,13 @@
-# backend-python/tests/test_api_smoke.py
-"""Smoke tests for key API router handlers without ASGI lifespan startup.
+# backend-python/tests/api/test_api_smoke.py
+"""Smoke tests for selected API router handlers.
 
-These tests call router handler functions directly and validate baseline
-response contracts while avoiding DB/worker startup side effects.
+What is tested:
+- Basic response contract for health and model-list endpoints.
+- Error/status shape for degraded states and malformed metadata.
+
+How it is tested:
+- Direct coroutine invocation of router functions (no ASGI app startup).
+- Patched dependencies to avoid DB initialization and worker side effects.
 """
 
 from __future__ import annotations

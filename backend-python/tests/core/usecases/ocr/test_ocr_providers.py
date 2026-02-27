@@ -1,8 +1,13 @@
-# backend-python/tests/test_ocr_providers.py
+# backend-python/tests/core/usecases/ocr/test_ocr_providers.py
 """Regression tests for OCR provider availability exposure.
 
-These tests ensure unavailable OCR providers (especially manga-ocr) are not
-returned to API consumers after runtime capability initialization.
+What is tested:
+- Runtime capability initialization marks unavailable providers as disabled.
+- API-facing provider list excludes disabled/unavailable providers.
+
+How it is tested:
+- Registry snapshots are exercised with patched runtime checks.
+- Router handler is called directly to verify final API-visible payloads.
 """
 
 from __future__ import annotations

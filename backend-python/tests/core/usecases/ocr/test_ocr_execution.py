@@ -1,8 +1,14 @@
-# backend-python/tests/test_ocr_execution.py
+# backend-python/tests/core/usecases/ocr/test_ocr_execution.py
 """Unit tests for shared OCR async execution helper behavior.
 
-These tests validate attempt callback forwarding and timeout handling used by
-both persisted OCR DB workers and workflow OCR fanout stages.
+What is tested:
+- Attempt callback forwarding from runner internals to caller hooks.
+- Timeout and exception propagation semantics.
+- Prompt-version resolution fallback behavior.
+
+How it is tested:
+- Async helper execution with patched runner/timeout dependencies.
+- Deterministic outcomes via synthetic `OcrTaskOutcome` payloads.
 """
 
 from __future__ import annotations
