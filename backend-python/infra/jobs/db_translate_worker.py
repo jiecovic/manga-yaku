@@ -8,11 +8,11 @@ from typing import Any
 
 from sqlalchemy import select
 
-from core.usecases.translation.profiles import get_translation_profile
-from core.usecases.translation.task_runner import (
-    TranslationTaskOutcome,
-    run_translation_task_with_retries,
+from core.usecases.translation.execution import (
+    resolve_translation_prompt_version,
+    run_translation_task_async,
 )
+from core.usecases.translation.profiles import get_translation_profile
 from infra.db.db import TaskRun, WorkflowRun, get_session
 from infra.db.workflow_store import (
     append_task_attempt_event,
@@ -312,14 +312,9 @@ async def _run_claimed_task(
         await asyncio.to_thread(_update_workflow_progress_after_task, workflow_id)
         return
 
-    cfg = dict(profile.get("config", {}) or {})
-    prompt_file = str(cfg.get("prompt_file") or "translation_default.yml")
+    prompt_file = resolve_translation_prompt_version(profile_id)
 
-    event_sink = {"closed": False, "last_attempt": 0}
-
-    def persist_attempt_event(event: dict[str, Any], *, force: bool = False) -> None:
-        if event_sink["closed"] and not force:
-            return
+    def persist_attempt_event(event: dict[str, Any]) -> None:
         attempt = max(1, _to_int(event.get("attempt"), default=1))
         latency_ms = max(0, _to_int(event.get("latency_ms"), default=0))
         max_output_raw = event.get("max_output_tokens")
@@ -343,7 +338,6 @@ async def _run_claimed_task(
             error_detail=event.get("error_message"),
         )
         update_task_run(task_id, attempt=attempt)
-        event_sink["last_attempt"] = max(int(event_sink["last_attempt"]), attempt)
 
     def on_attempt(event: dict[str, Any]) -> None:
         try:
@@ -351,94 +345,15 @@ async def _run_claimed_task(
         except Exception:
             logger.exception("Failed to persist translation attempt event for task %s", task_id)
 
-    loop = asyncio.get_running_loop()
-    started_at = loop.time()
-    try:
-        outcome = await asyncio.wait_for(
-            asyncio.to_thread(
-                run_translation_task_with_retries,
-                profile_id=profile_id,
-                volume_id=str(claimed.get("volume_id") or ""),
-                filename=str(claimed.get("filename") or ""),
-                box_id=int(claimed.get("box_id") or 0),
-                use_page_context=bool(claimed.get("use_page_context", False)),
-                on_attempt=on_attempt,
-            ),
-            timeout=float(max(15, task_timeout_seconds)),
-        )
-        event_sink["closed"] = True
-    except asyncio.TimeoutError:
-        event_sink["closed"] = True
-        model_id_raw = cfg.get("model")
-        max_output_raw = (
-            cfg.get("max_output_tokens")
-            or cfg.get("max_completion_tokens")
-            or cfg.get("max_tokens")
-        )
-        latency_ms = int((loop.time() - started_at) * 1000)
-        timeout_message = (
-            f"Translation task timed out after {max(15, task_timeout_seconds)}s"
-        )
-        timeout_attempt = max(1, int(event_sink["last_attempt"]) + 1)
-        try:
-            persist_attempt_event(
-                {
-                    "attempt": timeout_attempt,
-                    "status": "timed_out",
-                    "latency_ms": latency_ms,
-                    "model_id": str(model_id_raw) if model_id_raw else None,
-                    "max_output_tokens": _to_int(max_output_raw, default=0) or None,
-                    "reasoning_effort": None,
-                    "error_message": timeout_message,
-                },
-                force=True,
-            )
-        except Exception:
-            logger.exception("Failed to persist translation timeout event for task %s", task_id)
-        outcome = TranslationTaskOutcome(
-            box_id=int(claimed.get("box_id") or 0),
-            profile_id=profile_id,
-            status="error",
-            translation="",
-            attempt=timeout_attempt,
-            latency_ms=latency_ms,
-            model_id=str(model_id_raw) if model_id_raw else None,
-            max_output_tokens=_to_int(max_output_raw, default=0) or None,
-            reasoning_effort=None,
-            error_message=timeout_message,
-        )
-    except Exception as exc:
-        event_sink["closed"] = True
-        latency_ms = int((loop.time() - started_at) * 1000)
-        error_text = str(exc).strip() or repr(exc)
-        error_attempt = max(1, int(event_sink["last_attempt"]) + 1)
-        try:
-            persist_attempt_event(
-                {
-                    "attempt": error_attempt,
-                    "status": "error",
-                    "latency_ms": latency_ms,
-                    "model_id": None,
-                    "max_output_tokens": None,
-                    "reasoning_effort": None,
-                    "error_message": error_text,
-                },
-                force=True,
-            )
-        except Exception:
-            logger.exception("Failed to persist translation error event for task %s", task_id)
-        outcome = TranslationTaskOutcome(
-            box_id=int(claimed.get("box_id") or 0),
-            profile_id=profile_id,
-            status="error",
-            translation="",
-            attempt=error_attempt,
-            latency_ms=latency_ms,
-            model_id=None,
-            max_output_tokens=None,
-            reasoning_effort=None,
-            error_message=error_text,
-        )
+    outcome = await run_translation_task_async(
+        profile_id=profile_id,
+        volume_id=str(claimed.get("volume_id") or ""),
+        filename=str(claimed.get("filename") or ""),
+        box_id=int(claimed.get("box_id") or 0),
+        use_page_context=bool(claimed.get("use_page_context", False)),
+        timeout_seconds=max(15, task_timeout_seconds),
+        on_attempt=on_attempt,
+    )
 
     terminal_status = "completed" if outcome.status in {"ok", "no_text"} else "failed"
     update_task_run(

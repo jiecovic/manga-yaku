@@ -1,0 +1,116 @@
+"""Unit tests for shared translation async execution helper behavior.
+
+These tests validate attempt callback forwarding and timeout handling used by
+persisted translate DB workers.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import unittest
+from unittest.mock import AsyncMock, patch
+
+from core.usecases.translation.execution import (
+    resolve_translation_prompt_version,
+    run_translation_task_async,
+)
+from core.usecases.translation.task_runner import TranslationTaskOutcome
+
+
+class TranslationExecutionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_translation_task_async_forwards_attempts_and_result(self) -> None:
+        events: list[dict] = []
+
+        def fake_run(*args, **kwargs):
+            on_attempt = kwargs.get("on_attempt")
+            if callable(on_attempt):
+                on_attempt({"attempt": 1, "status": "invalid", "latency_ms": 12})
+                on_attempt(
+                    {"attempt": 2, "status": "ok", "latency_ms": 25, "translation": "hello"}
+                )
+            return TranslationTaskOutcome(
+                box_id=7,
+                profile_id="p1",
+                status="ok",
+                translation="hello",
+                attempt=2,
+                latency_ms=25,
+                model_id="m",
+                max_output_tokens=256,
+                reasoning_effort=None,
+            )
+
+        async def fake_to_thread(fn, *args, **kwargs):
+            return fn(*args, **kwargs)
+
+        with (
+            patch(
+                "core.usecases.translation.execution.run_translation_task_with_retries",
+                side_effect=fake_run,
+            ),
+            patch("core.usecases.translation.execution.asyncio.to_thread", side_effect=fake_to_thread),
+        ):
+            outcome = await run_translation_task_async(
+                profile_id="p1",
+                volume_id="vol",
+                filename="001.jpg",
+                box_id=7,
+                use_page_context=True,
+                on_attempt=events.append,
+            )
+
+        self.assertEqual(outcome.status, "ok")
+        self.assertEqual(outcome.translation, "hello")
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["attempt"], 1)
+        self.assertEqual(events[1]["attempt"], 2)
+
+    async def test_run_translation_task_async_emits_timeout_once(self) -> None:
+        events: list[dict] = []
+
+        async def fake_wait_for(awaitable, timeout):
+            close = getattr(awaitable, "close", None)
+            if callable(close):
+                close()
+            raise asyncio.TimeoutError
+
+        with (
+            patch(
+                "core.usecases.translation.execution.asyncio.wait_for",
+                new=AsyncMock(side_effect=fake_wait_for),
+            ),
+            patch(
+                "core.usecases.translation.execution.get_translation_profile",
+                return_value={"config": {"model": "m", "max_output_tokens": 256}},
+            ),
+        ):
+            outcome = await run_translation_task_async(
+                profile_id="p1",
+                volume_id="vol",
+                filename="001.jpg",
+                box_id=9,
+                use_page_context=False,
+                timeout_seconds=1,
+                on_attempt=events.append,
+            )
+
+        self.assertEqual(outcome.status, "error")
+        self.assertIn("timed out", str(outcome.error_message or "").lower())
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["status"], "timed_out")
+
+    def test_resolve_translation_prompt_version_uses_profile_prompt_file(self) -> None:
+        with patch(
+            "core.usecases.translation.execution.get_translation_profile",
+            return_value={"config": {"prompt_file": "translation_quality.yml"}},
+        ):
+            prompt_version = resolve_translation_prompt_version("openai_quality_translate")
+        self.assertEqual(prompt_version, "translation_quality.yml")
+
+    def test_resolve_translation_prompt_version_falls_back_default(self) -> None:
+        with patch(
+            "core.usecases.translation.execution.get_translation_profile",
+            side_effect=RuntimeError("x"),
+        ):
+            prompt_version = resolve_translation_prompt_version("missing")
+        self.assertEqual(prompt_version, "translation_default.yml")
