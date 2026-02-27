@@ -1,5 +1,4 @@
 """Public exports for OCR usecases."""
-from .engine import run_ocr_box
 from .profiles import (
     OCR_PROFILES,
     OcrProfile,
@@ -16,3 +15,10 @@ __all__ = [
     "mark_ocr_availability",
     "run_ocr_box",
 ]
+
+
+def run_ocr_box(*args, **kwargs):
+    # Import lazily to avoid eager manga-ocr model loading during module import.
+    from .engine import run_ocr_box as _run_ocr_box
+
+    return _run_ocr_box(*args, **kwargs)

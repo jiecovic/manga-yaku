@@ -5,8 +5,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.profiles import get_ocr_profile
-from core.usecases.ocr.task_runner import OcrTaskOutcome, run_ocr_task_with_retries
+from core.usecases.ocr.task_runner import OcrTaskOutcome
 from infra.db.db_store import set_box_ocr_text_by_id
 from infra.db.workflow_store import append_task_attempt_event, create_task_run, update_task_run
 
@@ -144,8 +145,7 @@ async def run_ocr_fanout_stage(
             def on_attempt(event: dict[str, Any]) -> None:
                 attempt_events.append(event)
 
-            outcome = await asyncio.to_thread(
-                run_ocr_task_with_retries,
+            outcome = await run_ocr_task_async(
                 profile_id=spec.profile_id,
                 volume_id=volume_id,
                 filename=filename,
@@ -157,13 +157,14 @@ async def run_ocr_fanout_stage(
                 on_attempt=on_attempt,
             )
 
+            prompt_version = resolve_ocr_prompt_version(spec.profile_id)
             for event in attempt_events:
                 append_task_attempt_event(
                     task_id=spec.task_run_id,
                     attempt=int(event.get("attempt") or 1),
                     tool_name="ocr_tool",
                     model_id=event.get("model_id"),
-                    prompt_version="ocr_default.yml",
+                    prompt_version=prompt_version,
                     params_snapshot={
                         "max_output_tokens": event.get("max_output_tokens"),
                         "reasoning_effort": event.get("reasoning_effort"),
@@ -242,4 +243,3 @@ async def run_ocr_fanout_stage(
         llm_profiles=llm_profiles,
         usable_ocr=usable_ocr,
     )
-

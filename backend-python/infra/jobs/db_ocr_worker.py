@@ -6,8 +6,10 @@ from datetime import datetime, timedelta, timezone
 from threading import Event
 from typing import Any
 
+from sqlalchemy import select
+
+from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.profiles import get_ocr_profile
-from core.usecases.ocr.task_runner import OcrTaskOutcome, run_ocr_task_with_retries
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
 from infra.db.db import TaskRun, WorkflowRun, get_session
 from infra.db.db_store import set_box_ocr_text_by_id
@@ -18,7 +20,6 @@ from infra.db.workflow_store import (
     update_task_run,
     update_workflow_run,
 )
-from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -402,14 +403,10 @@ async def _run_claimed_task(
 
     provider = str(profile.get("provider") or "")
     sem = remote_sem if provider in {"llm_ocr", "llm_ocr_chat"} else local_sem
-    prompt_file = str((profile.get("config", {}) or {}).get("prompt_file") or "ocr_default.yml")
+    prompt_file = resolve_ocr_prompt_version(profile_id)
 
     async with sem:
-        event_sink = {"closed": False, "last_attempt": 0}
-
-        def persist_attempt_event(event: dict[str, Any], *, force: bool = False) -> None:
-            if event_sink["closed"] and not force:
-                return
+        def persist_attempt_event(event: dict[str, Any]) -> None:
             attempt = max(1, _to_int(event.get("attempt"), default=1))
             latency_ms = max(0, _to_int(event.get("latency_ms"), default=0))
             max_output_raw = event.get("max_output_tokens")
@@ -434,7 +431,6 @@ async def _run_claimed_task(
             )
             # Persist running attempt progress so the UI can reflect retries in near real-time.
             update_task_run(task_id, attempt=attempt)
-            event_sink["last_attempt"] = max(int(event_sink["last_attempt"]), attempt)
 
         def on_attempt(event: dict[str, Any]) -> None:
             try:
@@ -442,96 +438,18 @@ async def _run_claimed_task(
             except Exception:
                 logger.exception("Failed to persist OCR attempt event for task %s", task_id)
 
-        loop = asyncio.get_running_loop()
-        started_at = loop.time()
-        try:
-            outcome = await asyncio.wait_for(
-                asyncio.to_thread(
-                    run_ocr_task_with_retries,
-                    profile_id=profile_id,
-                    volume_id=str(claimed.get("volume_id") or ""),
-                    filename=str(claimed.get("filename") or ""),
-                    box_id=int(claimed.get("box_id") or 0),
-                    x=float(claimed.get("x") or 0.0),
-                    y=float(claimed.get("y") or 0.0),
-                    width=float(claimed.get("width") or 0.0),
-                    height=float(claimed.get("height") or 0.0),
-                    on_attempt=on_attempt,
-                ),
-                timeout=float(max(15, task_timeout_seconds)),
-            )
-            event_sink["closed"] = True
-        except asyncio.TimeoutError:
-            event_sink["closed"] = True
-            cfg = dict(profile.get("config", {}) or {})
-            model_id_raw = cfg.get("model")
-            max_output_raw = (
-                cfg.get("max_output_tokens")
-                or cfg.get("max_completion_tokens")
-                or cfg.get("max_tokens")
-            )
-            latency_ms = int((loop.time() - started_at) * 1000)
-            timeout_message = f"OCR task timed out after {max(15, task_timeout_seconds)}s"
-            timeout_attempt = max(1, int(event_sink["last_attempt"]) + 1)
-            try:
-                persist_attempt_event(
-                    {
-                        "attempt": timeout_attempt,
-                        "status": "timed_out",
-                        "latency_ms": latency_ms,
-                        "model_id": str(model_id_raw) if model_id_raw else None,
-                        "max_output_tokens": _to_int(max_output_raw, default=0) or None,
-                        "reasoning_effort": None,
-                        "error_message": timeout_message,
-                    },
-                    force=True,
-                )
-            except Exception:
-                logger.exception("Failed to persist OCR timeout event for task %s", task_id)
-            outcome = OcrTaskOutcome(
-                box_id=int(claimed.get("box_id") or 0),
-                profile_id=profile_id,
-                status="error",
-                text="",
-                attempt=timeout_attempt,
-                latency_ms=latency_ms,
-                model_id=str(model_id_raw) if model_id_raw else None,
-                max_output_tokens=_to_int(max_output_raw, default=0) or None,
-                reasoning_effort=None,
-                error_message=timeout_message,
-            )
-        except Exception as exc:
-            event_sink["closed"] = True
-            latency_ms = int((loop.time() - started_at) * 1000)
-            error_text = str(exc).strip() or repr(exc)
-            error_attempt = max(1, int(event_sink["last_attempt"]) + 1)
-            try:
-                persist_attempt_event(
-                    {
-                        "attempt": error_attempt,
-                        "status": "error",
-                        "latency_ms": latency_ms,
-                        "model_id": None,
-                        "max_output_tokens": None,
-                        "reasoning_effort": None,
-                        "error_message": error_text,
-                    },
-                    force=True,
-                )
-            except Exception:
-                logger.exception("Failed to persist OCR error event for task %s", task_id)
-            outcome = OcrTaskOutcome(
-                box_id=int(claimed.get("box_id") or 0),
-                profile_id=profile_id,
-                status="error",
-                text="",
-                attempt=error_attempt,
-                latency_ms=latency_ms,
-                model_id=None,
-                max_output_tokens=None,
-                reasoning_effort=None,
-                error_message=error_text,
-            )
+        outcome = await run_ocr_task_async(
+            profile_id=profile_id,
+            volume_id=str(claimed.get("volume_id") or ""),
+            filename=str(claimed.get("filename") or ""),
+            box_id=int(claimed.get("box_id") or 0),
+            x=float(claimed.get("x") or 0.0),
+            y=float(claimed.get("y") or 0.0),
+            width=float(claimed.get("width") or 0.0),
+            height=float(claimed.get("height") or 0.0),
+            timeout_seconds=max(15, task_timeout_seconds),
+            on_attempt=on_attempt,
+        )
 
         terminal_status = "completed" if outcome.status in {"ok", "no_text"} else "failed"
         update_task_run(
