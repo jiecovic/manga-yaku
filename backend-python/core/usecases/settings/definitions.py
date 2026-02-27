@@ -61,6 +61,17 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default=True,
         value_type=bool,
     ),
+    "agent.translate.merge.max_output_tokens": SettingSpec(
+        default=768,
+        value_type=int,
+        min_value=128,
+        max_value=4096,
+    ),
+    "agent.translate.merge.reasoning_effort": SettingSpec(
+        default="low",
+        value_type=str,
+        choices=("low", "medium", "high"),
+    ),
     "ocr.parallelism.local": SettingSpec(
         default=4,
         value_type=int,

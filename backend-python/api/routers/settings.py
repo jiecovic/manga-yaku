@@ -48,6 +48,10 @@ def _build_options() -> dict[str, Any]:
         "agent.translate.include_prior_characters": {"type": "boolean"},
         "agent.translate.include_prior_open_threads": {"type": "boolean"},
         "agent.translate.include_prior_glossary": {"type": "boolean"},
+        "agent.translate.merge.max_output_tokens": {"min": 128, "max": 4096},
+        "agent.translate.merge.reasoning_effort": {
+            "choices": ["low", "medium", "high"]
+        },
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},

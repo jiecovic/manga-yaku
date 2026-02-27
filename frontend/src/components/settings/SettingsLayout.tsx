@@ -42,6 +42,8 @@ export function SettingsLayout() {
         includePriorCharacters,
         includePriorOpenThreads,
         includePriorGlossary,
+        mergeMaxOutputTokens,
+        mergeReasoningEffort,
         agentDetectionLoading,
         agentDetectionOptions,
         hasAgentDetectionOptions,
@@ -155,6 +157,8 @@ export function SettingsLayout() {
                                     includePriorCharacters={includePriorCharacters}
                                     includePriorOpenThreads={includePriorOpenThreads}
                                     includePriorGlossary={includePriorGlossary}
+                                    mergeMaxOutputTokens={mergeMaxOutputTokens}
+                                    mergeReasoningEffort={mergeReasoningEffort}
                                     onUpdateDraft={updateDraft}
                                     agentDetectionLoading={agentDetectionLoading}
                                     agentDetectionOptions={agentDetectionOptions}

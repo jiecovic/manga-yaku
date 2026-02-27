@@ -185,6 +185,19 @@ export function useSettingsLayoutState() {
         () => draftBoolean(draft, "agent.translate.include_prior_glossary", true),
         [draft],
     );
+    const mergeMaxOutputTokens = useMemo(
+        () => draftString(draft, "agent.translate.merge.max_output_tokens"),
+        [draft],
+    );
+    const mergeReasoningEffort = useMemo(() => {
+        const raw = draftString(draft, "agent.translate.merge.reasoning_effort")
+            .trim()
+            .toLowerCase();
+        if (raw === "low" || raw === "medium" || raw === "high") {
+            return raw;
+        }
+        return "low";
+    }, [draft]);
     const ocrParallelismLocal = useMemo(
         () => draftString(draft, "ocr.parallelism.local"),
         [draft],
@@ -234,6 +247,30 @@ export function useSettingsLayoutState() {
         }),
         [settings],
     );
+    const mergeDefaults = useMemo(
+        () => ({
+            maxOutputTokens: toIntWithFallback(
+                String(
+                    settings?.defaults?.["agent.translate.merge.max_output_tokens"] ??
+                        "768",
+                ),
+                768,
+            ),
+            reasoningEffort: (() => {
+                const raw = String(
+                    settings?.defaults?.["agent.translate.merge.reasoning_effort"] ??
+                        "low",
+                )
+                    .trim()
+                    .toLowerCase();
+                if (raw === "low" || raw === "medium" || raw === "high") {
+                    return raw;
+                }
+                return "low";
+            })(),
+        }),
+        [settings],
+    );
 
     const buildBaseSettingsPayload = useCallback(
         () => ({
@@ -249,6 +286,12 @@ export function useSettingsLayoutState() {
             "agent.translate.include_prior_characters": includePriorCharacters,
             "agent.translate.include_prior_open_threads": includePriorOpenThreads,
             "agent.translate.include_prior_glossary": includePriorGlossary,
+            "agent.translate.merge.max_output_tokens": toIntWithFallback(
+                mergeMaxOutputTokens,
+                mergeDefaults.maxOutputTokens,
+            ),
+            "agent.translate.merge.reasoning_effort":
+                mergeReasoningEffort || mergeDefaults.reasoningEffort,
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -280,6 +323,9 @@ export function useSettingsLayoutState() {
             includePriorCharacters,
             includePriorOpenThreads,
             includePriorGlossary,
+            mergeMaxOutputTokens,
+            mergeReasoningEffort,
+            mergeDefaults,
             ocrParallelismLocal,
             ocrParallelismRemote,
             ocrParallelismMaxWorkers,
@@ -678,6 +724,8 @@ export function useSettingsLayoutState() {
         includePriorCharacters,
         includePriorOpenThreads,
         includePriorGlossary,
+        mergeMaxOutputTokens,
+        mergeReasoningEffort,
         agentDetectionLoading,
         agentDetectionOptions,
         hasAgentDetectionOptions,

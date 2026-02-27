@@ -44,6 +44,39 @@ def _get_bool_setting(key: str, *, default: bool) -> bool:
     return bool(raw) if isinstance(raw, bool) else default
 
 
+def _get_int_setting(
+    key: str,
+    *,
+    default: int,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int:
+    raw = get_setting_value(key)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    if min_value is not None and value < min_value:
+        value = min_value
+    if max_value is not None and value > max_value:
+        value = max_value
+    return value
+
+
+def _get_str_choice_setting(
+    key: str,
+    *,
+    default: str,
+    choices: tuple[str, ...],
+) -> str:
+    raw = get_setting_value(key)
+    if isinstance(raw, str):
+        normalized = raw.strip().lower()
+        if normalized in choices:
+            return normalized
+    return default
+
+
 async def run_agent_translate_page_workflow(
     *,
     payload: dict[str, Any],
@@ -296,6 +329,17 @@ async def run_agent_translate_page_workflow(
         "agent.translate.include_prior_glossary",
         default=True,
     )
+    merge_max_output_tokens = _get_int_setting(
+        "agent.translate.merge.max_output_tokens",
+        default=768,
+        min_value=128,
+        max_value=4096,
+    )
+    merge_reasoning_effort = _get_str_choice_setting(
+        "agent.translate.merge.reasoning_effort",
+        default="low",
+        choices=("low", "medium", "high"),
+    )
     agent_settings = resolve_agent_translate_settings()
     model_id = request.model_id or agent_settings.get("model_id")
     max_output_tokens = agent_settings.get("max_output_tokens")
@@ -319,6 +363,8 @@ async def run_agent_translate_page_workflow(
             max_output_tokens=max_output_tokens if isinstance(max_output_tokens, int | float) else None,
             reasoning_effort=str(reasoning_effort) if isinstance(reasoning_effort, str) else None,
             temperature=float(temperature) if isinstance(temperature, int | float) else None,
+            merge_max_output_tokens=merge_max_output_tokens,
+            merge_reasoning_effort=merge_reasoning_effort,
         )
     except TranslateStageError as exc:
         run_ctx.finish_stage("translate")

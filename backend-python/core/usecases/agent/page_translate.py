@@ -173,6 +173,8 @@ def run_agent_translate_page(
     max_output_tokens: int | None = None,
     reasoning_effort: str | None = None,
     temperature: float | None = None,
+    merge_max_output_tokens: int | None = None,
+    merge_reasoning_effort: str | None = None,
     on_stage_event: StageEventCallback | None = None,
 ) -> dict[str, Any]:
     if not has_openai_sdk():
@@ -306,14 +308,23 @@ def run_agent_translate_page(
     ]
 
     merge_cfg = dict(base_cfg)
-    max_out = coerce_positive_int(merge_cfg.get("max_output_tokens"))
-    if max_out is not None:
-        merge_cfg["max_output_tokens"] = max(256, min(max_out, 768))
-    else:
-        merge_cfg["max_output_tokens"] = 512
-    # Keep merge pass lightweight. It is state bookkeeping and does not need heavy reasoning.
+    stage2_max_output = _coerce_positive_int(merge_max_output_tokens)
+    if stage2_max_output is None:
+        stage2_max_output = coerce_positive_int(merge_cfg.get("max_output_tokens"))
+    if stage2_max_output is None:
+        stage2_max_output = 768
+    merge_cfg["max_output_tokens"] = max(128, min(stage2_max_output, 4096))
+
+    # Merge is bookkeeping; keep a dedicated setting so users can trade off speed/quality.
     if str(merge_cfg.get("model") or "").startswith("gpt-5"):
-        merge_cfg["reasoning"] = {"effort": "low"}
+        requested_effort = (
+            str(merge_reasoning_effort).strip().lower()
+            if isinstance(merge_reasoning_effort, str)
+            else ""
+        )
+        if requested_effort not in {"low", "medium", "high"}:
+            requested_effort = "low"
+        merge_cfg["reasoning"] = {"effort": requested_effort}
 
     stage2_log_context = {
         "volume_id": volume_id,

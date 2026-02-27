@@ -41,6 +41,8 @@ async def run_translate_stage(
     max_output_tokens: int | float | None,
     reasoning_effort: str | None,
     temperature: int | float | None,
+    merge_max_output_tokens: int | float | None,
+    merge_reasoning_effort: str | None,
 ) -> dict[str, Any]:
     from core.usecases.agent.page_translate import run_agent_translate_page
 
@@ -181,6 +183,16 @@ async def run_translate_stage(
                 ),
                 temperature=(
                     float(temperature) if isinstance(temperature, int | float) else None
+                ),
+                merge_max_output_tokens=(
+                    int(merge_max_output_tokens)
+                    if isinstance(merge_max_output_tokens, int | float)
+                    else None
+                ),
+                merge_reasoning_effort=(
+                    str(merge_reasoning_effort)
+                    if isinstance(merge_reasoning_effort, str)
+                    else None
                 ),
                 on_stage_event=on_agent_stage_event,
             ),

@@ -144,6 +144,8 @@ class TranslateStageTests(unittest.TestCase):
                     max_output_tokens=1024,
                     reasoning_effort="low",
                     temperature=None,
+                    merge_max_output_tokens=768,
+                    merge_reasoning_effort="low",
                 )
             )
 
@@ -211,6 +213,8 @@ class TranslateStageTests(unittest.TestCase):
                         max_output_tokens=1024,
                         reasoning_effort="low",
                         temperature=None,
+                        merge_max_output_tokens=768,
+                        merge_reasoning_effort="low",
                     )
                 )
 
