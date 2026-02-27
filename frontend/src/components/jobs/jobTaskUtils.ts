@@ -152,6 +152,10 @@ function parseAttemptParams(event: JobTaskAttemptEvent): {
 export function formatAttemptEvent(
     event: JobTaskAttemptEvent,
     previous: JobTaskAttemptEvent | null,
+    options?: {
+        hasLaterAttempt?: boolean;
+        taskRunning?: boolean;
+    },
 ): string {
     const curr = parseAttemptParams(event);
     const prev = previous ? parseAttemptParams(previous) : null;
@@ -161,7 +165,14 @@ export function formatAttemptEvent(
         typeof event.finish_reason === "string" && event.finish_reason.trim()
             ? event.finish_reason.trim()
             : "unknown";
-    parts.push(`Attempt ${Math.max(1, event.attempt)}: ${finishReason}`);
+    const shouldMarkRetrying =
+        (finishReason === "invalid" || finishReason === "error" || finishReason === "timed_out") &&
+        (Boolean(options?.hasLaterAttempt) || Boolean(options?.taskRunning));
+    parts.push(
+        `Attempt ${Math.max(1, event.attempt)}: ${
+            shouldMarkRetrying ? `${finishReason} (retrying)` : finishReason
+        }`,
+    );
 
     if (curr.maxTokens !== null) {
         if (prev && prev.maxTokens !== null) {

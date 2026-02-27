@@ -265,6 +265,14 @@ export function JobsPanel() {
                                                         eventIdx > 0
                                                             ? singleTaskAttemptEvents[eventIdx - 1]
                                                             : null,
+                                                        {
+                                                            hasLaterAttempt:
+                                                                eventIdx <
+                                                                singleTaskAttemptEvents.length - 1,
+                                                            taskRunning:
+                                                                String(singleTask.status).trim() ===
+                                                                "running",
+                                                        },
                                                     )}
                                                 </div>
                                             ))}
@@ -435,6 +443,17 @@ export function JobsPanel() {
                                                                                                               1
                                                                                                       ]
                                                                                                     : null,
+                                                                                                {
+                                                                                                    hasLaterAttempt:
+                                                                                                        eventIdx <
+                                                                                                        attemptEvents.length -
+                                                                                                            1,
+                                                                                                    taskRunning:
+                                                                                                        String(
+                                                                                                            task.status,
+                                                                                                        ).trim() ===
+                                                                                                        "running",
+                                                                                                },
                                                                                             )}
                                                                                         </div>
                                                                                     ),
