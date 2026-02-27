@@ -21,6 +21,7 @@ from api.routers import (
 from api.routers import (
     settings as settings_router,
 )
+from core.usecases.ocr import initialize_ocr_runtime
 from infra.db.db import init_db
 from infra.domain_bindings import bind_domain_ports
 from infra.jobs.runtime import start_jobs_runtime, stop_jobs_runtime
@@ -39,6 +40,7 @@ async def lifespan(_: FastAPI):
     if settings.db_init:
         init_db()
 
+    initialize_ocr_runtime()
     await start_jobs_runtime()
     try:
         yield

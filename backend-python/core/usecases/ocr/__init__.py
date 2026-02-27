@@ -11,6 +11,7 @@ __all__ = [
     "OCR_PROFILES",
     "OcrProfile",
     "get_ocr_profile",
+    "initialize_ocr_runtime",
     "list_ocr_profiles_for_api",
     "mark_ocr_availability",
     "run_ocr_box",
@@ -22,3 +23,9 @@ def run_ocr_box(*args, **kwargs):
     from .engine import run_ocr_box as _run_ocr_box
 
     return _run_ocr_box(*args, **kwargs)
+
+
+def initialize_ocr_runtime() -> None:
+    # Ensure runtime capability flags (and optional model preload side effects)
+    # are initialized before serving profile availability to the UI.
+    from . import engine as _engine  # noqa: F401

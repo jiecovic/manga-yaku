@@ -91,13 +91,21 @@ OCR_PROFILES: dict[str, OcrProfile] = {
 
 
 def list_ocr_profiles_for_api() -> list[dict[str, Any]]:
+    # Refresh runtime capability flags (manga-ocr import/init, OpenAI key state)
+    # before exposing profile availability to API consumers.
+    from . import initialize_ocr_runtime
     from .profile_settings import list_ocr_profiles_with_settings
 
-    return list_ocr_profiles_with_settings()
+    initialize_ocr_runtime()
+    profiles = list_ocr_profiles_with_settings()
+    return [profile for profile in profiles if bool(profile.get("enabled", True))]
 
 
 def get_ocr_profile(profile_id: str) -> OcrProfile:
     """Lookup with a nice error instead of KeyError."""
+    from . import initialize_ocr_runtime
+
+    initialize_ocr_runtime()
     try:
         base = OCR_PROFILES[profile_id]
     except KeyError as exc:
