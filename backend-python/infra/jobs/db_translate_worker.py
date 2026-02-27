@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
 from threading import Event
 from typing import Any
-
-from sqlalchemy import select
 
 from core.usecases.translation.execution import (
     resolve_translation_prompt_version,
     run_translation_task_async,
 )
 from core.usecases.translation.profiles import get_translation_profile
-from infra.db.db import TaskRun, WorkflowRun, get_session
 from infra.db.workflow_store import (
     append_task_attempt_event,
     get_workflow_run,
@@ -22,6 +18,7 @@ from infra.db.workflow_store import (
     update_workflow_run,
 )
 from infra.jobs.handlers.utils import make_snippet
+from infra.jobs.workflow_repo import claim_next_task, requeue_stale_running_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +30,6 @@ _DEFAULT_TASK_TIMEOUT_SECONDS = 180
 _DEFAULT_IDLE_SLEEP_SECONDS = 0.4
 _DEFAULT_ERROR_SLEEP_SECONDS = 1.0
 _DEFAULT_WORKER_COUNT = 2
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def _to_int(value: Any, *, default: int) -> int:
@@ -202,78 +195,31 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
 
 
 def _claim_next_task(*, lease_seconds: int) -> dict[str, Any] | None:
-    now = _utc_now()
-    lease_until = now + timedelta(seconds=max(30, lease_seconds))
-    with get_session() as session:
-        stmt = (
-            select(TaskRun, WorkflowRun)
-            .join(WorkflowRun, TaskRun.workflow_id == WorkflowRun.id)
-            .where(WorkflowRun.workflow_type == _TRANSLATE_WORKFLOW_TYPE)
-            .where(WorkflowRun.status.in_(["queued", "running"]))
-            .where(WorkflowRun.cancel_requested.is_(False))
-            .where(TaskRun.stage == _TRANSLATE_STAGE)
-            .where(TaskRun.status == "queued")
-            .order_by(TaskRun.created_at.asc())
-            .limit(1)
-            .with_for_update(skip_locked=True)
-        )
-        row = session.execute(stmt).first()
-        if row is None:
-            return None
-        task_row, workflow_row = row
-
-        task_row.status = "running"
-        task_row.started_at = task_row.started_at or now
-        task_row.updated_at = now
-        task_row.lease_until = lease_until
-        task_row.error_code = None
-        task_row.error_detail = None
-        if workflow_row.status == "queued":
-            workflow_row.status = "running"
-        if workflow_row.state == "queued":
-            workflow_row.state = "running"
-        workflow_row.updated_at = now
-
-        payload = task_row.input_json if isinstance(task_row.input_json, dict) else {}
-        return {
-            "task_id": str(task_row.id),
-            "workflow_id": str(workflow_row.id),
-            "volume_id": str(workflow_row.volume_id),
-            "filename": str(workflow_row.filename),
-            "box_id": int(task_row.box_id or payload.get("box_id") or 0),
-            "profile_id": str(task_row.profile_id or payload.get("profile_id") or ""),
-            "use_page_context": bool(payload.get("use_page_context", False)),
-        }
+    claimed = claim_next_task(
+        workflow_types=(_TRANSLATE_WORKFLOW_TYPE,),
+        stage=_TRANSLATE_STAGE,
+        lease_seconds=lease_seconds,
+    )
+    if not claimed:
+        return None
+    payload = claimed.get("input_json") if isinstance(claimed.get("input_json"), dict) else {}
+    return {
+        "task_id": str(claimed.get("task_id") or ""),
+        "workflow_id": str(claimed.get("workflow_id") or ""),
+        "volume_id": str(claimed.get("volume_id") or ""),
+        "filename": str(claimed.get("filename") or ""),
+        "box_id": int(claimed.get("box_id") or payload.get("box_id") or 0),
+        "profile_id": str(claimed.get("profile_id") or payload.get("profile_id") or ""),
+        "use_page_context": bool(payload.get("use_page_context", False)),
+    }
 
 
 def _requeue_stale_running_tasks(*, lease_seconds: int) -> int:
-    now = _utc_now()
-    changed = 0
-    with get_session() as session:
-        stmt = (
-            select(TaskRun, WorkflowRun)
-            .join(WorkflowRun, TaskRun.workflow_id == WorkflowRun.id)
-            .where(WorkflowRun.workflow_type == _TRANSLATE_WORKFLOW_TYPE)
-            .where(TaskRun.stage == _TRANSLATE_STAGE)
-            .where(TaskRun.status == "running")
-            .where((TaskRun.lease_until.is_(None)) | (TaskRun.lease_until < now))
-            .with_for_update(skip_locked=True)
-        )
-        rows = session.execute(stmt).all()
-        for task_row, workflow_row in rows:
-            if workflow_row.cancel_requested or workflow_row.status == "canceled":
-                task_row.status = "canceled"
-                task_row.finished_at = now
-                task_row.error_code = "cancel_requested"
-                task_row.error_detail = "Canceled"
-            else:
-                task_row.status = "queued"
-                task_row.error_code = "lease_expired"
-                task_row.error_detail = "Requeued after worker restart"
-            task_row.lease_until = None
-            task_row.updated_at = now
-            changed += 1
-    return changed
+    _ = lease_seconds  # retained for call-site compatibility
+    return requeue_stale_running_tasks(
+        workflow_types=(_TRANSLATE_WORKFLOW_TYPE,),
+        stage=_TRANSLATE_STAGE,
+    )
 
 
 async def _run_claimed_task(
