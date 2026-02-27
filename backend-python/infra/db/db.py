@@ -326,6 +326,33 @@ class OcrProfileSetting(Base):
     )
 
 
+class TranslationProfileSetting(Base):
+    __tablename__ = "translation_profile_settings"
+
+    profile_id = Column(String, primary_key=True)
+    single_box_enabled = Column(Boolean, nullable=False, default=True)
+    model_id = Column(String, nullable=True)
+    max_output_tokens = Column(Integer, nullable=True)
+    reasoning_effort = Column(String, nullable=True)
+    temperature = Column(Float, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "reasoning_effort IN ('low', 'medium', 'high') OR reasoning_effort IS NULL",
+            name="ck_translation_profile_settings_reasoning_effort",
+        ),
+        CheckConstraint(
+            "max_output_tokens IS NULL OR max_output_tokens >= 1",
+            name="ck_translation_profile_settings_max_output",
+        ),
+        CheckConstraint(
+            "temperature IS NULL OR (temperature >= 0 AND temperature <= 2)",
+            name="ck_translation_profile_settings_temperature",
+        ),
+    )
+
+
 class AgentTranslateSetting(Base):
     __tablename__ = "agent_translate_settings"
 
@@ -457,6 +484,47 @@ class TaskAttemptEvent(Base):
     __table_args__ = (
         Index("ix_task_attempt_events_task_attempt", "task_id", "attempt"),
         CheckConstraint("attempt >= 1", name="ck_task_attempt_events_attempt_positive"),
+    )
+
+
+class LlmCallLog(Base):
+    __tablename__ = "llm_call_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    provider = Column(String, nullable=False, default="openai")
+    api = Column(String, nullable=False)
+    component = Column(String, nullable=False, default="unknown")
+    status = Column(String, nullable=False, default="success")
+    model_id = Column(String, nullable=True)
+    job_id = Column(String, nullable=True)
+    workflow_run_id = Column(String, nullable=True)
+    task_run_id = Column(String, nullable=True)
+    attempt = Column(Integer, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    finish_reason = Column(String, nullable=True)
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
+    total_tokens = Column(Integer, nullable=True)
+    error_detail = Column(Text, nullable=True)
+    params_snapshot = Column(JSONB, nullable=True)
+    request_excerpt = Column(Text, nullable=True)
+    response_excerpt = Column(Text, nullable=True)
+    payload_path = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_llm_call_logs_created", "created_at"),
+        Index("ix_llm_call_logs_component_created", "component", "created_at"),
+        Index("ix_llm_call_logs_status_created", "status", "created_at"),
+        Index("ix_llm_call_logs_job_created", "job_id", "created_at"),
+        CheckConstraint(
+            "status IN ('success', 'error')",
+            name="ck_llm_call_logs_status",
+        ),
+        CheckConstraint(
+            "attempt IS NULL OR attempt >= 1",
+            name="ck_llm_call_logs_attempt_positive",
+        ),
     )
 
 

@@ -4,9 +4,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from api.schemas.logs import LogFileContent, LogFileInfo, LogListResponse
+from api.schemas.logs import (
+    LlmCallLogDetailResponse,
+    LlmCallLogItem,
+    LlmCallLogListResponse,
+    LogFileContent,
+    LogFileInfo,
+    LogListResponse,
+)
 from config import AGENT_DEBUG_DIR, safe_join
 from fastapi import APIRouter, HTTPException
+from infra.db.llm_call_log_store import (
+    clear_llm_call_logs,
+    delete_llm_call_log,
+    get_llm_call_log,
+    list_llm_call_logs,
+)
 
 router = APIRouter(tags=["logs"])
 
@@ -22,6 +35,88 @@ def _resolve_log_path(filename: str) -> Path:
         return safe_join(_log_dir(), filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid filename") from exc
+
+
+def _to_llm_log_item(raw: dict) -> LlmCallLogItem:
+    return LlmCallLogItem(
+        id=str(raw.get("id") or ""),
+        provider=str(raw.get("provider") or "openai"),
+        api=str(raw.get("api") or ""),
+        component=str(raw.get("component") or ""),
+        status=str(raw.get("status") or ""),
+        model_id=str(raw.get("model_id")) if raw.get("model_id") else None,
+        job_id=str(raw.get("job_id")) if raw.get("job_id") else None,
+        workflow_run_id=(
+            str(raw.get("workflow_run_id")) if raw.get("workflow_run_id") else None
+        ),
+        task_run_id=str(raw.get("task_run_id")) if raw.get("task_run_id") else None,
+        attempt=int(raw["attempt"]) if raw.get("attempt") is not None else None,
+        latency_ms=(
+            int(raw["latency_ms"]) if raw.get("latency_ms") is not None else None
+        ),
+        finish_reason=(
+            str(raw.get("finish_reason")) if raw.get("finish_reason") else None
+        ),
+        input_tokens=(
+            int(raw["input_tokens"]) if raw.get("input_tokens") is not None else None
+        ),
+        output_tokens=(
+            int(raw["output_tokens"]) if raw.get("output_tokens") is not None else None
+        ),
+        total_tokens=(
+            int(raw["total_tokens"]) if raw.get("total_tokens") is not None else None
+        ),
+        error_detail=str(raw.get("error_detail")) if raw.get("error_detail") else None,
+        has_payload=bool(raw.get("has_payload")),
+        created_at=int(raw.get("created_at") or 0),
+    )
+
+
+@router.get("/logs/llm-calls", response_model=LlmCallLogListResponse)
+async def list_llm_logs(
+    limit: int = 200,
+    component: str | None = None,
+    status: str | None = None,
+) -> LlmCallLogListResponse:
+    normalized_status = str(status or "").strip().lower() if status else None
+    if normalized_status and normalized_status not in {"success", "error"}:
+        raise HTTPException(status_code=400, detail="status must be success or error")
+
+    logs = list_llm_call_logs(
+        limit=limit,
+        component=str(component or "").strip() or None,
+        status=normalized_status,
+    )
+    return LlmCallLogListResponse(logs=[_to_llm_log_item(item) for item in logs])
+
+
+@router.get("/logs/llm-calls/{log_id}", response_model=LlmCallLogDetailResponse)
+async def get_llm_log(log_id: str) -> LlmCallLogDetailResponse:
+    row = get_llm_call_log(log_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return LlmCallLogDetailResponse(
+        log=_to_llm_log_item(row),
+        params_snapshot=row.get("params_snapshot"),
+        request_excerpt=str(row.get("request_excerpt") or ""),
+        response_excerpt=str(row.get("response_excerpt") or ""),
+        payload_json=row.get("payload_json"),
+        payload_raw=row.get("payload_raw"),
+    )
+
+
+@router.delete("/logs/llm-calls/{log_id}")
+async def delete_llm_log(log_id: str) -> dict[str, int]:
+    deleted = delete_llm_call_log(log_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return {"deleted": 1}
+
+
+@router.delete("/logs/llm-calls")
+async def delete_llm_logs() -> dict[str, int]:
+    deleted = clear_llm_call_logs()
+    return {"deleted": deleted}
 
 
 @router.get("/logs/agent/translate_page", response_model=LogListResponse)

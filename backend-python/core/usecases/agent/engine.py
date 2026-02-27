@@ -16,6 +16,8 @@ from infra.llm import (
     create_openai_client,
     extract_response_text,
     has_openai_sdk,
+    openai_responses_create,
+    openai_responses_stream_events,
 )
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
@@ -72,7 +74,12 @@ def run_agent_chat(messages: list[dict[str, Any]], *, model_id: str | None = Non
     client = create_openai_client({})
     input_payload = _build_input(messages)
     params = build_response_params(cfg, input_payload)
-    resp = client.responses.create(**params)
+    resp = openai_responses_create(
+        client,
+        params,
+        component="agent.chat",
+        context={"model_id": str(resolved_model)},
+    )
     return extract_response_text(resp).strip()
 
 
@@ -107,23 +114,27 @@ def run_agent_chat_stream(
     if stop_event is not None and stop_event.is_set():
         return
 
-    with client.responses.stream(**params) as stream:
-        for event in stream:
-            if stop_event is not None and stop_event.is_set():
-                break
-            event_type = getattr(event, "type", None)
-            if event_type is None and isinstance(event, dict):
-                event_type = event.get("type")
-            if event_type == "response.output_text.delta":
-                delta = getattr(event, "delta", None)
-                if delta is None and isinstance(event, dict):
-                    delta = event.get("delta")
-                if delta:
-                    had_delta = True
-                    yield str(delta)
-            elif event_type == "response.output_text.done" and not had_delta:
-                text_value = getattr(event, "text", None)
-                if text_value is None and isinstance(event, dict):
-                    text_value = event.get("text")
-                if text_value:
-                    yield str(text_value)
+    for event in openai_responses_stream_events(
+        client,
+        params,
+        component="agent.chat.stream",
+        context={"model_id": str(resolved_model)},
+    ):
+        if stop_event is not None and stop_event.is_set():
+            break
+        event_type = getattr(event, "type", None)
+        if event_type is None and isinstance(event, dict):
+            event_type = event.get("type")
+        if event_type == "response.output_text.delta":
+            delta = getattr(event, "delta", None)
+            if delta is None and isinstance(event, dict):
+                delta = event.get("delta")
+            if delta:
+                had_delta = True
+                yield str(delta)
+        elif event_type == "response.output_text.done" and not had_delta:
+            text_value = getattr(event, "text", None)
+            if text_value is None and isinstance(event, dict):
+                text_value = event.get("text")
+            if text_value:
+                yield str(text_value)

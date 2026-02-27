@@ -61,6 +61,28 @@ mark_ocr_availability(
 # -------------------------------------------------------------------
 
 
+def _is_repetitive_ocr(text: str) -> bool:
+    cleaned = text.strip()
+    if len(cleaned) < 60:
+        return False
+    counts: dict[str, int] = {}
+    for ch in cleaned:
+        counts[ch] = counts.get(ch, 0) + 1
+    most_common = max(counts.values()) if counts else 0
+    return most_common / max(len(cleaned), 1) >= 0.7
+
+
+def _validate_ocr_response_text(text: str) -> tuple[bool, str | None]:
+    cleaned = str(text or "").strip()
+    if cleaned.upper() == "NO_TEXT":
+        return True, None
+    if not cleaned or cleaned in {'""', "''"}:
+        return False, "empty OCR output"
+    if _is_repetitive_ocr(cleaned):
+        return False, "repetitive OCR output"
+    return True, None
+
+
 def _run_llm_ocr_box_chat_fallback(
         client: Any,
         cfg: dict[str, Any],
@@ -93,6 +115,7 @@ def _run_llm_ocr_box_chat_fallback(
             "volume_id": volume_id,
             "filename": filename,
         },
+        result_validator=_validate_ocr_response_text,
     )
     text = resp.choices[0].message.content or ""
     return text.strip()
@@ -205,6 +228,7 @@ def _run_llm_ocr_box(
                 "volume_id": volume_id,
                 "filename": filename,
             },
+            result_validator=_validate_ocr_response_text,
         )
     except Exception as exc:
         if cfg.get("base_url"):

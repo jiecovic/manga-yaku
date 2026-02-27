@@ -1,12 +1,12 @@
 // src/components/logs/LogsLayout.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
-    clearAgentTranslateLogs,
-    deleteAgentTranslateLog,
-    fetchAgentTranslateLog,
-    fetchAgentTranslateLogs,
-    type LogFileContent,
-    type LogFileInfo,
+    clearLlmCallLogs,
+    deleteLlmCallLog,
+    fetchLlmCallLog,
+    fetchLlmCallLogs,
+    type LlmCallLogDetailResponse,
+    type LlmCallLogItem,
 } from "../../api";
 import { JobsPanel } from "../JobsPanel";
 import { Button } from "../../ui/primitives";
@@ -18,45 +18,60 @@ function formatTimestamp(value: number): string {
     return date.toLocaleString();
 }
 
-function formatPrettyJson(text: string): string {
-    const trimmed = text.trim();
-    if (!trimmed) return "";
+function formatJson(value: unknown): string {
+    if (value === null || value === undefined) {
+        return "";
+    }
+    if (typeof value === "string") {
+        const text = value.trim();
+        if (!text) return "";
+        try {
+            return JSON.stringify(JSON.parse(text), null, 2);
+        } catch {
+            return text;
+        }
+    }
     try {
-        const parsed = JSON.parse(trimmed);
-        return JSON.stringify(parsed, null, 2);
+        return JSON.stringify(value, null, 2);
     } catch {
-        return text;
+        return String(value);
     }
 }
 
 export function LogsLayout() {
-    const [logs, setLogs] = useState<LogFileInfo[]>([]);
-    const [selected, setSelected] = useState<string | null>(null);
-    const [content, setContent] = useState<LogFileContent | null>(null);
+    const [logs, setLogs] = useState<LlmCallLogItem[]>([]);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [detail, setDetail] = useState<LlmCallLogDetailResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [detailError, setDetailError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
-    const [showRaw, setShowRaw] = useState(false);
     const [copyMessage, setCopyMessage] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<"all" | "success" | "error">(
+        "all",
+    );
+    const [showPayload, setShowPayload] = useState(false);
 
     const refresh = async () => {
         setLoading(true);
         setError(null);
         try {
-            const files = await fetchAgentTranslateLogs();
-            setLogs(files);
-            if (files.length === 0) {
-                setSelected(null);
-                setContent(null);
-            } else if (!selected) {
-                setSelected(files[0].name);
-            } else if (!files.some((file) => file.name === selected)) {
-                setSelected(files[0].name);
+            const data = await fetchLlmCallLogs({
+                limit: 400,
+                status: statusFilter === "all" ? undefined : statusFilter,
+            });
+            setLogs(data);
+            if (data.length === 0) {
+                setSelectedId(null);
+                setDetail(null);
+            } else if (!selectedId) {
+                setSelectedId(data[0].id);
+            } else if (!data.some((item) => item.id === selectedId)) {
+                setSelectedId(data[0].id);
             }
         } catch (err) {
-            console.error("Failed to load logs", err);
-            setError("Failed to load logs.");
+            console.error("Failed to load LLM logs", err);
+            setError("Failed to load LLM logs.");
         } finally {
             setLoading(false);
         }
@@ -65,70 +80,67 @@ export function LogsLayout() {
     useEffect(() => {
         void refresh();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [statusFilter]);
 
     useEffect(() => {
-        if (!selected) {
-            setContent(null);
+        if (!selectedId) {
+            setDetail(null);
             return;
         }
-        setShowRaw(false);
+        setShowPayload(false);
         let cancelled = false;
         const load = async () => {
             setDetailError(null);
             try {
-                const data = await fetchAgentTranslateLog(selected);
+                const data = await fetchLlmCallLog(selectedId);
                 if (cancelled) return;
-                setContent(data);
+                setDetail(data);
             } catch (err) {
-                console.error("Failed to load log detail", err);
+                console.error("Failed to load LLM log detail", err);
                 if (cancelled) return;
-                setDetailError("Failed to load log.");
+                setDetailError("Failed to load log detail.");
             }
         };
         void load();
         return () => {
             cancelled = true;
         };
-    }, [selected]);
+    }, [selectedId]);
 
-    const formattedContent = useMemo(() => {
-        if (!content) return "";
-        if (content.is_json && content.content) {
-            return JSON.stringify(content.content, null, 2);
+    const selectedLog = useMemo(
+        () => logs.find((log) => log.id === selectedId) ?? null,
+        [logs, selectedId],
+    );
+
+    const paramsText = useMemo(
+        () => formatJson(detail?.params_snapshot ?? null),
+        [detail],
+    );
+    const payloadText = useMemo(() => {
+        if (!detail) return "";
+        const jsonText = formatJson(detail.payload_json);
+        if (jsonText) return jsonText;
+        return detail.payload_raw ?? "";
+    }, [detail]);
+    const requestText = useMemo(
+        () => formatJson(detail?.request_excerpt ?? ""),
+        [detail],
+    );
+    const responseText = useMemo(
+        () => formatJson(detail?.response_excerpt ?? ""),
+        [detail],
+    );
+
+    const handleCopy = async (label: string, value: string) => {
+        if (!value.trim()) {
+            return;
         }
-        return content.raw ?? "";
-    }, [content]);
-
-    const parsed = useMemo(() => {
-        if (!content || !content.is_json) return null;
-        if (!content.content || typeof content.content !== "object") return null;
-        return content.content as Record<string, unknown>;
-    }, [content]);
-
-    const systemPrompt = useMemo(() => {
-        const value = parsed?.system_prompt;
-        return typeof value === "string" ? value : "";
-    }, [parsed]);
-
-    const userPrompt = useMemo(() => {
-        const value = parsed?.user_prompt;
-        return typeof value === "string" ? formatPrettyJson(value) : "";
-    }, [parsed]);
-
-    const responseText = useMemo(() => {
-        const value = parsed?.raw_output_text;
-        return typeof value === "string" ? formatPrettyJson(value) : "";
-    }, [parsed]);
-
-    const handleCopy = async (label: string, text: string) => {
-        if (!text) return;
         try {
             if (navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(text);
+                await navigator.clipboard.writeText(value);
             } else {
                 const textarea = document.createElement("textarea");
-                textarea.value = text;
+                textarea.value = value;
                 textarea.style.position = "fixed";
                 textarea.style.left = "-9999px";
                 document.body.appendChild(textarea);
@@ -145,13 +157,13 @@ export function LogsLayout() {
     };
 
     const handleDelete = async () => {
-        if (!selected) return;
+        if (!selectedId) return;
         setDeleting(true);
         try {
-            await deleteAgentTranslateLog(selected);
+            await deleteLlmCallLog(selectedId);
             await refresh();
         } catch (err) {
-            console.error("Failed to delete log", err);
+            console.error("Failed to delete LLM log", err);
             setError("Failed to delete log.");
         } finally {
             setDeleting(false);
@@ -161,11 +173,11 @@ export function LogsLayout() {
     const handleDeleteAll = async () => {
         setDeleting(true);
         try {
-            await clearAgentTranslateLogs();
+            await clearLlmCallLogs();
             await refresh();
         } catch (err) {
-            console.error("Failed to delete logs", err);
-            setError("Failed to delete logs.");
+            console.error("Failed to clear LLM logs", err);
+            setError("Failed to clear logs.");
         } finally {
             setDeleting(false);
         }
@@ -178,14 +190,26 @@ export function LogsLayout() {
                 <section className={ui.trainingSection}>
                     <div className={ui.trainingSectionHeader}>
                         <div>
-                            <div className={ui.trainingSectionTitle}>
-                                Agent Debug Logs
-                            </div>
+                            <div className={ui.trainingSectionTitle}>LLM Call Logs</div>
                             <div className={ui.trainingSectionMeta}>
-                                Translate-page snapshots
+                                Central request/response capture across OCR, translation, and
+                                agent flows
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <select
+                                className={`${ui.select} w-28`}
+                                value={statusFilter}
+                                onChange={(event) =>
+                                    setStatusFilter(
+                                        event.target.value as "all" | "success" | "error",
+                                    )
+                                }
+                            >
+                                <option value="all">All</option>
+                                <option value="success">Success</option>
+                                <option value="error">Error</option>
+                            </select>
                             <Button
                                 type="button"
                                 variant="ghostSmall"
@@ -207,35 +231,45 @@ export function LogsLayout() {
 
                     {error && <div className={ui.trainingError}>{error}</div>}
 
-                    <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
+                    <div className="mt-4 grid gap-4 lg:grid-cols-[320px_1fr]">
                         <div className={ui.trainingCard}>
-                            <div className={ui.trainingSubTitle}>Files</div>
-                            <div className="mt-3 space-y-2">
+                            <div className={ui.trainingSubTitle}>Calls</div>
+                            <div className="mt-3 space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                                 {logs.length === 0 && (
-                                    <div className={ui.trainingHelp}>
-                                        No logs yet.
-                                    </div>
+                                    <div className={ui.trainingHelp}>No logs yet.</div>
                                 )}
                                 {logs.map((log) => {
-                                    const active = selected === log.name;
-                                    const label = log.name.split("_")[0];
+                                    const active = selectedId === log.id;
                                     return (
                                         <button
-                                            key={log.name}
+                                            key={log.id}
                                             type="button"
                                             className={`w-full text-left rounded-md border px-2 py-1.5 text-xs ${
                                                 active
                                                     ? "border-emerald-400 bg-emerald-500/10 text-emerald-100"
                                                     : "border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-600"
                                             }`}
-                                            onClick={() => setSelected(log.name)}
+                                            onClick={() => setSelectedId(log.id)}
                                         >
-                                            <div className="truncate font-medium">
-                                                {label}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="truncate font-medium">
+                                                    {log.component}
+                                                </div>
+                                                <div
+                                                    className={`text-[10px] ${
+                                                        log.status === "success"
+                                                            ? "text-emerald-300"
+                                                            : "text-rose-300"
+                                                    }`}
+                                                >
+                                                    {log.status}
+                                                </div>
                                             </div>
                                             <div className={ui.trainingMetaSmall}>
-                                                {formatTimestamp(log.updated_at)} ·{" "}
-                                                {(log.size / 1024).toFixed(1)} KB
+                                                {log.model_id || "-"} · {log.api}
+                                            </div>
+                                            <div className={ui.trainingMetaSmall}>
+                                                {formatTimestamp(log.created_at)}
                                             </div>
                                         </button>
                                     );
@@ -244,37 +278,35 @@ export function LogsLayout() {
                         </div>
 
                         <div className={ui.trainingCard}>
-                        <div className={ui.trainingSectionHeader}>
-                            <div>
-                                <div className={ui.trainingSectionTitle}>
-                                    Detail
-                                </div>
+                            <div className={ui.trainingSectionHeader}>
+                                <div>
+                                    <div className={ui.trainingSectionTitle}>Detail</div>
                                     <div className={ui.trainingSectionMeta}>
-                                        {content
-                                            ? `${content.name} · ${formatTimestamp(
-                                                  content.updated_at,
+                                        {selectedLog
+                                            ? `${selectedLog.id} · ${formatTimestamp(
+                                                  selectedLog.created_at,
                                               )}`
-                                            : "Select a log"}
+                                            : "Select a call"}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {content && (
+                                    {detail && (
                                         <>
                                             <Button
                                                 type="button"
                                                 variant="ghostSmall"
-                                                onClick={() => setShowRaw(false)}
-                                                disabled={!showRaw}
+                                                onClick={() => setShowPayload(false)}
+                                                disabled={!showPayload}
                                             >
-                                                Prompt view
+                                                Request/Response
                                             </Button>
                                             <Button
                                                 type="button"
                                                 variant="ghostSmall"
-                                                onClick={() => setShowRaw(true)}
-                                                disabled={showRaw}
+                                                onClick={() => setShowPayload(true)}
+                                                disabled={showPayload}
                                             >
-                                                Raw JSON
+                                                Full payload
                                             </Button>
                                         </>
                                     )}
@@ -282,54 +314,53 @@ export function LogsLayout() {
                                         type="button"
                                         variant="actionDangerSmall"
                                         onClick={handleDelete}
-                                        disabled={!selected || deleting}
+                                        disabled={!selectedId || deleting}
                                     >
                                         Delete
                                     </Button>
                                 </div>
                             </div>
 
-                            {detailError && (
-                                <div className={ui.trainingError}>
-                                    {detailError}
-                                </div>
-                            )}
-
+                            {detailError && <div className={ui.trainingError}>{detailError}</div>}
                             {copyMessage && (
-                                <div className={ui.trainingMetaSmall}>
-                                    {copyMessage}
-                                </div>
+                                <div className={ui.trainingMetaSmall}>{copyMessage}</div>
                             )}
 
-                            {!content && !detailError && (
+                            {!detail && !detailError && (
                                 <div className={ui.trainingHelp}>
-                                    Pick a log file to view its contents.
+                                    Pick a log entry to inspect prompts and response.
                                 </div>
                             )}
 
-                            {content && (
+                            {detail && (
                                 <div className="mt-2 space-y-3">
-                                    <div className={ui.trainingSubTitle}>
-                                        Prompt + Response
+                                    <div className={ui.trainingMetaSmall}>
+                                        Latency: {detail.log.latency_ms ?? "-"}ms · Tokens:{" "}
+                                        {detail.log.input_tokens ?? "-"} /{" "}
+                                        {detail.log.output_tokens ?? "-"} /{" "}
+                                        {detail.log.total_tokens ?? "-"} · Finish:{" "}
+                                        {detail.log.finish_reason || "-"}
                                     </div>
+                                    {detail.log.error_detail && (
+                                        <div className={ui.trainingError}>
+                                            {detail.log.error_detail}
+                                        </div>
+                                    )}
 
-                                    {!showRaw && (
+                                    {!showPayload && (
                                         <div className="space-y-3">
                                             <div>
                                                 <div className="flex items-center justify-between">
                                                     <div className={ui.trainingLabelSmall}>
-                                                    System prompt
+                                                        Params snapshot
                                                     </div>
                                                     <Button
                                                         type="button"
                                                         variant="ghostSmall"
                                                         onClick={() =>
-                                                            void handleCopy(
-                                                                "System prompt",
-                                                                systemPrompt,
-                                                            )
+                                                            void handleCopy("Params", paramsText)
                                                         }
-                                                        disabled={!systemPrompt}
+                                                        disabled={!paramsText}
                                                     >
                                                         Copy
                                                     </Button>
@@ -337,24 +368,21 @@ export function LogsLayout() {
                                                 <pre
                                                     className={`${ui.trainingLogBox} mt-2 p-3 whitespace-pre-wrap break-words`}
                                                 >
-                                                    {systemPrompt || "-"}
+                                                    {paramsText || "-"}
                                                 </pre>
                                             </div>
                                             <div>
                                                 <div className="flex items-center justify-between">
                                                     <div className={ui.trainingLabelSmall}>
-                                                    User prompt
+                                                        Request excerpt
                                                     </div>
                                                     <Button
                                                         type="button"
                                                         variant="ghostSmall"
                                                         onClick={() =>
-                                                            void handleCopy(
-                                                                "User prompt",
-                                                                userPrompt,
-                                                            )
+                                                            void handleCopy("Request", requestText)
                                                         }
-                                                        disabled={!userPrompt}
+                                                        disabled={!requestText}
                                                     >
                                                         Copy
                                                     </Button>
@@ -362,22 +390,19 @@ export function LogsLayout() {
                                                 <pre
                                                     className={`${ui.trainingLogBox} mt-2 p-3 whitespace-pre-wrap break-words`}
                                                 >
-                                                    {userPrompt || "-"}
+                                                    {requestText || "-"}
                                                 </pre>
                                             </div>
                                             <div>
                                                 <div className="flex items-center justify-between">
                                                     <div className={ui.trainingLabelSmall}>
-                                                    Response
+                                                        Response excerpt
                                                     </div>
                                                     <Button
                                                         type="button"
                                                         variant="ghostSmall"
                                                         onClick={() =>
-                                                            void handleCopy(
-                                                                "Response",
-                                                                responseText,
-                                                            )
+                                                            void handleCopy("Response", responseText)
                                                         }
                                                         disabled={!responseText}
                                                     >
@@ -393,7 +418,7 @@ export function LogsLayout() {
                                         </div>
                                     )}
 
-                                    {showRaw && (
+                                    {showPayload && (
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-end">
                                                 <Button
@@ -401,19 +426,19 @@ export function LogsLayout() {
                                                     variant="ghostSmall"
                                                     onClick={() =>
                                                         void handleCopy(
-                                                            "Raw JSON",
-                                                            formattedContent,
+                                                            "Full payload",
+                                                            payloadText,
                                                         )
                                                     }
-                                                    disabled={!formattedContent}
+                                                    disabled={!payloadText}
                                                 >
-                                                    Copy raw
+                                                    Copy
                                                 </Button>
                                             </div>
                                             <pre
                                                 className={`${ui.trainingLogBox} p-3 whitespace-pre-wrap break-words`}
                                             >
-                                                {formattedContent}
+                                                {payloadText || "-"}
                                             </pre>
                                         </div>
                                     )}
