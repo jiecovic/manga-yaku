@@ -1,24 +1,23 @@
 # backend-python/api/routers/volumes.py
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from config import VOLUMES_ROOT, safe_join
 from infra.db.db import check_db
 from infra.db.db_store import (
-    clear_page_context_snapshot,
-    clear_volume_context,
-    clear_volume_derived_data,
+    create_volume as create_volume_record,
+)
+from infra.db.db_store import (
     delete_page,
     delete_volume,
     ensure_page,
     get_max_page_index,
-    get_page_context_snapshot,
     get_volume,
-    get_volume_context,
     list_page_filenames,
     list_pages,
     list_volumes,
@@ -26,15 +25,23 @@ from infra.db.db_store import (
     volume_name_exists,
 )
 from infra.db.db_store import (
-    create_volume as create_volume_record,
-)
-from infra.db.db_store import (
     get_page_context as load_page_context,
 )
 from infra.db.db_store import (
     set_page_context as save_page_context,
 )
-from pydantic import BaseModel
+
+from .volumes_memory_service import (
+    clear_page_memory as clear_page_memory_data,
+)
+from .volumes_memory_service import (
+    clear_volume_derived_state_payload,
+    get_page_memory_payload,
+    get_volume_memory_payload,
+)
+from .volumes_memory_service import (
+    clear_volume_memory as clear_volume_memory_data,
+)
 
 router = APIRouter(tags=["library"])
 
@@ -231,12 +238,6 @@ def _resolve_insert_index(
 
     max_index = get_max_page_index(volume_id)
     return (max_index or float(len(pages))) + 1.0
-
-
-def _to_iso(value: datetime | None) -> str | None:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return None
 
 
 @router.get("/health")
@@ -598,26 +599,7 @@ async def set_page_context(
     response_model=VolumeMemoryResponse,
 )
 async def get_volume_memory(volume_id: str) -> VolumeMemoryResponse:
-    if get_volume(volume_id) is None:
-        raise HTTPException(status_code=404, detail="Volume not found")
-    context = get_volume_context(volume_id)
-    if context is None:
-        return VolumeMemoryResponse(
-            rollingSummary="",
-            activeCharacters=[],
-            openThreads=[],
-            glossary=[],
-            lastPageIndex=None,
-            updatedAt=None,
-        )
-    return VolumeMemoryResponse(
-        rollingSummary=str(context.get("rolling_summary") or ""),
-        activeCharacters=context.get("active_characters") or [],
-        openThreads=context.get("open_threads") or [],
-        glossary=context.get("glossary") or [],
-        lastPageIndex=context.get("last_page_index"),
-        updatedAt=_to_iso(context.get("updated_at")),
-    )
+    return VolumeMemoryResponse(**get_volume_memory_payload(volume_id))
 
 
 @router.get(
@@ -628,30 +610,7 @@ async def get_page_memory(
     volume_id: str,
     filename: str,
 ) -> PageMemoryResponse:
-    if get_volume(volume_id) is None:
-        raise HTTPException(status_code=404, detail="Volume not found")
-    if filename not in set(list_page_filenames(volume_id)):
-        raise HTTPException(status_code=404, detail="Page not found")
-    context = get_page_context_snapshot(volume_id, filename)
-    if context is None:
-        return PageMemoryResponse(
-            pageSummary="",
-            imageSummary="",
-            characters=[],
-            openThreads=[],
-            glossary=[],
-            createdAt=None,
-            updatedAt=None,
-        )
-    return PageMemoryResponse(
-        pageSummary=str(context.get("page_summary") or ""),
-        imageSummary=str(context.get("image_summary") or ""),
-        characters=context.get("characters_snapshot") or [],
-        openThreads=context.get("open_threads_snapshot") or [],
-        glossary=context.get("glossary_snapshot") or [],
-        createdAt=_to_iso(context.get("created_at")),
-        updatedAt=_to_iso(context.get("updated_at")),
-    )
+    return PageMemoryResponse(**get_page_memory_payload(volume_id, filename))
 
 
 @router.delete(
@@ -659,9 +618,7 @@ async def get_page_memory(
     response_model=ClearMemoryResponse,
 )
 async def clear_volume_memory(volume_id: str) -> ClearMemoryResponse:
-    if get_volume(volume_id) is None:
-        raise HTTPException(status_code=404, detail="Volume not found")
-    clear_volume_context(volume_id)
+    clear_volume_memory_data(volume_id)
     return ClearMemoryResponse(cleared=True)
 
 
@@ -673,14 +630,7 @@ async def clear_page_memory(
     volume_id: str,
     filename: str,
 ) -> ClearMemoryResponse:
-    if get_volume(volume_id) is None:
-        raise HTTPException(status_code=404, detail="Volume not found")
-    if filename not in set(list_page_filenames(volume_id)):
-        raise HTTPException(status_code=404, detail="Page not found")
-
-    # Clear both structured page memory snapshot and manual page context text.
-    clear_page_context_snapshot(volume_id, filename)
-    save_page_context(volume_id, filename, "")
+    clear_page_memory_data(volume_id, filename)
     return ClearMemoryResponse(cleared=True)
 
 
@@ -691,35 +641,4 @@ async def clear_page_memory(
 async def clear_volume_derived_state(
     volume_id: str,
 ) -> ClearVolumeDerivedDataResponse:
-    if get_volume(volume_id) is None:
-        raise HTTPException(status_code=404, detail="Volume not found")
-
-    try:
-        raw = clear_volume_derived_data(volume_id)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    return ClearVolumeDerivedDataResponse(
-        cleared=True,
-        details=ClearVolumeDerivedDataDetails(
-            pagesTouched=int(raw.get("pages_touched") or 0),
-            boxesDeleted=int(raw.get("boxes_deleted") or 0),
-            detectionRunsDeleted=int(raw.get("detection_runs_deleted") or 0),
-            pageContextSnapshotsDeleted=int(
-                raw.get("page_context_snapshots_deleted") or 0
-            ),
-            pageNotesCleared=int(raw.get("page_notes_cleared") or 0),
-            volumeContextDeleted=int(raw.get("volume_context_deleted") or 0),
-            agentSessionsDeleted=int(raw.get("agent_sessions_deleted") or 0),
-            workflowRunsDeleted=int(raw.get("workflow_runs_deleted") or 0),
-            taskRunsDeleted=int(raw.get("task_runs_deleted") or 0),
-            taskAttemptEventsDeleted=int(raw.get("task_attempt_events_deleted") or 0),
-            llmCallLogsDeleted=int(raw.get("llm_call_logs_deleted") or 0),
-            llmPayloadFilesDeleted=int(raw.get("llm_payload_files_deleted") or 0),
-            agentDebugFilesDeleted=int(raw.get("agent_debug_files_deleted") or 0),
-        ),
-    )
+    return ClearVolumeDerivedDataResponse(**clear_volume_derived_state_payload(volume_id))
