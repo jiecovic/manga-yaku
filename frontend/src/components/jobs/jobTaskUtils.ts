@@ -9,7 +9,12 @@ export type TaskCounts = {
     canceled: number;
 };
 
-const WORKFLOW_JOB_TYPES = new Set(["ocr_box", "ocr_page", "agent_translate_page"]);
+const WORKFLOW_JOB_TYPES = new Set([
+    "ocr_box",
+    "ocr_page",
+    "translate_box",
+    "agent_translate_page",
+]);
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "canceled", "timed_out"]);
 const TERMINAL_JOB_STATUSES = new Set(["finished", "failed", "canceled"]);
@@ -23,7 +28,7 @@ export function isJobActive(job: Job): boolean {
 }
 
 export function isImplicitlyExpanded(job: Job): boolean {
-    return job.type === "ocr_box";
+    return job.type === "ocr_box" || job.type === "translate_box";
 }
 
 export function summarizeTaskCounts(tasks: JobTaskRun[]): TaskCounts {
@@ -94,6 +99,9 @@ export function taskTypeLabel(task: JobTaskRun): string {
     if (stage === "translate_page") {
         return "translate_page";
     }
+    if (stage === "translate_box") {
+        return "translate_box";
+    }
     if (stage === "merge_state") {
         return "merge_state";
     }
@@ -132,6 +140,13 @@ export function taskMessage(task: JobTaskRun): string | null {
             return `OCR done: ${preview}`;
         }
         return preview;
+    }
+    const rawTranslation = result.translation;
+    if (typeof rawTranslation === "string" && rawTranslation.trim()) {
+        const trimmed = rawTranslation.trim();
+        const preview =
+            trimmed.length > 96 ? `${trimmed.slice(0, 96).trimEnd()}...` : trimmed;
+        return `Translation done: ${preview}`;
     }
     const rawError = result.error_message;
     if (typeof rawError === "string" && rawError.trim()) {

@@ -98,7 +98,8 @@ export function JobsPanel() {
                             const taskTotal = tasks.length;
                             const forceExpanded = isImplicitlyExpanded(job);
                             const expanded = forceExpanded || Boolean(expandedJobs[job.id]);
-                            const renderAsSingleTask = job.type === "ocr_box";
+                            const renderAsSingleTask =
+                                job.type === "ocr_box" || job.type === "translate_box";
                             const singleTask = renderAsSingleTask ? tasks[0] : null;
                             const resultDurationRaw =
                                 job.result && typeof job.result === "object"
