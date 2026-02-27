@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -19,14 +18,16 @@ from api.schemas.jobs import (
     JobCapability,
     JobsCapabilitiesResponse,
 )
-from core.usecases.settings.service import get_setting_value
-from core.usecases.translation.profiles import get_translation_profile
-from infra.db.db_store import load_page
-from infra.jobs.handlers.utils import list_text_boxes
 from infra.jobs.runtime import STORE
-from infra.jobs.store import Job, JobPublic, JobStatus
+from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
 
+from .jobs_creation_service import (
+    create_ocr_box_workflow,
+    create_ocr_page_workflow,
+    create_translate_box_workflow,
+    enqueue_memory_job,
+)
 from .jobs_service import (
     cancel_job as cancel_job_record,
 )
@@ -42,15 +43,7 @@ from .jobs_service import (
     get_resume_agent_payload,
     list_job_public_records,
 )
-from .jobs_workflow_helpers import (
-    AGENT_WORKFLOW_TYPE,
-    OCR_BOX_WORKFLOW_TYPE,
-    OCR_PAGE_WORKFLOW_TYPE,
-    create_ocr_workflow_with_tasks,
-    create_translate_workflow_with_task,
-    normalize_profile_ids,
-    resolve_enabled_ocr_profiles,
-)
+from .jobs_workflow_helpers import AGENT_WORKFLOW_TYPE
 
 router = APIRouter(tags=["jobs"])
 
@@ -70,87 +63,9 @@ _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     agent_translate_page=JobCapability(enabled=True),
 )
 
-def _enqueue_job(
-    *,
-    job_type: str,
-    payload: dict,
-    progress: float | None = None,
-    message: str | None = None,
-) -> str:
-    job_id = str(uuid4())
-    now = STORE.now()
-    job = Job(
-        id=job_id,
-        type=job_type,
-        status=JobStatus.queued,
-        created_at=now,
-        updated_at=now,
-        payload=payload,
-        result=None,
-        error=None,
-        progress=progress,
-        message=message,
-    )
-    STORE.add_job(job)
-    return job_id
-
 @router.post("/jobs/ocr_box", response_model=CreateJobResponse)
 async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    raw_box_id = req.boxId
-    box_id = int(raw_box_id or 0)
-    if box_id <= 0:
-        raise HTTPException(status_code=400, detail="boxId is required for OCR box workflow")
-
-    profile_ids = normalize_profile_ids(
-        raw_profile_ids=[str(req.profileId or "").strip()],
-    )
-    valid_profiles = resolve_enabled_ocr_profiles(profile_ids)
-    if not valid_profiles:
-        raise HTTPException(status_code=400, detail="No enabled OCR profile selected")
-
-    profile_id = valid_profiles[0]
-    request_payload = {
-        "profileId": profile_id,
-        "profileIds": [profile_id],
-        "volumeId": volume_id,
-        "filename": filename,
-        "x": float(req.x),
-        "y": float(req.y),
-        "width": float(req.width),
-        "height": float(req.height),
-        "boxId": box_id,
-        "boxOrder": req.boxOrder,
-    }
-    queued_tasks = [
-        {
-            "status": "queued",
-            "box_id": box_id,
-            "profile_id": profile_id,
-            "input_json": {
-                "volume_id": volume_id,
-                "filename": filename,
-                "box_id": box_id,
-                "profile_id": profile_id,
-                "x": float(req.x),
-                "y": float(req.y),
-                "width": float(req.width),
-                "height": float(req.height),
-            },
-        }
-    ]
-
-    workflow_run_id = create_ocr_workflow_with_tasks(
-        workflow_type=OCR_BOX_WORKFLOW_TYPE,
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        total_boxes=1,
-        skipped=0,
-        processable_boxes=1,
-        queued_tasks=queued_tasks,
-    )
+    workflow_run_id = create_ocr_box_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -158,74 +73,7 @@ async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
 async def create_ocr_page_job(
     req: CreateOcrPageJobRequest,
 ) -> CreateJobResponse:
-    raw_profile_ids = req.profileIds if isinstance(req.profileIds, list) else []
-    selected_profile_id = str(req.profileId or "").strip()
-    if not selected_profile_id and raw_profile_ids:
-        selected_profile_id = str(raw_profile_ids[0] or "").strip()
-    profile_ids = normalize_profile_ids(
-        raw_profile_ids=[selected_profile_id] if selected_profile_id else None,
-        fallback_profile_id="manga_ocr_default",
-    )
-    valid_profiles = resolve_enabled_ocr_profiles(profile_ids)
-
-    if not valid_profiles:
-        raise HTTPException(status_code=400, detail="No enabled OCR profiles selected")
-
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    skip_existing = bool(req.skipExisting)
-
-    page = load_page(volume_id, filename)
-    text_boxes = list_text_boxes(page)
-    total_boxes = len(text_boxes)
-    processable_boxes: list[dict] = []
-    skipped = 0
-    for box in text_boxes:
-        if skip_existing and str(box.get("text") or "").strip():
-            skipped += 1
-            continue
-        processable_boxes.append(box)
-
-    request_payload = {
-        "profileId": valid_profiles[0],
-        "profileIds": valid_profiles,
-        "volumeId": volume_id,
-        "filename": filename,
-        "skipExisting": skip_existing,
-    }
-    queued_tasks: list[dict] = []
-    for box in processable_boxes:
-        box_id = int(box.get("id") or 0)
-        if box_id <= 0:
-            continue
-        for profile_id in valid_profiles:
-            queued_tasks.append(
-                {
-                    "status": "queued",
-                    "box_id": box_id,
-                    "profile_id": profile_id,
-                    "input_json": {
-                        "volume_id": volume_id,
-                        "filename": filename,
-                        "box_id": box_id,
-                        "profile_id": profile_id,
-                        "x": float(box.get("x") or 0.0),
-                        "y": float(box.get("y") or 0.0),
-                        "width": float(box.get("width") or 0.0),
-                        "height": float(box.get("height") or 0.0),
-                    },
-                }
-            )
-    workflow_run_id = create_ocr_workflow_with_tasks(
-        workflow_type=OCR_PAGE_WORKFLOW_TYPE,
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        total_boxes=total_boxes,
-        skipped=skipped,
-        processable_boxes=len(processable_boxes),
-        queued_tasks=queued_tasks,
-    )
+    workflow_run_id = create_ocr_page_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -233,45 +81,7 @@ async def create_ocr_page_job(
 async def create_translate_box_job(
     req: CreateTranslateBoxJobRequest,
 ) -> CreateJobResponse:
-    profile_id = str(req.profileId or "").strip()
-    if not profile_id:
-        raise HTTPException(status_code=400, detail="profileId is required")
-    try:
-        profile = get_translation_profile(profile_id)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not profile.get("enabled", True):
-        raise HTTPException(status_code=400, detail="Selected translation profile is disabled")
-
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    box_id = int(req.boxId or 0)
-    if box_id <= 0:
-        raise HTTPException(status_code=400, detail="boxId is required for translation workflow")
-
-    use_page_context: bool
-    if req.usePageContext is None:
-        raw = get_setting_value("translation.single_box.use_context")
-        use_page_context = bool(raw) if isinstance(raw, bool) else True
-    else:
-        use_page_context = bool(req.usePageContext)
-
-    request_payload = {
-        "profileId": profile_id,
-        "volumeId": volume_id,
-        "filename": filename,
-        "boxId": box_id,
-        "usePageContext": use_page_context,
-        "boxOrder": req.boxOrder,
-    }
-    workflow_run_id = create_translate_workflow_with_task(
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        box_id=box_id,
-        profile_id=profile_id,
-        use_page_context=use_page_context,
-    )
+    workflow_run_id = create_translate_box_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -289,7 +99,8 @@ async def create_translate_page_job(
 async def create_agent_translate_page_job(
     req: CreateAgentTranslatePageJobRequest,
 ) -> CreateJobResponse:
-    job_id = _enqueue_job(
+    job_id = enqueue_memory_job(
+        store=STORE,
         job_type=AGENT_WORKFLOW_TYPE,
         payload=req.dict(),
         progress=0,
@@ -309,7 +120,8 @@ async def get_job_capabilities() -> JobsCapabilitiesResponse:
 async def create_box_detection_job(
     req: CreateBoxDetectionJobRequest,
 ) -> CreateJobResponse:
-    job_id = _enqueue_job(
+    job_id = enqueue_memory_job(
+        store=STORE,
         job_type="box_detection",
         payload=req.dict(),
     )
@@ -332,7 +144,8 @@ async def create_prepare_dataset_job(
             raise HTTPException(status_code=404, detail=message) from exc
         raise HTTPException(status_code=400, detail=message) from exc
 
-    job_id = _enqueue_job(
+    job_id = enqueue_memory_job(
+        store=STORE,
         job_type="prepare_dataset",
         payload=req.dict(),
         progress=0,
@@ -352,7 +165,8 @@ async def create_train_model_job(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    job_id = _enqueue_job(
+    job_id = enqueue_memory_job(
+        store=STORE,
         job_type="train_model",
         payload=req.dict(),
         progress=0,
@@ -452,7 +266,8 @@ async def get_job_tasks(job_id: str) -> dict:
 async def resume_job(job_id: str) -> CreateJobResponse:
     payload = get_resume_agent_payload(job_id=job_id, store=STORE)
 
-    new_job_id = _enqueue_job(
+    new_job_id = enqueue_memory_job(
+        store=STORE,
         job_type=AGENT_WORKFLOW_TYPE,
         payload=payload,
         progress=0,

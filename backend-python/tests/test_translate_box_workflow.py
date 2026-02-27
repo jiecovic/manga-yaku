@@ -12,6 +12,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from api.routers.jobs import create_translate_box_job
+from api.routers.jobs_creation_service import create_translate_box_workflow
 from api.routers.jobs_workflow_helpers import create_translate_workflow_with_task
 from api.schemas.jobs import CreateTranslateBoxJobRequest
 
@@ -69,17 +70,40 @@ class TranslateBoxJobRouteTests(unittest.IsolatedAsyncioTestCase):
             usePageContext=None,
             boxOrder=3,
         )
-        with (
-            patch("api.routers.jobs.get_setting_value", return_value=True),
-            patch("api.routers.jobs.get_translation_profile", return_value={"enabled": True}),
-            patch(
-                "api.routers.jobs.create_translate_workflow_with_task",
-                return_value="wf-xyz",
-            ) as create_workflow_mock,
-        ):
+        with patch(
+            "api.routers.jobs.create_translate_box_workflow",
+            return_value="wf-xyz",
+        ) as create_workflow_mock:
             result = await create_translate_box_job(req)
 
         self.assertEqual(result.jobId, "wf-xyz")
+        create_workflow_mock.assert_called_once_with(req)
+
+
+class TranslateBoxCreationServiceTests(unittest.TestCase):
+    def test_create_translate_box_job_builds_translate_task_payload(self) -> None:
+        req = CreateTranslateBoxJobRequest(
+            profileId="openai_fast_translate",
+            volumeId="vol-a",
+            filename="001.jpg",
+            boxId=9,
+            usePageContext=None,
+            boxOrder=3,
+        )
+        with (
+            patch("api.routers.jobs_creation_service.get_setting_value", return_value=True),
+            patch(
+                "api.routers.jobs_creation_service.get_translation_profile",
+                return_value={"enabled": True},
+            ),
+            patch(
+                "api.routers.jobs_creation_service.create_translate_workflow_with_task",
+                return_value="wf-xyz",
+            ) as create_workflow_mock,
+        ):
+            workflow_id = create_translate_box_workflow(req)
+
+        self.assertEqual(workflow_id, "wf-xyz")
         create_workflow_mock.assert_called_once()
         kwargs = create_workflow_mock.call_args.kwargs
         self.assertEqual(kwargs["volume_id"], "vol-a")
@@ -89,7 +113,7 @@ class TranslateBoxJobRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["use_page_context"], True)
         self.assertEqual(kwargs["request_payload"]["boxOrder"], 3)
 
-    async def test_create_translate_box_job_rejects_disabled_profile(self) -> None:
+    def test_create_translate_box_job_rejects_disabled_profile(self) -> None:
         req = CreateTranslateBoxJobRequest(
             profileId="openai_fast_translate",
             volumeId="vol-a",
@@ -97,10 +121,13 @@ class TranslateBoxJobRouteTests(unittest.IsolatedAsyncioTestCase):
             boxId=9,
         )
         with (
-            patch("api.routers.jobs.get_translation_profile", return_value={"enabled": False}),
+            patch(
+                "api.routers.jobs_creation_service.get_translation_profile",
+                return_value={"enabled": False},
+            ),
             self.assertRaises(HTTPException) as raised,
         ):
-            await create_translate_box_job(req)
+            create_translate_box_workflow(req)
 
         self.assertEqual(raised.exception.status_code, 400)
         self.assertIn("disabled", str(raised.exception.detail).lower())
