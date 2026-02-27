@@ -37,12 +37,14 @@ from .store_volume_page import (
     update_volume_next_index,
     volume_name_exists,
 )
+from .store_volume_reset import clear_volume_derived_data
 
 __all__ = [
-    "create_detection_run",
-    "create_volume",
     "clear_page_context_snapshot",
     "clear_volume_context",
+    "clear_volume_derived_data",
+    "create_detection_run",
+    "create_volume",
     "delete_boxes_by_ids",
     "delete_page",
     "delete_volume",

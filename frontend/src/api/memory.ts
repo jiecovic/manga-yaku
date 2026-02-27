@@ -32,6 +32,27 @@ export interface PageMemory {
     updatedAt?: string | null;
 }
 
+export interface ClearVolumeDerivedDataDetails {
+    pagesTouched: number;
+    boxesDeleted: number;
+    detectionRunsDeleted: number;
+    pageContextSnapshotsDeleted: number;
+    pageNotesCleared: number;
+    volumeContextDeleted: number;
+    agentSessionsDeleted: number;
+    workflowRunsDeleted: number;
+    taskRunsDeleted: number;
+    taskAttemptEventsDeleted: number;
+    llmCallLogsDeleted: number;
+    llmPayloadFilesDeleted: number;
+    agentDebugFilesDeleted: number;
+}
+
+export interface ClearVolumeDerivedDataResponse {
+    cleared: boolean;
+    details: ClearVolumeDerivedDataDetails;
+}
+
 export async function fetchVolumeMemory(volumeId: string): Promise<VolumeMemory> {
     return getJson<VolumeMemory>(
         `${API_BASE}/api/volumes/${encodeURIComponent(volumeId)}/memory`,
@@ -76,4 +97,19 @@ export async function clearPageMemory(
             },
         },
     );
+}
+
+export async function clearVolumeDerivedData(
+    volumeId: string,
+): Promise<ClearVolumeDerivedDataResponse> {
+    const res = await apiFetch(
+        `${API_BASE}/api/volumes/${encodeURIComponent(volumeId)}/derived-data`,
+        {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+            },
+        },
+    );
+    return res.json() as Promise<ClearVolumeDerivedDataResponse>;
 }

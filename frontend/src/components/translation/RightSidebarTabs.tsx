@@ -226,6 +226,7 @@ export function RightSidebarTabs({
                             onChangeTranslationProfile={onChangeTranslationProfile}
                         />
                         <RightSidebarActionsSection
+                            selectedVolumeId={selectedVolumeId}
                             boxDetectionProfiles={boxDetectionProfiles}
                             boxDetectionProfileId={boxDetectionProfileId}
                             onChangeBoxDetectionProfile={onChangeBoxDetectionProfile}

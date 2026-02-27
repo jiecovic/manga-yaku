@@ -4,16 +4,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from config import VOLUMES_ROOT, safe_join
 from infra.db.db import check_db
-from infra.db.db_store import (
-    create_volume as create_volume_record,
-)
 from infra.db.db_store import (
     clear_page_context_snapshot,
     clear_volume_context,
+    clear_volume_derived_data,
     delete_page,
     delete_volume,
     ensure_page,
@@ -28,12 +28,14 @@ from infra.db.db_store import (
     volume_name_exists,
 )
 from infra.db.db_store import (
+    create_volume as create_volume_record,
+)
+from infra.db.db_store import (
     get_page_context as load_page_context,
 )
 from infra.db.db_store import (
     set_page_context as save_page_context,
 )
-from pydantic import BaseModel
 
 router = APIRouter(tags=["library"])
 
@@ -95,6 +97,27 @@ class PageMemoryResponse(BaseModel):
 
 class ClearMemoryResponse(BaseModel):
     cleared: bool
+
+
+class ClearVolumeDerivedDataDetails(BaseModel):
+    pagesTouched: int
+    boxesDeleted: int
+    detectionRunsDeleted: int
+    pageContextSnapshotsDeleted: int
+    pageNotesCleared: int
+    volumeContextDeleted: int
+    agentSessionsDeleted: int
+    workflowRunsDeleted: int
+    taskRunsDeleted: int
+    taskAttemptEventsDeleted: int
+    llmCallLogsDeleted: int
+    llmPayloadFilesDeleted: int
+    agentDebugFilesDeleted: int
+
+
+class ClearVolumeDerivedDataResponse(BaseModel):
+    cleared: bool
+    details: ClearVolumeDerivedDataDetails
 
 
 class CreateVolumeRequest(BaseModel):
@@ -660,3 +683,44 @@ async def clear_page_memory(
     clear_page_context_snapshot(volume_id, filename)
     save_page_context(volume_id, filename, "")
     return ClearMemoryResponse(cleared=True)
+
+
+@router.delete(
+    "/volumes/{volume_id}/derived-data",
+    response_model=ClearVolumeDerivedDataResponse,
+)
+async def clear_volume_derived_state(
+    volume_id: str,
+) -> ClearVolumeDerivedDataResponse:
+    if get_volume(volume_id) is None:
+        raise HTTPException(status_code=404, detail="Volume not found")
+
+    try:
+        raw = clear_volume_derived_data(volume_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return ClearVolumeDerivedDataResponse(
+        cleared=True,
+        details=ClearVolumeDerivedDataDetails(
+            pagesTouched=int(raw.get("pages_touched") or 0),
+            boxesDeleted=int(raw.get("boxes_deleted") or 0),
+            detectionRunsDeleted=int(raw.get("detection_runs_deleted") or 0),
+            pageContextSnapshotsDeleted=int(
+                raw.get("page_context_snapshots_deleted") or 0
+            ),
+            pageNotesCleared=int(raw.get("page_notes_cleared") or 0),
+            volumeContextDeleted=int(raw.get("volume_context_deleted") or 0),
+            agentSessionsDeleted=int(raw.get("agent_sessions_deleted") or 0),
+            workflowRunsDeleted=int(raw.get("workflow_runs_deleted") or 0),
+            taskRunsDeleted=int(raw.get("task_runs_deleted") or 0),
+            taskAttemptEventsDeleted=int(raw.get("task_attempt_events_deleted") or 0),
+            llmCallLogsDeleted=int(raw.get("llm_call_logs_deleted") or 0),
+            llmPayloadFilesDeleted=int(raw.get("llm_payload_files_deleted") or 0),
+            agentDebugFilesDeleted=int(raw.get("agent_debug_files_deleted") or 0),
+        ),
+    )

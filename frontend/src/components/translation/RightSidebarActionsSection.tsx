@@ -1,5 +1,6 @@
 // src/components/translation/RightSidebarActionsSection.tsx
 import { useEffect, useState } from "react";
+import { clearVolumeDerivedData } from "../../api/memory";
 import { CollapsibleSection } from "./CollapsibleSection";
 import type { BoxDetectionProfile } from "../../types";
 import { ui } from "../../ui/tokens";
@@ -8,6 +9,7 @@ import { normalizeBoxType } from "../../utils/boxes";
 import { useJobs } from "../../context/useJobs";
 
 interface ActionsSectionProps {
+    selectedVolumeId: string;
     boxDetectionProfiles: BoxDetectionProfile[];
     boxDetectionProfileId: string;
     onChangeBoxDetectionProfile: (id: string) => void;
@@ -29,6 +31,7 @@ interface ActionsSectionProps {
 }
 
 export function RightSidebarActionsSection({
+    selectedVolumeId,
     boxDetectionProfiles,
     boxDetectionProfileId,
     onChangeBoxDetectionProfile,
@@ -48,6 +51,7 @@ export function RightSidebarActionsSection({
 }: ActionsSectionProps) {
     const { jobCapabilities } = useJobs();
     const [refreshingModels, setRefreshingModels] = useState(false);
+    const [resettingVolumeData, setResettingVolumeData] = useState(false);
     const loadingBoxDetectionProfiles = boxDetectionProfiles.length === 0;
     const enabledBoxDetectionProfiles = boxDetectionProfiles.filter(
         (profile) => profile.enabled,
@@ -108,6 +112,42 @@ export function RightSidebarActionsSection({
             await onRefreshBoxDetectionProfiles();
         } finally {
             setRefreshingModels(false);
+        }
+    };
+
+    const handleResetVolumeData = async () => {
+        const volumeId = String(selectedVolumeId || "").trim();
+        if (!volumeId || resettingVolumeData) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "Reset this volume derived data?\n\nThis will delete all boxes, OCR text, translations, page context/memory, volume memory, workflow/task history, and volume agent sessions.\nImages are kept.",
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        const typed = window.prompt(
+            `Type "${volumeId}" to confirm full volume reset (images are kept).`,
+            "",
+        );
+        if ((typed ?? "").trim() !== volumeId) {
+            return;
+        }
+
+        setResettingVolumeData(true);
+        try {
+            await clearVolumeDerivedData(volumeId);
+            onRefreshPageState();
+        } catch (err) {
+            const message =
+                err instanceof Error && err.message
+                    ? err.message
+                    : "Failed to reset volume data.";
+            window.alert(message);
+        } finally {
+            setResettingVolumeData(false);
         }
     };
 
@@ -283,7 +323,7 @@ export function RightSidebarActionsSection({
                     </Button>
                 </div>
 
-                {/* Row 3: Clear text */}
+                {/* Row 4: Clear text */}
                 <div className="flex gap-2">
                     <Button
                         type="button"
@@ -299,6 +339,20 @@ export function RightSidebarActionsSection({
                         onClick={onClearTranslationText}
                     >
                         Clear translations
+                    </Button>
+                </div>
+
+                {/* Row 5: Destructive reset */}
+                <div className="flex gap-2">
+                    <Button
+                        type="button"
+                        variant="actionRed"
+                        onClick={() => {
+                            void handleResetVolumeData();
+                        }}
+                        disabled={!selectedVolumeId || resettingVolumeData}
+                    >
+                        {resettingVolumeData ? "Resetting..." : "Reset Volume Data"}
                     </Button>
                 </div>
             </div>
