@@ -25,12 +25,19 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version-file: ".nvmrc"
 
-      - name: Install frontend deps
-        working-directory: frontend
+      - name: Install root deps
         run: npm ci
 
+      - name: Install frontend deps
+        run: npm --prefix frontend ci
+
+      - name: Pyright (backend)
+        run: npm run lint:types
+
+      - name: Typecheck (frontend)
+        run: npm run typecheck:frontend
+
       - name: ESLint
-        working-directory: frontend
-        run: npm run lint
+        run: npm run lint:frontend

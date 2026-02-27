@@ -146,6 +146,7 @@ npm run lint:frontend
 This repo includes a `.pre-commit-config.yaml` that runs:
 - `ruff` (backend)
 - `pyright` (backend types)
+- `tsc --noEmit` (frontend types)
 - `eslint` (frontend)
 
 Setup:

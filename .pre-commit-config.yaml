@@ -20,6 +20,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^backend-python/.*\.py$
+      - id: typecheck-frontend
+        name: typecheck (frontend)
+        entry: npm run typecheck:frontend
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.[tj]sx?$
       - id: eslint-frontend
         name: eslint (frontend)
         entry: npm --prefix frontend run lint
