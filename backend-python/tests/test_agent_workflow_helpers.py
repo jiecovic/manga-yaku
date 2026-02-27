@@ -1,3 +1,9 @@
+"""Unit tests for workflow helper pure functions and payload mapping.
+
+These tests patch storage-side effects and focus on deterministic helper
+behavior for OCR profile resolution, box mapping, and translation apply logic.
+"""
+
 from __future__ import annotations
 
 import unittest

@@ -1,3 +1,9 @@
+"""Unit tests for agent workflow state transitions and terminal checks.
+
+These tests assert allowed transition paths and confirm invalid transitions
+raise errors.
+"""
+
 from __future__ import annotations
 
 import unittest
@@ -33,4 +39,3 @@ class AgentStateMachineTests(unittest.TestCase):
         self.assertTrue(is_terminal(WorkflowState.failed))
         self.assertTrue(is_terminal(WorkflowState.canceled))
         self.assertFalse(is_terminal(WorkflowState.translating))
-

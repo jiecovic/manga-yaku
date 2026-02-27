@@ -1,4 +1,9 @@
-# backend-python/tests/test_api_smoke.py
+"""Smoke tests for critical HTTP endpoints using FastAPI TestClient.
+
+These tests run lightweight request/response checks with DB initialization
+disabled to validate API wiring and baseline handler health.
+"""
+
 from __future__ import annotations
 
 import os

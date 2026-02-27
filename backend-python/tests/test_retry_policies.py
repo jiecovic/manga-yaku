@@ -1,3 +1,9 @@
+"""Unit tests for OCR/translation retry policy and normalization helpers.
+
+These tests validate deterministic retry override generation and post-response
+sanitization logic for empty/invalid outputs.
+"""
+
 from __future__ import annotations
 
 import unittest

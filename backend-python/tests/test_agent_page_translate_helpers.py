@@ -1,3 +1,9 @@
+"""Unit tests for page-translate helper sanitizers and OCR consensus guards.
+
+These tests use deterministic in-memory payloads to validate normalization and
+no-text override logic without calling external services.
+"""
+
 from __future__ import annotations
 
 import unittest

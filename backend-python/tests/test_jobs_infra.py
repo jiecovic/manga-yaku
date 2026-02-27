@@ -1,4 +1,9 @@
-# backend-python/tests/test_jobs_infra.py
+"""Unit tests for in-memory job store and worker behavior.
+
+These tests exercise SSE serialization safety and unknown-job failure handling
+using an async in-process worker loop.
+"""
+
 from __future__ import annotations
 
 import asyncio
