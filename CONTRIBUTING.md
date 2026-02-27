@@ -166,11 +166,15 @@ pre-commit run --all-files
 
 ```text
 cd backend-python
-# POSIX shells
-DB_INIT=false python -m unittest discover -s tests
-# PowerShell
-$env:DB_INIT="false"; python -m unittest discover -s tests
+source .venv/bin/activate
+pytest -q tests
 ```
+
+Notes:
+- The test suite defaults to offline Hugging Face/Transformers mode via
+  `tests/conftest.py` (`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`).
+- For quick local checks, you can run focused files such as:
+  `pytest -q tests/test_agent_state_machine.py tests/test_retry_policies.py`.
 
 ## Backend Package Conventions
 
