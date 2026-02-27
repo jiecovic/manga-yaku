@@ -22,34 +22,34 @@ from api.schemas.jobs import (
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
 from infra.db.db_store import load_page
-from infra.db.workflow_store import (
-    cancel_workflow_run,
-    delete_terminal_workflow_runs,
-    delete_workflow_run,
-    get_workflow_run,
-    list_task_attempt_events,
-    list_task_runs,
-)
 from infra.jobs.handlers.utils import list_text_boxes
 from infra.jobs.runtime import STORE
 from infra.jobs.store import Job, JobPublic, JobStatus
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
 
+from .jobs_service import (
+    cancel_job as cancel_job_record,
+)
+from .jobs_service import (
+    clear_finished_jobs as clear_finished_jobs_record,
+)
+from .jobs_service import (
+    delete_job as delete_job_record,
+)
+from .jobs_service import (
+    get_job_public,
+    get_job_tasks_payload,
+    get_resume_agent_payload,
+    list_job_public_records,
+)
 from .jobs_workflow_helpers import (
     AGENT_WORKFLOW_TYPE,
     OCR_BOX_WORKFLOW_TYPE,
     OCR_PAGE_WORKFLOW_TYPE,
-    PERSISTED_WORKFLOW_TYPES,
-    cancel_pending_tasks,
-    combined_jobs,
     create_ocr_workflow_with_tasks,
     create_translate_workflow_with_task,
-    extract_workflow_run_id,
     normalize_profile_ids,
     resolve_enabled_ocr_profiles,
-    restore_agent_payload_from_workflow,
-    workflow_run_to_job_public,
-    workflow_status_to_job_status,
 )
 
 router = APIRouter(tags=["jobs"])
@@ -365,7 +365,7 @@ async def create_train_model_job(
 
 @router.get("/jobs", response_model=list[JobPublic])
 async def list_jobs() -> list[JobPublic]:
-    return combined_jobs(STORE)
+    return list_job_public_records(store=STORE)
 
 
 @router.get("/jobs/stream")
@@ -375,7 +375,7 @@ async def stream_jobs(request: Request) -> StreamingResponse:
     async def event_generator():
         try:
             # keep memory and persisted workflow jobs in one snapshot for the client.
-            initial = {"jobs": [job.model_dump() for job in combined_jobs(STORE)]}
+            initial = {"jobs": [job.model_dump() for job in list_job_public_records(store=STORE)]}
             yield STORE.format_sse(initial)
             while True:
                 if await request.is_disconnected():
@@ -385,7 +385,7 @@ async def stream_jobs(request: Request) -> StreamingResponse:
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
                     continue
-                payload = {"jobs": [job.model_dump() for job in combined_jobs(STORE)]}
+                payload = {"jobs": [job.model_dump() for job in list_job_public_records(store=STORE)]}
                 yield STORE.format_sse(payload)
         finally:
             STORE.unsubscribe(queue)
@@ -440,69 +440,17 @@ async def stream_job_logs(job_id: str, request: Request) -> StreamingResponse:
 
 @router.get("/jobs/{job_id}", response_model=JobPublic)
 async def get_job(job_id: str) -> JobPublic:
-    job = STORE.get_job(job_id)
-    if job is not None:
-        return STORE.public_job(job)
-
-    run = get_workflow_run(job_id)
-    if run and str(run.get("workflow_type")) in PERSISTED_WORKFLOW_TYPES:
-        return workflow_run_to_job_public(run, store=STORE)
-
-    raise HTTPException(status_code=404, detail="Job not found")
+    return get_job_public(job_id=job_id, store=STORE)
 
 
 @router.get("/jobs/{job_id}/tasks")
 async def get_job_tasks(job_id: str) -> dict:
-    job = STORE.get_job(job_id)
-    workflow_run_id: str | None = None
-    if job is not None:
-        if job.type not in PERSISTED_WORKFLOW_TYPES:
-            raise HTTPException(status_code=400, detail="Task runs are not available for this job type")
-        workflow_run_id = extract_workflow_run_id(job)
-    else:
-        run = get_workflow_run(job_id)
-        if not run or str(run.get("workflow_type")) not in PERSISTED_WORKFLOW_TYPES:
-            raise HTTPException(status_code=404, detail="Job not found")
-        workflow_run_id = str(run.get("id"))
-
-    if not workflow_run_id:
-        return {"workflowRunId": None, "tasks": []}
-
-    tasks = list_task_runs(str(workflow_run_id))
-    attempt_map = list_task_attempt_events([str(task.get("id")) for task in tasks])
-    for task in tasks:
-        task_id = str(task.get("id"))
-        task["attempt_events"] = attempt_map.get(task_id, [])
-    return {
-        "workflowRunId": str(workflow_run_id),
-        "tasks": tasks,
-    }
+    return get_job_tasks_payload(job_id=job_id, store=STORE)
 
 
 @router.post("/jobs/{job_id}/resume", response_model=CreateJobResponse)
 async def resume_job(job_id: str) -> CreateJobResponse:
-    payload: dict
-
-    memory_job = STORE.get_job(job_id)
-    if memory_job is not None:
-        if memory_job.type != AGENT_WORKFLOW_TYPE:
-            raise HTTPException(status_code=400, detail="Only agent jobs support resume")
-        if memory_job.status in (JobStatus.queued, JobStatus.running):
-            raise HTTPException(status_code=409, detail="Job is already active")
-        payload = dict(memory_job.payload or {})
-    else:
-        run = get_workflow_run(job_id)
-        if not run or str(run.get("workflow_type")) != AGENT_WORKFLOW_TYPE:
-            raise HTTPException(status_code=404, detail="Job not found")
-        if str(run.get("status")) == "running":
-            raise HTTPException(status_code=409, detail="Workflow is marked running; cancel it first")
-        payload = restore_agent_payload_from_workflow(run)
-
-    if not payload.get("volumeId") or not payload.get("filename"):
-        raise HTTPException(status_code=400, detail="Cannot resume: missing workflow input payload")
-
-    payload.pop("workflowRunId", None)
-    payload.pop("workflowStage", None)
+    payload = get_resume_agent_payload(job_id=job_id, store=STORE)
 
     new_job_id = _enqueue_job(
         job_type=AGENT_WORKFLOW_TYPE,
@@ -516,72 +464,17 @@ async def resume_job(job_id: str) -> CreateJobResponse:
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str) -> dict:
-    job = STORE.get_job(job_id)
-    if job is not None:
-        if job.status in (JobStatus.finished, JobStatus.failed, JobStatus.canceled):
-            return {"status": job.status}
-
-        STORE.update_job(job, status=JobStatus.canceled, message="Canceled")
-        workflow_run_id = extract_workflow_run_id(job)
-        if workflow_run_id and job.type in PERSISTED_WORKFLOW_TYPES:
-            cancel_workflow_run(workflow_run_id, message="Canceled")
-            cancel_pending_tasks(workflow_run_id)
-        if job.type == "train_model":
-            log_path = STORE.logs.get(job_id)
-            if log_path and log_path.is_file():
-                try:
-                    with log_path.open("a", encoding="utf-8") as handle:
-                        handle.write("\nCanceled by user.\n")
-                except OSError:
-                    pass
-        return {"status": job.status}
-
-    run = get_workflow_run(job_id)
-    if not run or str(run.get("workflow_type")) not in PERSISTED_WORKFLOW_TYPES:
-        raise HTTPException(status_code=404, detail="Job not found")
-    status = workflow_status_to_job_status(str(run.get("status") or "failed"))
-    if status in (JobStatus.finished, JobStatus.failed, JobStatus.canceled):
-        return {"status": status}
-    cancel_workflow_run(job_id, message="Canceled")
-    cancel_pending_tasks(job_id)
-    return {"status": JobStatus.canceled}
+    status = cancel_job_record(job_id=job_id, store=STORE)
+    return {"status": status}
 
 
 @router.delete("/jobs/finished")
 async def clear_finished_jobs() -> dict:
-    to_delete = [
-        job_id
-        for job_id, job in STORE.jobs.items()
-        if job.status in (JobStatus.finished, JobStatus.failed, JobStatus.canceled)
-    ]
-
-    for job_id in to_delete:
-        del STORE.jobs[job_id]
-        STORE.logs.pop(job_id, None)
-
-    db_deleted = 0
-    for workflow_type in PERSISTED_WORKFLOW_TYPES:
-        db_deleted += delete_terminal_workflow_runs(workflow_type=workflow_type)
-    STORE.broadcast_snapshot()
-    return {"deleted": len(to_delete) + db_deleted}
+    deleted = clear_finished_jobs_record(store=STORE)
+    return {"deleted": deleted}
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str) -> dict:
-    job = STORE.get_job(job_id)
-    if job is not None:
-        if job.status == JobStatus.running:
-            raise HTTPException(
-                status_code=409,
-                detail="Cannot delete a running job. Cancel it first.",
-            )
-
-        del STORE.jobs[job_id]
-        STORE.logs.pop(job_id, None)
-        STORE.broadcast_snapshot()
-        return {"deleted": 1}
-
-    if delete_workflow_run(job_id):
-        return {"deleted": 1}
-
-    raise HTTPException(status_code=404, detail="Job not found")
+    deleted = delete_job_record(job_id=job_id, store=STORE)
+    return {"deleted": deleted}
