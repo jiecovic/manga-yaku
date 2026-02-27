@@ -20,6 +20,7 @@ from api.schemas.jobs import (
     JobsCapabilitiesResponse,
 )
 from core.usecases.settings.service import get_setting_value
+from core.usecases.translation.profiles import get_translation_profile
 from infra.db.db_store import load_page
 from infra.db.workflow_store import (
     cancel_workflow_run,
@@ -42,6 +43,7 @@ from .jobs_workflow_helpers import (
     cancel_pending_tasks,
     combined_jobs,
     create_ocr_workflow_with_tasks,
+    create_translate_workflow_with_task,
     extract_workflow_run_id,
     normalize_profile_ids,
     resolve_enabled_ocr_profiles,
@@ -231,6 +233,22 @@ async def create_ocr_page_job(
 async def create_translate_box_job(
     req: CreateTranslateBoxJobRequest,
 ) -> CreateJobResponse:
+    profile_id = str(req.profileId or "").strip()
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="profileId is required")
+    try:
+        profile = get_translation_profile(profile_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not profile.get("enabled", True):
+        raise HTTPException(status_code=400, detail="Selected translation profile is disabled")
+
+    volume_id = str(req.volumeId or "").strip()
+    filename = str(req.filename or "").strip()
+    box_id = int(req.boxId or 0)
+    if box_id <= 0:
+        raise HTTPException(status_code=400, detail="boxId is required for translation workflow")
+
     use_page_context: bool
     if req.usePageContext is None:
         raw = get_setting_value("translation.single_box.use_context")
@@ -238,16 +256,23 @@ async def create_translate_box_job(
     else:
         use_page_context = bool(req.usePageContext)
 
-    payload = req.dict()
-    payload["usePageContext"] = use_page_context
-    job_id = _enqueue_job(
-        job_type="translate_box",
-        payload=payload,
-        progress=0,
-        message="Queued",
+    request_payload = {
+        "profileId": profile_id,
+        "volumeId": volume_id,
+        "filename": filename,
+        "boxId": box_id,
+        "usePageContext": use_page_context,
+        "boxOrder": req.boxOrder,
+    }
+    workflow_run_id = create_translate_workflow_with_task(
+        volume_id=volume_id,
+        filename=filename,
+        request_payload=request_payload,
+        box_id=box_id,
+        profile_id=profile_id,
+        use_page_context=use_page_context,
     )
-    await STORE.queue.put(job_id)
-    return CreateJobResponse(jobId=job_id)
+    return CreateJobResponse(jobId=workflow_run_id)
 
 
 @router.post("/jobs/translate_page", response_model=CreateJobResponse)

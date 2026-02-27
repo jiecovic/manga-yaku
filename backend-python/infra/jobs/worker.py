@@ -11,7 +11,12 @@ from .handlers.registry import HANDLERS
 from .store import Job, JobStatus, JobStore
 
 logger = logging.getLogger(__name__)
-_PERSISTED_WORKFLOW_JOB_TYPES = {"agent_translate_page", "ocr_page", "ocr_box"}
+_PERSISTED_WORKFLOW_JOB_TYPES = {
+    "agent_translate_page",
+    "ocr_page",
+    "ocr_box",
+    "translate_box",
+}
 
 
 def _extract_workflow_run_id(job: Job, result: dict[str, Any] | None = None) -> str | None:

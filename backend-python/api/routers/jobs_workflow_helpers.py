@@ -14,11 +14,14 @@ from infra.jobs.store import Job, JobPublic, JobStatus, JobStore
 AGENT_WORKFLOW_TYPE = "agent_translate_page"
 OCR_PAGE_WORKFLOW_TYPE = "ocr_page"
 OCR_BOX_WORKFLOW_TYPE = "ocr_box"
+TRANSLATE_BOX_WORKFLOW_TYPE = "translate_box"
 OCR_TASK_STAGE = "ocr"
+TRANSLATE_TASK_STAGE = "translate_box"
 PERSISTED_WORKFLOW_TYPES = {
     AGENT_WORKFLOW_TYPE,
     OCR_PAGE_WORKFLOW_TYPE,
     OCR_BOX_WORKFLOW_TYPE,
+    TRANSLATE_BOX_WORKFLOW_TYPE,
 }
 
 
@@ -321,6 +324,73 @@ def create_ocr_workflow_with_tasks(
             workflow_run_id,
             state="completed",
             status="completed",
+            result_json=result_json,
+        )
+
+    return workflow_run_id
+
+
+def create_translate_workflow_with_task(
+    *,
+    volume_id: str,
+    filename: str,
+    request_payload: dict,
+    box_id: int,
+    profile_id: str,
+    use_page_context: bool,
+) -> str:
+    workflow_run_id = create_workflow_run(
+        workflow_type=TRANSLATE_BOX_WORKFLOW_TYPE,
+        volume_id=volume_id,
+        filename=filename,
+        state="queued",
+        status="queued",
+    )
+
+    base_result: dict = {
+        "request": request_payload,
+        "progress": 0,
+        "message": "Queued",
+    }
+    update_workflow_run(
+        workflow_run_id,
+        state="queued",
+        status="queued",
+        result_json=base_result,
+    )
+
+    created_tasks = create_task_runs(
+        workflow_id=workflow_run_id,
+        stage=TRANSLATE_TASK_STAGE,
+        tasks=[
+            {
+                "status": "queued",
+                "box_id": box_id,
+                "profile_id": profile_id,
+                "input_json": {
+                    "volume_id": volume_id,
+                    "filename": filename,
+                    "box_id": box_id,
+                    "profile_id": profile_id,
+                    "use_page_context": bool(use_page_context),
+                },
+            }
+        ],
+    )
+    if created_tasks == 0:
+        result_json = dict(base_result)
+        result_json.update(
+            {
+                "progress": 100,
+                "message": "No valid translation tasks",
+                "status": "error",
+            }
+        )
+        update_workflow_run(
+            workflow_run_id,
+            state="failed",
+            status="failed",
+            error_message="No valid translation tasks",
             result_json=result_json,
         )
 
