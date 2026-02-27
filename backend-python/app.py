@@ -22,11 +22,13 @@ from api.routers import (
     settings as settings_router,
 )
 from infra.db.db import init_db
+from infra.domain_bindings import bind_domain_ports
 from infra.jobs.runtime import start_jobs_runtime, stop_jobs_runtime
 from infra.logging import setup_logging
 from settings import settings
 
 setup_logging(settings.log_level)
+bind_domain_ports()
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -73,4 +75,3 @@ app.include_router(box_detection.router, prefix="/api")
 app.include_router(training.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
-

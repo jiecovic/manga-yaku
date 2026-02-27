@@ -1,12 +1,7 @@
 # backend-python/core/domain/pages.py
 from __future__ import annotations
 
-from infra.db.db_store import (
-    set_box_ocr_text_by_id as store_set_box_ocr_text_by_id,
-)
-from infra.db.db_store import (
-    set_box_translation_by_id as store_set_box_translation_by_id,
-)
+from .page_ports import get_page_write_port
 
 
 def set_box_ocr_text_by_id(
@@ -18,7 +13,8 @@ def set_box_ocr_text_by_id(
     """
     Update the 'text' field of a box identified by its numeric id.
     """
-    store_set_box_ocr_text_by_id(
+    write_port = get_page_write_port()
+    write_port.set_box_ocr_text_by_id(
         volume_id,
         filename,
         box_id=box_id,
@@ -36,10 +32,10 @@ def set_box_translation_by_id(
     Update the 'translation' field of a box identified by its numeric id
     and persist the page state.
     """
-    store_set_box_translation_by_id(
+    write_port = get_page_write_port()
+    write_port.set_box_translation_by_id(
         volume_id,
         filename,
         box_id=box_id,
         translation=translation,
     )
-
