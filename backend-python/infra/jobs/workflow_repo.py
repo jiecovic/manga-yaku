@@ -7,6 +7,20 @@ from typing import Any
 from sqlalchemy import select
 
 from infra.db.db import TaskRun, WorkflowRun, get_session
+from infra.db.workflow_store import (
+    append_task_attempt_event as store_append_task_attempt_event,
+)
+from infra.db.workflow_store import get_workflow_run as store_get_workflow_run
+from infra.db.workflow_store import (
+    list_task_runs as store_list_task_runs,
+)
+from infra.db.workflow_store import (
+    mark_running_workflows_interrupted as store_mark_running_workflows_interrupted,
+)
+from infra.db.workflow_store import update_task_run as store_update_task_run
+from infra.db.workflow_store import (
+    update_workflow_run as store_update_workflow_run,
+)
 
 
 def _utc_now() -> datetime:
@@ -103,3 +117,93 @@ def requeue_stale_running_tasks(
             task_row.updated_at = now
             changed += 1
     return changed
+
+
+def get_workflow_run(workflow_id: str) -> dict[str, Any] | None:
+    return store_get_workflow_run(workflow_id)
+
+
+def list_task_runs(
+    workflow_id: str,
+    *,
+    stage: str | None = None,
+) -> list[dict[str, Any]]:
+    return store_list_task_runs(workflow_id, stage=stage)
+
+
+def update_task_run(
+    task_id: str,
+    *,
+    status: str | None = None,
+    attempt: int | None = None,
+    error_code: str | None = None,
+    error_detail: str | None = None,
+    result_json: dict[str, Any] | None = None,
+    started: bool = False,
+    finished: bool = False,
+) -> None:
+    store_update_task_run(
+        task_id,
+        status=status,
+        attempt=attempt,
+        error_code=error_code,
+        error_detail=error_detail,
+        result_json=result_json,
+        started=started,
+        finished=finished,
+    )
+
+
+def update_workflow_run(
+    workflow_id: str,
+    *,
+    state: str | None = None,
+    status: str | None = None,
+    error_message: str | None = None,
+    result_json: dict[str, Any] | None = None,
+) -> None:
+    store_update_workflow_run(
+        workflow_id,
+        state=state,
+        status=status,
+        error_message=error_message,
+        result_json=result_json,
+    )
+
+
+def append_task_attempt_event(
+    *,
+    task_id: str,
+    attempt: int,
+    tool_name: str,
+    model_id: str | None = None,
+    prompt_version: str | None = None,
+    params_snapshot: dict[str, Any] | None = None,
+    token_usage: dict[str, Any] | None = None,
+    finish_reason: str | None = None,
+    latency_ms: int | None = None,
+    error_detail: str | None = None,
+) -> None:
+    store_append_task_attempt_event(
+        task_id=task_id,
+        attempt=attempt,
+        tool_name=tool_name,
+        model_id=model_id,
+        prompt_version=prompt_version,
+        params_snapshot=params_snapshot,
+        token_usage=token_usage,
+        finish_reason=finish_reason,
+        latency_ms=latency_ms,
+        error_detail=error_detail,
+    )
+
+
+def mark_running_workflows_interrupted(
+    *,
+    workflow_type: str | None = None,
+    message: str = "Interrupted by backend restart",
+) -> int:
+    return store_mark_running_workflows_interrupted(
+        workflow_type=workflow_type,
+        message=message,
+    )

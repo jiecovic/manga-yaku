@@ -9,14 +9,15 @@ from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
 from infra.db.db_store import set_box_ocr_text_by_id
-from infra.db.workflow_store import (
+from infra.jobs.workflow_repo import (
     append_task_attempt_event,
+    claim_next_task,
     get_workflow_run,
     list_task_runs,
+    requeue_stale_running_tasks,
     update_task_run,
     update_workflow_run,
 )
-from infra.jobs.workflow_repo import claim_next_task, requeue_stale_running_tasks
 
 logger = logging.getLogger(__name__)
 

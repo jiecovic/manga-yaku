@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from infra.db.workflow_store import update_workflow_run
+from infra.jobs.workflow_repo import update_workflow_run
 from infra.training.job_runner import TrainingCanceled
 
 from .handlers.registry import HANDLERS

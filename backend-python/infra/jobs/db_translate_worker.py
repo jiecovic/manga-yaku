@@ -10,15 +10,16 @@ from core.usecases.translation.execution import (
     run_translation_task_async,
 )
 from core.usecases.translation.profiles import get_translation_profile
-from infra.db.workflow_store import (
+from infra.jobs.handlers.utils import make_snippet
+from infra.jobs.workflow_repo import (
     append_task_attempt_event,
+    claim_next_task,
     get_workflow_run,
     list_task_runs,
+    requeue_stale_running_tasks,
     update_task_run,
     update_workflow_run,
 )
-from infra.jobs.handlers.utils import make_snippet
-from infra.jobs.workflow_repo import claim_next_task, requeue_stale_running_tasks
 
 logger = logging.getLogger(__name__)
 

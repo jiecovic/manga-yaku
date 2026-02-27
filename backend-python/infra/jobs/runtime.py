@@ -4,11 +4,11 @@ import asyncio
 import logging
 from threading import Event
 
-from infra.db.workflow_store import mark_running_workflows_interrupted
 from infra.jobs.db_ocr_worker import run_ocr_db_worker
 from infra.jobs.db_translate_worker import run_translate_db_worker
 from infra.jobs.store import JobStatus, JobStore
 from infra.jobs.worker import job_worker
+from infra.jobs.workflow_repo import mark_running_workflows_interrupted
 
 logger = logging.getLogger(__name__)
 
