@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from .db import Page, PageContext, VolumeContext, get_session
 from .store_utils import normalize_json_blob, utc_now
@@ -115,3 +115,28 @@ def upsert_page_context(
         context.open_threads_snapshot = normalize_json_blob(open_threads_snapshot)
         context.glossary_snapshot = normalize_json_blob(glossary_snapshot)
         context.updated_at = now
+
+
+def clear_volume_context(volume_id: str) -> bool:
+    with get_session() as session:
+        deleted = session.execute(
+            delete(VolumeContext).where(VolumeContext.volume_id == volume_id)
+        ).rowcount or 0
+        return deleted > 0
+
+
+def clear_page_context_snapshot(volume_id: str, filename: str) -> bool:
+    with get_session() as session:
+        page = session.execute(
+            select(Page).where(
+                Page.volume_id == volume_id,
+                Page.filename == filename,
+            )
+        ).scalar_one_or_none()
+        if page is None:
+            return False
+
+        deleted = session.execute(
+            delete(PageContext).where(PageContext.page_id == page.id)
+        ).rowcount or 0
+        return deleted > 0

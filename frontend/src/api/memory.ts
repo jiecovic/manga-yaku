@@ -1,5 +1,5 @@
 // src/api/memory.ts
-import { API_BASE, getJson } from "./client";
+import { API_BASE, apiFetch, getJson } from "./client";
 
 export interface CharacterMemory {
     name: string;
@@ -46,5 +46,34 @@ export async function fetchPageMemory(
         `${API_BASE}/api/volumes/${encodeURIComponent(
             volumeId,
         )}/pages/${encodeURIComponent(filename)}/memory`,
+    );
+}
+
+export async function clearVolumeMemory(volumeId: string): Promise<void> {
+    await apiFetch(
+        `${API_BASE}/api/volumes/${encodeURIComponent(volumeId)}/memory`,
+        {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+            },
+        },
+    );
+}
+
+export async function clearPageMemory(
+    volumeId: string,
+    filename: string,
+): Promise<void> {
+    await apiFetch(
+        `${API_BASE}/api/volumes/${encodeURIComponent(
+            volumeId,
+        )}/pages/${encodeURIComponent(filename)}/memory`,
+        {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+            },
+        },
     );
 }

@@ -2,7 +2,12 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { fetchPageMemory, fetchVolumeMemory } from "../../api/memory";
+import {
+    clearPageMemory,
+    clearVolumeMemory,
+    fetchPageMemory,
+    fetchVolumeMemory,
+} from "../../api/memory";
 import type {
     CharacterMemory,
     GlossaryEntry,
@@ -54,6 +59,10 @@ function formatStamp(value?: string | null) {
         return value;
     }
     return parsed.toLocaleString();
+}
+
+function toErrorText(err: unknown, fallback: string): string {
+    return err instanceof Error ? err.message : fallback;
 }
 
 function MemorySection({
@@ -174,6 +183,8 @@ export function MemoryModal({
     const [pageLoading, setPageLoading] = useState(false);
     const [volumeError, setVolumeError] = useState<string | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
+    const [clearingVolume, setClearingVolume] = useState(false);
+    const [clearingPage, setClearingPage] = useState(false);
     const lastSyncedJobUpdateRef = useRef(0);
 
     const pageLabel = useMemo(() => {
@@ -223,6 +234,50 @@ export function MemoryModal({
             setPageLoading(false);
         }
     }, [volumeId, filename]);
+
+    const handleClearVolume = useCallback(async () => {
+        if (!volumeId || clearingVolume) {
+            return;
+        }
+        const confirmed = window.confirm(
+            "Clear volume memory (rolling summary, active characters, open threads, glossary)?",
+        );
+        if (!confirmed) {
+            return;
+        }
+        setClearingVolume(true);
+        setVolumeError(null);
+        try {
+            await clearVolumeMemory(volumeId);
+            await loadVolume();
+        } catch (err) {
+            setVolumeError(toErrorText(err, "Failed to clear volume memory."));
+        } finally {
+            setClearingVolume(false);
+        }
+    }, [volumeId, clearingVolume, loadVolume]);
+
+    const handleClearPage = useCallback(async () => {
+        if (!volumeId || !filename || clearingPage) {
+            return;
+        }
+        const confirmed = window.confirm(
+            "Clear page memory and manual page context for this page?",
+        );
+        if (!confirmed) {
+            return;
+        }
+        setClearingPage(true);
+        setPageError(null);
+        try {
+            await clearPageMemory(volumeId, filename);
+            await loadPage();
+        } catch (err) {
+            setPageError(toErrorText(err, "Failed to clear page memory."));
+        } finally {
+            setClearingPage(false);
+        }
+    }, [volumeId, filename, clearingPage, loadPage]);
 
     const latestFinishedAgentJobUpdate = useMemo(() => {
         if (!volumeId) {
@@ -328,7 +383,9 @@ export function MemoryModal({
                                 }
                             }}
                             disabled={
-                                activeTab === "volume" ? volumeLoading : pageLoading
+                                activeTab === "volume"
+                                    ? volumeLoading || clearingVolume
+                                    : pageLoading || clearingPage
                             }
                         >
                             {activeTab === "volume"
@@ -338,6 +395,30 @@ export function MemoryModal({
                                 : pageLoading
                                 ? "Refreshing..."
                                 : "Refresh"}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="modalDanger"
+                            onClick={() => {
+                                if (activeTab === "volume") {
+                                    void handleClearVolume();
+                                } else {
+                                    void handleClearPage();
+                                }
+                            }}
+                            disabled={
+                                activeTab === "volume"
+                                    ? !volumeId || volumeLoading || clearingVolume
+                                    : !volumeId || !filename || pageLoading || clearingPage
+                            }
+                        >
+                            {activeTab === "volume"
+                                ? clearingVolume
+                                    ? "Clearing..."
+                                    : "Clear Volume Memory"
+                                : clearingPage
+                                ? "Clearing..."
+                                : "Clear Page Memory"}
                         </Button>
                         <Button
                             type="button"

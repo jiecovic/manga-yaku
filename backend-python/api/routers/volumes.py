@@ -12,6 +12,8 @@ from infra.db.db_store import (
     create_volume as create_volume_record,
 )
 from infra.db.db_store import (
+    clear_page_context_snapshot,
+    clear_volume_context,
     delete_page,
     delete_volume,
     ensure_page,
@@ -89,6 +91,10 @@ class PageMemoryResponse(BaseModel):
     glossary: list[GlossaryEntry]
     createdAt: str | None = None
     updatedAt: str | None = None
+
+
+class ClearMemoryResponse(BaseModel):
+    cleared: bool
 
 
 class CreateVolumeRequest(BaseModel):
@@ -625,3 +631,32 @@ async def get_page_memory(
         updatedAt=_to_iso(context.get("updated_at")),
     )
 
+
+@router.delete(
+    "/volumes/{volume_id}/memory",
+    response_model=ClearMemoryResponse,
+)
+async def clear_volume_memory(volume_id: str) -> ClearMemoryResponse:
+    if get_volume(volume_id) is None:
+        raise HTTPException(status_code=404, detail="Volume not found")
+    clear_volume_context(volume_id)
+    return ClearMemoryResponse(cleared=True)
+
+
+@router.delete(
+    "/volumes/{volume_id}/pages/{filename}/memory",
+    response_model=ClearMemoryResponse,
+)
+async def clear_page_memory(
+    volume_id: str,
+    filename: str,
+) -> ClearMemoryResponse:
+    if get_volume(volume_id) is None:
+        raise HTTPException(status_code=404, detail="Volume not found")
+    if filename not in set(list_page_filenames(volume_id)):
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Clear both structured page memory snapshot and manual page context text.
+    clear_page_context_snapshot(volume_id, filename)
+    save_page_context(volume_id, filename, "")
+    return ClearMemoryResponse(cleared=True)

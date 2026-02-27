@@ -12,6 +12,8 @@ from .store_boxes import (
     update_box_geometry_by_id,
 )
 from .store_context import (
+    clear_page_context_snapshot,
+    clear_volume_context,
     get_page_context_snapshot,
     get_volume_context,
     upsert_page_context,
@@ -39,6 +41,8 @@ from .store_volume_page import (
 __all__ = [
     "create_detection_run",
     "create_volume",
+    "clear_page_context_snapshot",
+    "clear_volume_context",
     "delete_boxes_by_ids",
     "delete_page",
     "delete_volume",
