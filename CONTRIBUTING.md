@@ -176,6 +176,8 @@ Notes:
   `tests/conftest.py` (`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`).
 - For quick local checks, you can run focused files such as:
   `pytest -q tests/test_agent_state_machine.py tests/test_retry_policies.py`.
+- Test module coverage map and targeted command groups are documented in:
+  `backend-python/tests/README.md`.
 
 ## Backend Package Conventions
 
