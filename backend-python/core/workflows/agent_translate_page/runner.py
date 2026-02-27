@@ -7,14 +7,12 @@ from typing import Any
 from config import AGENT_TRANSLATE_TIMEOUT_SECONDS
 from core.usecases.agent.page_translate import run_agent_translate_page
 from core.usecases.agent.settings import resolve_agent_translate_settings
-from core.usecases.box_detection.engine import detect_text_boxes_for_page
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.ocr.task_runner import OcrTaskOutcome, run_ocr_task_with_retries
 from core.usecases.settings.service import get_setting_value
 from infra.db.db_store import (
     get_page_index,
     get_volume_context,
-    load_page,
     set_box_ocr_text_by_id,
     upsert_page_context,
     upsert_volume_context,
@@ -32,7 +30,6 @@ from .helpers import (
     apply_translation_payload,
     build_ocr_profile_meta,
     build_translation_boxes,
-    list_text_boxes,
     resolve_detection_profile_id,
     resolve_ocr_profiles,
     resolve_parallel_limits,
@@ -42,6 +39,7 @@ from .helpers import (
     is_canceled as is_cancel_requested,
 )
 from .progress import emit_workflow_progress
+from .stages.detect import run_detect_stage
 from .state_machine import transition
 from .types import (
     AgentTranslatePageRequest,
@@ -149,12 +147,10 @@ async def run_agent_translate_page_workflow(
     )
 
     try:
-        await asyncio.to_thread(
-            detect_text_boxes_for_page,
-            request.volume_id,
-            request.filename,
-            detection_profile_id,
-            replace_existing=True,
+        text_boxes = await run_detect_stage(
+            volume_id=request.volume_id,
+            filename=request.filename,
+            detection_profile_id=detection_profile_id,
         )
     except Exception as exc:
         run_ctx.finish_stage("detect")
@@ -167,8 +163,6 @@ async def run_agent_translate_page_workflow(
         )
         raise
 
-    page = load_page(request.volume_id, request.filename)
-    text_boxes = list_text_boxes(page)
     run_ctx.detected_boxes = len(text_boxes)
     run_ctx.finish_stage("detect")
 
