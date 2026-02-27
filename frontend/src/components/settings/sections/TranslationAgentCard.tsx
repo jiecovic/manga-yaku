@@ -15,6 +15,11 @@ type Props = {
     onUpdateAgentDraft: (key: keyof AgentDraft, value: string) => void;
     agentDetectionProfileId: string;
     translateSingleBoxUseContext: boolean;
+    includePriorContextSummary: boolean;
+    includePriorCharacters: boolean;
+    includePriorOpenThreads: boolean;
+    includePriorGlossary: boolean;
+    includeImage: boolean;
     onUpdateDraft: (key: string, value: unknown) => void;
     agentDetectionLoading: boolean;
     agentDetectionOptions: DetectionOption[];
@@ -28,6 +33,11 @@ export function TranslationAgentCard({
     onUpdateAgentDraft,
     agentDetectionProfileId,
     translateSingleBoxUseContext,
+    includePriorContextSummary,
+    includePriorCharacters,
+    includePriorOpenThreads,
+    includePriorGlossary,
+    includeImage,
     onUpdateDraft,
     agentDetectionLoading,
     agentDetectionOptions,
@@ -49,6 +59,10 @@ export function TranslationAgentCard({
                         ))}
                     </Select>
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Model used by the Agent Translate page workflow. Manual
+                    single-box translate uses the sidebar Translation profile.
+                </div>
 
                 <Field label="Detection" layout="row" labelClassName={ui.label}>
                     <Select
@@ -69,6 +83,10 @@ export function TranslationAgentCard({
                         ))}
                     </Select>
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Optional override for Agent Translate detection. Leave empty to
+                    use the sidebar selection.
+                </div>
                 {!agentDetectionLoading && !hasAgentDetectionOptions && (
                     <div className={ui.trainingHelp}>
                         No text detection models available. Train a model to enable
@@ -90,6 +108,9 @@ export function TranslationAgentCard({
                         ))}
                     </Select>
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Reasoning level for Agent Translate runs (GPT-5 models only).
+                </div>
 
                 <Field
                     label="Single-box context"
@@ -110,6 +131,88 @@ export function TranslationAgentCard({
                         include page + volume context
                     </label>
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Adds sibling OCR/translations and saved page or volume memory to
+                    the prompt.
+                </div>
+
+                <Field
+                    label="Agent memory"
+                    layout="row"
+                    labelClassName={ui.label}
+                >
+                    <div className="flex flex-col gap-1 text-xs text-slate-300">
+                        <label className="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={includeImage}
+                                onChange={(e) =>
+                                    onUpdateDraft(
+                                        "agent.translate.include_image",
+                                        e.target.checked,
+                                    )
+                                }
+                            />
+                            include page image
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={includePriorContextSummary}
+                                onChange={(e) =>
+                                    onUpdateDraft(
+                                        "agent.translate.include_prior_context_summary",
+                                        e.target.checked,
+                                    )
+                                }
+                            />
+                            include story summary
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={includePriorCharacters}
+                                onChange={(e) =>
+                                    onUpdateDraft(
+                                        "agent.translate.include_prior_characters",
+                                        e.target.checked,
+                                    )
+                                }
+                            />
+                            include active characters
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={includePriorOpenThreads}
+                                onChange={(e) =>
+                                    onUpdateDraft(
+                                        "agent.translate.include_prior_open_threads",
+                                        e.target.checked,
+                                    )
+                                }
+                            />
+                            include open threads
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={includePriorGlossary}
+                                onChange={(e) =>
+                                    onUpdateDraft(
+                                        "agent.translate.include_prior_glossary",
+                                        e.target.checked,
+                                    )
+                                }
+                            />
+                            include glossary
+                        </label>
+                    </div>
+                </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Controls which saved volume memory blocks are injected into the
+                    Agent Translate page prompt.
+                </div>
 
                 <Field label="Max output" layout="row" labelClassName={ui.label}>
                     <input
@@ -122,6 +225,9 @@ export function TranslationAgentCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Output token cap for Agent Translate model responses.
+                </div>
 
                 <Field label="Temperature" layout="row" labelClassName={ui.label}>
                     <input
@@ -136,7 +242,11 @@ export function TranslationAgentCard({
                         }
                     />
                 </Field>
-                <div className={ui.trainingHelp}>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Sampling randomness for Agent Translate when the model supports
+                    temperature.
+                </div>
+                <div className={`${ui.trainingHelp} ml-28`}>
                     Temperature is ignored by GPT-5 models.
                 </div>
             </div>

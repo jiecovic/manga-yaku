@@ -17,6 +17,10 @@ import type {
     OcrProfileSettingsResponse,
     UpdateOcrProfileSettingsRequest,
 } from "../api/ocrProfileSettings";
+import type {
+    TranslationProfileSettingsResponse,
+    UpdateTranslationProfileSettingsRequest,
+} from "../api/translationProfileSettings";
 import {
     fetchAgentTranslateSettings,
     updateAgentTranslateSettings,
@@ -25,15 +29,23 @@ import {
     fetchOcrProfileSettings,
     updateOcrProfileSettings,
 } from "../api/ocrProfileSettings";
+import {
+    fetchTranslationProfileSettings,
+    updateTranslationProfileSettings,
+} from "../api/translationProfileSettings";
 
 interface AgentSettingsContextValue {
     agent: AgentTranslateSettingsResponse | null;
     ocrProfiles: OcrProfileSettingsResponse | null;
+    translationProfiles: TranslationProfileSettingsResponse | null;
     loading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
     saveAgent: (values: UpdateAgentTranslateSettingsRequest) => Promise<void>;
     saveOcrProfiles: (payload: UpdateOcrProfileSettingsRequest) => Promise<void>;
+    saveTranslationProfiles: (
+        payload: UpdateTranslationProfileSettingsRequest,
+    ) => Promise<void>;
 }
 
 const AgentSettingsContext = createContext<AgentSettingsContextValue | null>(null);
@@ -43,6 +55,8 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
     const [ocrProfiles, setOcrProfiles] = useState<OcrProfileSettingsResponse | null>(
         null,
     );
+    const [translationProfiles, setTranslationProfiles] =
+        useState<TranslationProfileSettingsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -50,12 +64,14 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         setError(null);
         try {
-            const [agentRes, ocrRes] = await Promise.all([
+            const [agentRes, ocrRes, translationRes] = await Promise.all([
                 fetchAgentTranslateSettings(),
                 fetchOcrProfileSettings(),
+                fetchTranslationProfileSettings(),
             ]);
             setAgent(agentRes);
             setOcrProfiles(ocrRes);
+            setTranslationProfiles(translationRes);
         } catch (err) {
             console.error("Failed to load agent settings", err);
             setError("Failed to load agent settings.");
@@ -100,6 +116,24 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
         [],
     );
 
+    const saveTranslationProfiles = useCallback(
+        async (payload: UpdateTranslationProfileSettingsRequest) => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await updateTranslationProfileSettings(payload);
+                setTranslationProfiles(response);
+            } catch (err) {
+                console.error("Failed to update translation profile settings", err);
+                setError("Failed to update translation profile settings.");
+                throw err;
+            } finally {
+                setLoading(false);
+            }
+        },
+        [],
+    );
+
     useEffect(() => {
         void load();
     }, [load]);
@@ -108,13 +142,25 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
         () => ({
             agent,
             ocrProfiles,
+            translationProfiles,
             loading,
             error,
             refresh: load,
             saveAgent,
             saveOcrProfiles,
+            saveTranslationProfiles,
         }),
-        [agent, ocrProfiles, loading, error, load, saveAgent, saveOcrProfiles],
+        [
+            agent,
+            ocrProfiles,
+            translationProfiles,
+            loading,
+            error,
+            load,
+            saveAgent,
+            saveOcrProfiles,
+            saveTranslationProfiles,
+        ],
     );
 
     return (

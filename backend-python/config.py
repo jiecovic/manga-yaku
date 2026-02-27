@@ -46,6 +46,9 @@ AGENT_REASONING_EFFORT = os.getenv("AGENT_REASONING_EFFORT", "medium").strip().l
 AGENT_TRANSLATE_REASONING_EFFORT = os.getenv(
     "AGENT_TRANSLATE_REASONING_EFFORT", "low"
 ).strip().lower()
+AGENT_TRANSLATE_TIMEOUT_SECONDS = int(
+    os.getenv("AGENT_TRANSLATE_TIMEOUT_SECONDS", "300")
+)
 AGENT_PROMPT_FILE = os.getenv("AGENT_PROMPT_FILE", "agent_default.yml")
 AGENT_MODELS = [
     item.strip()
@@ -97,4 +100,3 @@ def configure_ultralytics_settings() -> None:
 # -----------------------------
 
 DEBUG_PROMPTS = settings.debug_prompts
-

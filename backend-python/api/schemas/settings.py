@@ -67,3 +67,35 @@ class UpdateOcrProfileSettingsItem(BaseModel):
 
 class UpdateOcrProfileSettingsRequest(BaseModel):
     profiles: list[UpdateOcrProfileSettingsItem]
+
+
+class TranslationProfileSettingsItem(BaseModel):
+    id: str
+    label: str
+    description: str | None = None
+    kind: str
+    enabled: bool
+    single_box_enabled: bool
+    effective_enabled: bool
+    model_id: str | None = None
+    max_output_tokens: int | None = None
+    reasoning_effort: str | None = None
+    temperature: float | None = None
+
+
+class TranslationProfileSettingsResponse(BaseModel):
+    profiles: list[TranslationProfileSettingsItem]
+    options: dict[str, Any]
+
+
+class UpdateTranslationProfileSettingsItem(BaseModel):
+    profile_id: str
+    single_box_enabled: bool | None = None
+    model_id: str | None = None
+    max_output_tokens: int | None = None
+    reasoning_effort: str | None = None
+    temperature: float | None = None
+
+
+class UpdateTranslationProfileSettingsRequest(BaseModel):
+    profiles: list[UpdateTranslationProfileSettingsItem]

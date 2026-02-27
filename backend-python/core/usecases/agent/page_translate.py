@@ -24,6 +24,7 @@ from infra.llm import (
     create_openai_client,
     extract_response_text,
     has_openai_sdk,
+    openai_responses_create,
 )
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
@@ -148,6 +149,7 @@ def _repair_with_llm(
     client: Any,
     model_cfg: dict[str, Any],
     raw_text: str,
+    log_context: dict[str, Any] | None = None,
 ) -> str:
     if not raw_text.strip():
         return raw_text
@@ -174,7 +176,12 @@ def _repair_with_llm(
             int(repair_cfg["max_output_tokens"]), 4096
         )
     params = build_response_params(repair_cfg, input_payload)
-    resp = client.responses.create(**params)
+    resp = openai_responses_create(
+        client,
+        params,
+        component="agent.translate_page.repair",
+        context=log_context,
+    )
     return extract_response_text(resp, raise_on_refusal=True)
 
 
@@ -224,6 +231,7 @@ def _build_prompt_payload(
     prior_characters: list[dict[str, Any]] | None,
     prior_open_threads: list[str] | None,
     prior_glossary: list[dict[str, Any]] | None,
+    include_image: bool,
 ) -> tuple[str, str]:
     bundle = load_prompt_bundle("agent_translate_page.yml")
     input_yaml = yaml.safe_dump(
@@ -241,6 +249,7 @@ def _build_prompt_payload(
         system_context={
             "SOURCE_LANG": source_language,
             "TARGET_LANG": target_language,
+            "INCLUDE_IMAGE": include_image,
             "PRIOR_CONTEXT_SUMMARY": _format_yaml(prior_context_summary),
             "PRIOR_CHARACTERS": _format_yaml(prior_characters),
             "PRIOR_OPEN_THREADS": _format_yaml(prior_open_threads),
@@ -249,6 +258,7 @@ def _build_prompt_payload(
         user_context={
             "INPUT_YAML": input_yaml,
             "OCR_PROFILES_YAML": profiles_yaml,
+            "INCLUDE_IMAGE": include_image,
         },
     )
     return rendered["system"], rendered["user_template"]
@@ -292,6 +302,7 @@ def run_agent_translate_page(
     max_output_tokens: int | None = None,
     reasoning_effort: str | None = None,
     temperature: float | None = None,
+    include_image: bool = True,
 ) -> dict[str, Any]:
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
@@ -305,11 +316,26 @@ def run_agent_translate_page(
         prior_characters=prior_characters,
         prior_open_threads=prior_open_threads,
         prior_glossary=prior_glossary,
+        include_image=include_image,
     )
 
-    original_image = load_volume_image(volume_id, filename)
-    image = resize_for_llm(original_image)
-    data_url = encode_image_data_url(image)
+    user_content_blocks: list[dict[str, Any]] = [
+        {"type": "input_text", "text": user_content}
+    ]
+    image_debug: dict[str, Any] = {"included": False}
+    if include_image:
+        original_image = load_volume_image(volume_id, filename)
+        image = resize_for_llm(original_image)
+        data_url = encode_image_data_url(image)
+        user_content_blocks.append(
+            {"type": "input_image", "image_url": data_url}
+        )
+        image_debug = {
+            "included": True,
+            "original_size": list(original_image.size),
+            "resized_size": list(image.size),
+            "data_url_len": len(data_url),
+        }
 
     input_payload = [
         {
@@ -318,10 +344,7 @@ def run_agent_translate_page(
         },
         {
             "role": "user",
-            "content": [
-                {"type": "input_text", "text": user_content},
-                {"type": "input_image", "image_url": data_url},
-            ],
+            "content": user_content_blocks,
         },
     ]
 
@@ -351,14 +374,30 @@ def run_agent_translate_page(
 
     client = create_openai_client({})
     params = build_response_params(cfg, input_payload)
-    resp = client.responses.create(**params)
+    log_context = {
+        "volume_id": volume_id,
+        "filename": filename,
+        "job_id": debug_id or "",
+        "include_image": include_image,
+    }
+    resp = openai_responses_create(
+        client,
+        params,
+        component="agent.translate_page",
+        context=log_context,
+    )
     raw_text = extract_response_text(resp, raise_on_refusal=True)
     if _should_retry(resp):
         retry_cfg = dict(cfg)
         retry_cfg["max_output_tokens"] = max(max_output * 2, max_output + 512)
         retry_params = build_response_params(retry_cfg, input_payload)
         retry_params.setdefault("text", {"format": _build_text_format()})
-        retry_resp = client.responses.create(**retry_params)
+        retry_resp = openai_responses_create(
+            client,
+            retry_params,
+            component="agent.translate_page",
+            context=log_context,
+        )
         retry_text = extract_response_text(retry_resp, raise_on_refusal=True)
         if retry_text:
             resp = retry_resp
@@ -377,11 +416,7 @@ def run_agent_translate_page(
             "temperature": cfg.get("temperature"),
             "text": cfg.get("text"),
         },
-        "image": {
-            "original_size": list(original_image.size),
-            "resized_size": list(image.size),
-            "data_url_len": len(data_url),
-        },
+        "image": image_debug,
         "system_prompt": system_prompt,
         "user_prompt": user_content,
         "ocr_profiles": ocr_profiles,
@@ -410,6 +445,7 @@ def run_agent_translate_page(
                 client=client,
                 model_cfg=cfg,
                 raw_text=raw_text,
+                log_context=log_context,
             )
             result = _extract_json(repaired_text)
         except Exception:

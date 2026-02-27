@@ -30,6 +30,26 @@ export function RightSidebarProfilesSection({
         (p) => p.enabled,
     );
 
+    const shortTranslationLabel = (provider: TranslationProvider): string => {
+        const raw = String(provider.label || provider.id || "").trim();
+        const stripped = raw.replace(/^single-box\s+translate\s*-\s*/i, "").trim();
+        if (stripped) {
+            return stripped;
+        }
+        switch (provider.id) {
+            case "openai_fast_translate":
+                return "Fast";
+            case "openai_quality_translate":
+                return "Quality";
+            case "openai_ultra_translate":
+                return "Max";
+            case "local_llm_default":
+                return "Local";
+            default:
+                return raw || provider.id;
+        }
+    };
+
     return (
         <CollapsibleSection title="Profiles & Options" defaultOpen>
             <div className="space-y-3">
@@ -64,7 +84,11 @@ export function RightSidebarProfilesSection({
                 </Field>
 
                 {/* Translation */}
-                <Field label="Translation" layout="row" labelClassName={ui.label}>
+                <Field
+                    label="Single-box LLM"
+                    layout="row"
+                    labelClassName={ui.label}
+                >
                     {loadingTranslationProviders && (
                         <div className={ui.mutedTextXs}>Loading...</div>
                     )}
@@ -86,13 +110,12 @@ export function RightSidebarProfilesSection({
                             >
                                 {enabledTranslationProviders.map((p) => (
                                     <option key={p.id} value={p.id}>
-                                        {p.label}
+                                        {shortTranslationLabel(p)}
                                     </option>
                                 ))}
                             </Select>
                         )}
                 </Field>
-
             </div>
         </CollapsibleSection>
     );

@@ -49,101 +49,124 @@ export function OcrProfilesCard({
                                 />
                                 {profile.label}
                             </label>
+                            <div className={ui.trainingHelp}>
+                                Enable or disable this profile for page OCR runs.
+                            </div>
 
                             {isLocal ? (
-                                <div className={ui.trainingLabelTiny}>Local OCR</div>
-                            ) : (
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    <Field
-                                        label="Model"
-                                        layout="stack"
-                                        labelClassName={ui.trainingLabelTiny}
-                                    >
-                                        <Select
-                                            variant="training"
-                                            value={profile.model_id ?? ""}
-                                            onChange={(e) =>
-                                                onUpdateOcrProfile(profile.id, {
-                                                    model_id: e.target.value || null,
-                                                })
-                                            }
-                                        >
-                                            {Array.from(options).map((model) => (
-                                                <option key={model} value={model}>
-                                                    {model}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </Field>
-
-                                    <Field
-                                        label="Max output"
-                                        layout="stack"
-                                        labelClassName={ui.trainingLabelTiny}
-                                    >
-                                        <input
-                                            className={ui.trainingInput}
-                                            type="number"
-                                            min={1}
-                                            value={profile.max_output_tokens ?? ""}
-                                            onChange={(e) =>
-                                                onUpdateOcrProfile(profile.id, {
-                                                    max_output_tokens:
-                                                        e.target.value === ""
-                                                            ? null
-                                                            : Number(e.target.value),
-                                                })
-                                            }
-                                        />
-                                    </Field>
-
-                                    <Field
-                                        label="Reasoning"
-                                        layout="stack"
-                                        labelClassName={ui.trainingLabelTiny}
-                                    >
-                                        <Select
-                                            variant="training"
-                                            value={profile.reasoning_effort ?? ""}
-                                            onChange={(e) =>
-                                                onUpdateOcrProfile(profile.id, {
-                                                    reasoning_effort:
-                                                        e.target.value || null,
-                                                })
-                                            }
-                                        >
-                                            <option value="">default</option>
-                                            {ocrReasoningOptions.map((option) => (
-                                                <option key={option} value={option}>
-                                                    {option}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </Field>
-
-                                    <Field
-                                        label="Temperature"
-                                        layout="stack"
-                                        labelClassName={ui.trainingLabelTiny}
-                                    >
-                                        <input
-                                            className={ui.trainingInput}
-                                            type="number"
-                                            step="0.1"
-                                            min={0}
-                                            max={2}
-                                            value={profile.temperature ?? ""}
-                                            onChange={(e) =>
-                                                onUpdateOcrProfile(profile.id, {
-                                                    temperature:
-                                                        e.target.value === ""
-                                                            ? null
-                                                            : Number(e.target.value),
-                                                })
-                                            }
-                                        />
-                                    </Field>
+                                <div className={ui.trainingLabelTiny}>
+                                    Local OCR (on-device). Runtime parameters are managed
+                                    by the tool.
                                 </div>
+                            ) : (
+                                <>
+                                    <div className="grid gap-2 md:grid-cols-2">
+                                        <Field
+                                            label="Model"
+                                            layout="stack"
+                                            labelClassName={ui.trainingLabelTiny}
+                                        >
+                                            <Select
+                                                variant="training"
+                                                value={profile.model_id ?? ""}
+                                                onChange={(e) =>
+                                                    onUpdateOcrProfile(profile.id, {
+                                                        model_id: e.target.value || null,
+                                                    })
+                                                }
+                                            >
+                                                {Array.from(options).map((model) => (
+                                                    <option key={model} value={model}>
+                                                        {model}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </Field>
+
+                                        <Field
+                                            label="Max output"
+                                            layout="stack"
+                                            labelClassName={ui.trainingLabelTiny}
+                                        >
+                                            <input
+                                                className={ui.trainingInput}
+                                                type="number"
+                                                min={1}
+                                                value={profile.max_output_tokens ?? ""}
+                                                onChange={(e) =>
+                                                    onUpdateOcrProfile(profile.id, {
+                                                        max_output_tokens:
+                                                            e.target.value === ""
+                                                                ? null
+                                                                : Number(e.target.value),
+                                                    })
+                                                }
+                                            />
+                                        </Field>
+
+                                        <Field
+                                            label="Reasoning"
+                                            layout="stack"
+                                            labelClassName={ui.trainingLabelTiny}
+                                        >
+                                            <Select
+                                                variant="training"
+                                                value={profile.reasoning_effort ?? ""}
+                                                onChange={(e) =>
+                                                    onUpdateOcrProfile(profile.id, {
+                                                        reasoning_effort:
+                                                            e.target.value || null,
+                                                    })
+                                                }
+                                            >
+                                                <option value="">default</option>
+                                                {ocrReasoningOptions.map((option) => (
+                                                    <option key={option} value={option}>
+                                                        {option}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </Field>
+
+                                        <Field
+                                            label="Temperature"
+                                            layout="stack"
+                                            labelClassName={ui.trainingLabelTiny}
+                                        >
+                                            <input
+                                                className={ui.trainingInput}
+                                                type="number"
+                                                step="0.1"
+                                                min={0}
+                                                max={2}
+                                                value={profile.temperature ?? ""}
+                                                onChange={(e) =>
+                                                    onUpdateOcrProfile(profile.id, {
+                                                        temperature:
+                                                            e.target.value === ""
+                                                                ? null
+                                                                : Number(e.target.value),
+                                                    })
+                                                }
+                                            />
+                                        </Field>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className={ui.trainingHelp}>
+                                            Model: API model used by this OCR profile.
+                                        </div>
+                                        <div className={ui.trainingHelp}>
+                                            Max output: output token cap per OCR attempt.
+                                        </div>
+                                        <div className={ui.trainingHelp}>
+                                            Reasoning: GPT-5 reasoning level for OCR.
+                                        </div>
+                                        <div className={ui.trainingHelp}>
+                                            Temperature: sampling randomness (if model
+                                            supports it).
+                                        </div>
+                                    </div>
+                                </>
                             )}
                         </div>
                     );

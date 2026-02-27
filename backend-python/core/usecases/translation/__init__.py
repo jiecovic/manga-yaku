@@ -1,5 +1,8 @@
 """Public exports for translation usecases."""
-from .engine import run_translate_box_with_context
+from .engine import (
+    run_translate_box_with_context,
+    run_translate_box_with_context_structured,
+)
 from .profiles import (
     TRANSLATION_PROFILES,
     TranslationProfile,
@@ -15,4 +18,5 @@ __all__ = [
     "list_translation_profiles_for_api",
     "mark_translation_availability",
     "run_translate_box_with_context",
+    "run_translate_box_with_context_structured",
 ]

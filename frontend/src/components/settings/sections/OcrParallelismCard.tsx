@@ -34,6 +34,9 @@ export function OcrParallelismCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Max concurrent local OCR tasks (manga-ocr/on-device).
+                </div>
                 <Field label="Remote" layout="row" labelClassName={ui.label}>
                     <input
                         className={ui.trainingInput}
@@ -46,6 +49,9 @@ export function OcrParallelismCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Max concurrent remote OCR tasks (LLM/API profiles).
+                </div>
                 <Field label="Max workers" layout="row" labelClassName={ui.label}>
                     <input
                         className={ui.trainingInput}
@@ -58,6 +64,9 @@ export function OcrParallelismCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Global cap for worker loops claiming OCR tasks.
+                </div>
                 <Field label="Lease (s)" layout="row" labelClassName={ui.label}>
                     <input
                         className={ui.trainingInput}
@@ -70,6 +79,10 @@ export function OcrParallelismCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Task claim validity window before stale running tasks can be
+                    re-queued.
+                </div>
                 <Field label="Timeout (s)" layout="row" labelClassName={ui.label}>
                     <input
                         className={ui.trainingInput}
@@ -85,6 +98,9 @@ export function OcrParallelismCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Hard runtime limit per OCR task attempt.
+                </div>
                 <div className={ui.trainingHelp}>
                     Local = on-device OCR (manga-ocr). Remote = API OCR (LLM
                     profiles).

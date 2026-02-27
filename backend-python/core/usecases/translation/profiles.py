@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 
 class TranslationProfile(TypedDict, total=False):
@@ -23,8 +23,8 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
     # ------------------------------------------------------------------
     "openai_fast_translate": {
         "id": "openai_fast_translate",
-        "label": "OpenAI (fast, JA->EN)",
-        "description": "Fast translation via OpenAI chat model",
+        "label": "Single-box Translate - Fast",
+        "description": "Fast single-box translation via OpenAI",
         "provider": "openai_chat",
         "kind": "remote",
         "enabled": True,
@@ -41,8 +41,8 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
     # ------------------------------------------------------------------
     "openai_quality_translate": {
         "id": "openai_quality_translate",
-        "label": "OpenAI (quality, JA->EN)",
-        "description": "High-quality translation using GPT-4.1-mini",
+        "label": "Single-box Translate - Quality",
+        "description": "Higher-quality single-box translation via OpenAI",
         "provider": "openai_chat",
         "kind": "remote",
         "enabled": True,
@@ -59,8 +59,8 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
     # ------------------------------------------------------------------
     "openai_ultra_translate": {
         "id": "openai_ultra_translate",
-        "label": "OpenAI (ultra quality, JA->EN)",
-        "description": "Highest-quality translation using GPT-5.1",
+        "label": "Single-box Translate - Max",
+        "description": "Max-quality single-box translation via OpenAI",
         "provider": "openai_chat",
         "kind": "remote",
         "enabled": True,
@@ -77,9 +77,9 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
     # ------------------------------------------------------------------
     "local_llm_default": {
         "id": "local_llm_default",
-        "label": "Local LLM (OpenAI-compatible)",
+        "label": "Single-box Translate - Local",
         "description": (
-            "Translation via a local OpenAI-compatible HTTP endpoint "
+            "Single-box translation via a local OpenAI-compatible HTTP endpoint "
             "(e.g. TextGen WebUI / LM Studio / llama.cpp server)"
         ),
         "provider": "openai_chat",
@@ -102,24 +102,59 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
 
 def list_translation_profiles_for_api() -> list[dict[str, Any]]:
     """Lightweight view for the API / frontend."""
+    from .profile_settings import list_translation_profiles_with_settings
+
+    profiles = list_translation_profiles_with_settings()
     return [
         {
-            "id": profile.get("id", pid),
-            "label": profile.get("label", pid),
-            "description": profile.get("description", ""),
-            "kind": profile.get("kind", "remote"),
-            "enabled": profile.get("enabled", True),
+            "id": str(profile.get("id") or ""),
+            "label": str(profile.get("label") or ""),
+            "description": str(profile.get("description") or ""),
+            "kind": str(profile.get("kind") or "remote"),
+            "enabled": bool(
+                profile.get("effective_enabled", profile.get("enabled", True))
+            ),
+            "single_box_enabled": bool(profile.get("single_box_enabled", True)),
         }
-        for pid, profile in TRANSLATION_PROFILES.items()
+        for profile in profiles
     ]
 
 
 def get_translation_profile(profile_id: str) -> TranslationProfile:
     """Strict lookup with a nice error instead of KeyError."""
     try:
-        return TRANSLATION_PROFILES[profile_id]
+        base = TRANSLATION_PROFILES[profile_id]
     except KeyError as exc:
         raise ValueError(f"Translation profile '{profile_id}' not found") from exc
+
+    profile = cast(TranslationProfile, dict(base))
+    cfg = dict(profile.get("config", {}) or {})
+
+    from .profile_settings import resolve_translation_profile_settings
+
+    profile_settings = resolve_translation_profile_settings().get(profile_id, {})
+    runtime_enabled = bool(profile.get("enabled", True))
+    single_box_enabled = bool(profile_settings.get("single_box_enabled", True))
+    profile["enabled"] = runtime_enabled and single_box_enabled
+
+    model_id = profile_settings.get("model_id")
+    if model_id:
+        cfg["model"] = str(model_id)
+
+    max_output_tokens = profile_settings.get("max_output_tokens")
+    if max_output_tokens is not None:
+        cfg["max_output_tokens"] = int(max_output_tokens)
+
+    temperature = profile_settings.get("temperature")
+    if temperature is not None:
+        cfg["temperature"] = float(temperature)
+
+    reasoning_effort = profile_settings.get("reasoning_effort")
+    if reasoning_effort and str(cfg.get("model", "")).startswith("gpt-5"):
+        cfg["reasoning"] = {"effort": str(reasoning_effort)}
+
+    profile["config"] = cfg
+    return profile
 
 
 def mark_translation_availability(

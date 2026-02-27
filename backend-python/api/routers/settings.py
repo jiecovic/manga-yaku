@@ -10,9 +10,11 @@ from api.schemas.settings import (
     AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
     SettingsResponse,
+    TranslationProfileSettingsResponse,
     UpdateAgentTranslateSettingsRequest,
     UpdateOcrProfileSettingsRequest,
     UpdateSettingsRequest,
+    UpdateTranslationProfileSettingsRequest,
 )
 from config import AGENT_MODELS
 from core.usecases.agent.settings import (
@@ -26,6 +28,10 @@ from core.usecases.ocr.profile_settings import (
 )
 from core.usecases.settings.definitions import DEFAULT_SETTINGS
 from core.usecases.settings.service import resolve_settings, update_settings
+from core.usecases.translation.profile_settings import (
+    list_translation_profiles_with_settings,
+    update_translation_profile_settings,
+)
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 router = APIRouter(tags=["settings"])
@@ -38,6 +44,11 @@ def _build_options() -> dict[str, Any]:
         "detection.iou_threshold": {"min": 0.0, "max": 1.0},
         "detection.containment_threshold": {"min": 0.0, "max": 1.0},
         "translation.single_box.use_context": {"type": "boolean"},
+        "agent.translate.include_prior_context_summary": {"type": "boolean"},
+        "agent.translate.include_prior_characters": {"type": "boolean"},
+        "agent.translate.include_prior_open_threads": {"type": "boolean"},
+        "agent.translate.include_prior_glossary": {"type": "boolean"},
+        "agent.translate.include_image": {"type": "boolean"},
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},
@@ -200,6 +211,54 @@ async def put_ocr_profile_settings(
         if model_id:
             models.add(str(model_id))
     return OcrProfileSettingsResponse(
+        profiles=profiles,
+        options={
+            "models": sorted(models),
+            "reasoning_effort": ["low", "medium", "high"],
+        },
+    )
+
+
+@router.get(
+    "/settings/translation-profiles",
+    response_model=TranslationProfileSettingsResponse,
+)
+async def get_translation_profile_settings() -> TranslationProfileSettingsResponse:
+    profiles = list_translation_profiles_with_settings()
+    models = set(AGENT_MODELS)
+    for profile in profiles:
+        model_id = profile.get("model_id")
+        if model_id:
+            models.add(str(model_id))
+    return TranslationProfileSettingsResponse(
+        profiles=profiles,
+        options={
+            "models": sorted(models),
+            "reasoning_effort": ["low", "medium", "high"],
+        },
+    )
+
+
+@router.put(
+    "/settings/translation-profiles",
+    response_model=TranslationProfileSettingsResponse,
+)
+async def put_translation_profile_settings(
+    req: UpdateTranslationProfileSettingsRequest,
+) -> TranslationProfileSettingsResponse:
+    try:
+        profiles = update_translation_profile_settings(
+            [item.model_dump(exclude_unset=True) for item in req.profiles]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    models = set(AGENT_MODELS)
+    for profile in profiles:
+        model_id = profile.get("model_id")
+        if model_id:
+            models.add(str(model_id))
+    return TranslationProfileSettingsResponse(
         profiles=profiles,
         options={
             "models": sorted(models),

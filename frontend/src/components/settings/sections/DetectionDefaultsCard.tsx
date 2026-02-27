@@ -31,6 +31,9 @@ export function DetectionDefaultsCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Minimum confidence required for a YOLO detection to be kept.
+                </div>
 
                 <Field label="IOU threshold" layout="row" labelClassName={ui.label}>
                     <input
@@ -45,6 +48,9 @@ export function DetectionDefaultsCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Overlap threshold used by non-max suppression to merge duplicates.
+                </div>
                 <Field label="Containment" layout="row" labelClassName={ui.label}>
                     <input
                         className={ui.trainingInput}
@@ -61,6 +67,10 @@ export function DetectionDefaultsCard({
                         }
                     />
                 </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    If one box is mostly inside another at this ratio, the inner box
+                    can be removed.
+                </div>
                 <div className={ui.trainingHelp}>
                     Leave blank to use Ultralytics defaults (conf 0.25, IoU 0.45,
                     containment 0.9).

@@ -1,8 +1,10 @@
 # backend-python/core/usecases/translation/engine.py
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any
+import re
+from typing import Any, cast
 
 from config import DEBUG_PROMPTS, OPENAI_API_KEY
 from core.domain.pages import set_box_translation_by_id
@@ -20,6 +22,8 @@ from infra.llm import (
     extract_response_text,
     has_openai_sdk,
     is_openai_base_url_reachable,
+    openai_chat_completions_create,
+    openai_responses_create,
 )
 from infra.prompts import (
     PromptBundle,
@@ -59,6 +63,76 @@ mark_translation_availability(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _json_translation_validator(text: str) -> tuple[bool, str | None]:
+    try:
+        _parse_structured_translation(text)
+    except Exception as exc:
+        return False, str(exc).strip() or repr(exc)
+    return True, None
+
+
+def _build_text_format() -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "name": "single_box_translation",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["ok", "no_text"],
+                },
+                "translation": {"type": "string"},
+            },
+            "required": ["status", "translation"],
+        },
+        "strict": True,
+    }
+
+
+def _extract_json(raw: str) -> dict[str, Any]:
+    text = raw.strip()
+    if not text:
+        raise ValueError("Empty response")
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        parsed = json.loads(text)
+        if not isinstance(parsed, dict):
+            raise ValueError("JSON response must be an object")
+        return parsed
+    except json.JSONDecodeError:
+        pass
+
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No JSON object found in response")
+    snippet = text[start : end + 1]
+    parsed = json.loads(snippet)
+    if not isinstance(parsed, dict):
+        raise ValueError("JSON response must be an object")
+    return parsed
+
+
+def _parse_structured_translation(raw: str) -> dict[str, str]:
+    payload = _extract_json(raw)
+    status = str(payload.get("status") or "").strip().lower()
+    translation = normalize_translation_output(str(payload.get("translation") or ""))
+    if status not in {"ok", "no_text"}:
+        raise ValueError("status must be 'ok' or 'no_text'")
+    if status == "ok" and not translation:
+        raise ValueError("translation is empty for status=ok")
+    if status == "no_text":
+        translation = ""
+    return {
+        "status": status,
+        "translation": translation,
+    }
 
 
 def _clip_context(value: str, *, max_chars: int = 420) -> str:
@@ -206,6 +280,9 @@ def _run_openai_translate(
     profile: TranslationProfile,
     system_prompt: str,
     user_content: str,
+    *,
+    expect_json: bool = False,
+    log_context: dict[str, Any] | None = None,
 ) -> str:
     """
     Generic translation runner for OpenAI-backed profiles.
@@ -219,6 +296,18 @@ def _run_openai_translate(
     client = _get_openai_client_for_profile(profile)
     base_url = cfg.get("base_url")
 
+    if expect_json:
+        system_prompt = (
+            f"{system_prompt}\n\n"
+            "Return only valid JSON with keys: "
+            '{"status":"ok"|"no_text","translation":"..."}.\n'
+            "Do not include markdown or extra text."
+        )
+        user_content = (
+            f"{user_content}\n\n"
+            "If the source has no translatable text, return status='no_text' and translation=''."
+        )
+
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
@@ -226,9 +315,15 @@ def _run_openai_translate(
 
     if not hasattr(client, "responses"):
         params = build_chat_params(cfg, messages)
-        resp = client.chat.completions.create(**params)
+        resp = openai_chat_completions_create(
+            client,
+            params,
+            component="translation.single_box",
+            context=log_context,
+            result_validator=_json_translation_validator if expect_json else None,
+        )
         raw = (resp.choices[0].message.content or "")
-        return normalize_translation_output(raw)
+        return raw.strip() if expect_json else normalize_translation_output(raw)
 
     input_payload = [
         {
@@ -242,9 +337,18 @@ def _run_openai_translate(
     ]
 
     params = build_response_params(cfg, input_payload)
+    if expect_json:
+        params["text"] = {"format": _build_text_format()}
     try:
-        resp = client.responses.create(**params)
-        return normalize_translation_output(extract_response_text(resp))
+        resp = openai_responses_create(
+            client,
+            params,
+            component="translation.single_box",
+            context=log_context,
+            result_validator=_json_translation_validator if expect_json else None,
+        )
+        text = extract_response_text(resp)
+        return text.strip() if expect_json else normalize_translation_output(text)
     except Exception as exc:
         if not base_url:
             raise
@@ -253,9 +357,15 @@ def _run_openai_translate(
             exc,
         )
         chat_params = build_chat_params(cfg, messages)
-        chat_resp = client.chat.completions.create(**chat_params)
+        chat_resp = openai_chat_completions_create(
+            client,
+            chat_params,
+            component="translation.single_box",
+            context=log_context,
+            result_validator=_json_translation_validator if expect_json else None,
+        )
         raw = (chat_resp.choices[0].message.content or "")
-        return normalize_translation_output(raw)
+        return raw.strip() if expect_json else normalize_translation_output(raw)
 
 
 # =====================================================================
@@ -268,18 +378,102 @@ def run_translate_box_with_context(
     filename: str,
     box_id: int,
     use_page_context: bool,
+    *,
+    persist: bool = True,
+    config_override: dict[str, Any] | None = None,
 ) -> str:
-    """
-    High-level translation runner.
+    _, profile, system_prompt, user_content = _prepare_translate_box_request(
+        profile_id=profile_id,
+        volume_id=volume_id,
+        filename=filename,
+        box_id=box_id,
+        use_page_context=use_page_context,
+        config_override=config_override,
+    )
 
-    Responsibilities:
-    - Load the target box content.
-    - Gather page context.
-    - Render prompts via YAML + Jinja2 templates.
-    - Call the selected translation provider.
-    - Persist the translation back into the JSON structure.
-    """
-    # 1) Load box text content
+    provider = profile.get("provider", "")
+    if provider == "openai_chat":
+        translation = _run_openai_translate(
+            profile,
+            system_prompt,
+            user_content,
+            expect_json=False,
+            log_context={
+                "profile_id": profile_id,
+                "volume_id": volume_id,
+                "filename": filename,
+                "box_id": box_id,
+            },
+        )
+    else:
+        raise RuntimeError(f"Unknown translation provider '{provider}'")
+
+    if persist and translation:
+        set_box_translation_by_id(
+            volume_id=volume_id,
+            filename=filename,
+            box_id=box_id,
+            translation=translation,
+        )
+
+    return translation
+
+
+def run_translate_box_with_context_structured(
+    profile_id: str,
+    volume_id: str,
+    filename: str,
+    box_id: int,
+    use_page_context: bool,
+    *,
+    persist: bool = True,
+    config_override: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    _, profile, system_prompt, user_content = _prepare_translate_box_request(
+        profile_id=profile_id,
+        volume_id=volume_id,
+        filename=filename,
+        box_id=box_id,
+        use_page_context=use_page_context,
+        config_override=config_override,
+    )
+
+    provider = profile.get("provider", "")
+    if provider != "openai_chat":
+        raise RuntimeError(f"Unknown translation provider '{provider}'")
+
+    raw_output = _run_openai_translate(
+        profile,
+        system_prompt,
+        user_content,
+        expect_json=True,
+        log_context={
+            "profile_id": profile_id,
+            "volume_id": volume_id,
+            "filename": filename,
+            "box_id": box_id,
+        },
+    )
+    parsed = _parse_structured_translation(raw_output)
+    if persist and parsed["status"] == "ok":
+        set_box_translation_by_id(
+            volume_id=volume_id,
+            filename=filename,
+            box_id=box_id,
+            translation=parsed["translation"],
+        )
+    return parsed
+
+
+def _prepare_translate_box_request(
+    *,
+    profile_id: str,
+    volume_id: str,
+    filename: str,
+    box_id: int,
+    use_page_context: bool,
+    config_override: dict[str, Any] | None,
+) -> tuple[str, TranslationProfile, str, str]:
     box_text = get_box_text_by_id(volume_id, filename, box_id)
     if box_text is None:
         raise RuntimeError(f"Box {box_id} not found in {filename}")
@@ -288,7 +482,6 @@ def run_translate_box_with_context(
     if not source_text:
         raise RuntimeError("No OCR text in box")
 
-    # 2) Optional context (page + volume memory snapshots + neighboring box data)
     page_ctx = ""
     series_ctx = ""
     if use_page_context:
@@ -299,33 +492,27 @@ def run_translate_box_with_context(
         )
         series_ctx = _build_series_context(volume_id)
 
-    # 5) Resolve profile
     profile = get_translation_profile(profile_id)
+    if config_override:
+        merged = dict(profile)
+        cfg = dict(profile.get("config", {}) or {})
+        cfg.update(config_override)
+        merged["config"] = cfg
+        profile = cast(TranslationProfile, merged)
     if not profile.get("enabled", True):
         raise RuntimeError(f"Translation profile '{profile_id}' is disabled or unavailable")
 
-    # 6) Load and render YAML prompt bundle with Jinja2
     bundle = _load_profile_prompt_bundle(profile)
-
-    system_context: dict[str, Any] = {
-        "SERIES_CONTEXT": series_ctx,
-        "PAGE_CONTEXT": page_ctx or "",
-    }
-
-    user_context: dict[str, Any] = {
-        "TEXT": source_text,
-    }
-
     rendered = render_prompt_bundle(
         bundle,
-        system_context=system_context,
-        user_context=user_context,
+        system_context={
+            "SERIES_CONTEXT": series_ctx,
+            "PAGE_CONTEXT": page_ctx or "",
+        },
+        user_context={"TEXT": source_text},
     )
-
     system_prompt = rendered["system"]
     user_content = rendered["user_template"]
-
-    provider = profile.get("provider", "")
 
     if DEBUG_PROMPTS:
         logger.debug("================ TRANSLATION PROMPT DEBUG ================")
@@ -344,19 +531,4 @@ def run_translate_box_with_context(
             user_content.encode("utf-8", errors="replace").decode("utf-8", errors="replace"),
         )
         logger.debug("===========================================================")
-
-    # 7) Call provider
-    if provider == "openai_chat":
-        translation = _run_openai_translate(profile, system_prompt, user_content)
-    else:
-        raise RuntimeError(f"Unknown translation provider '{provider}'")
-
-    # 8) Persist translation back into the page JSON via domain helper
-    set_box_translation_by_id(
-        volume_id=volume_id,
-        filename=filename,
-        box_id=box_id,
-        translation=translation,
-    )
-
-    return translation
+    return source_text, profile, system_prompt, user_content

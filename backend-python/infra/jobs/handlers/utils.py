@@ -6,13 +6,19 @@ from typing import Any
 
 def extract_model_metadata(config: dict[str, Any]) -> tuple[str | None, int | None, str | None]:
     model_id = config.get("model")
-    max_tokens = config.get("max_tokens") or config.get("max_completion_tokens")
+    max_tokens = (
+        config.get("max_output_tokens")
+        or config.get("max_completion_tokens")
+        or config.get("max_tokens")
+    )
     reasoning_effort = None
     reasoning = config.get("reasoning")
     if isinstance(reasoning, dict):
         effort = reasoning.get("effort")
         if effort:
             reasoning_effort = str(effort)
+    elif config.get("reasoning_effort"):
+        reasoning_effort = str(config["reasoning_effort"])
     return (str(model_id) if model_id else None, max_tokens, reasoning_effort)
 
 

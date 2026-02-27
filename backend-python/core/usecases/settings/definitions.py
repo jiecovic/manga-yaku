@@ -45,6 +45,26 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default=True,
         value_type=bool,
     ),
+    "agent.translate.include_prior_context_summary": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
+    "agent.translate.include_prior_characters": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
+    "agent.translate.include_prior_open_threads": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
+    "agent.translate.include_prior_glossary": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
+    "agent.translate.include_image": SettingSpec(
+        default=True,
+        value_type=bool,
+    ),
     "ocr.parallelism.local": SettingSpec(
         default=4,
         value_type=int,

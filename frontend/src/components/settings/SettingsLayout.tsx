@@ -13,13 +13,16 @@ import { DetectionDefaultsCard } from "./sections/DetectionDefaultsCard";
 import { OcrParallelismCard } from "./sections/OcrParallelismCard";
 import { OcrProfilesCard } from "./sections/OcrProfilesCard";
 import { TranslationAgentCard } from "./sections/TranslationAgentCard";
-import { type AgentDraft, type OcrDraftProfile, toIntWithFallback } from "./types";
+import { TranslationProfilesCard } from "./sections/TranslationProfilesCard";
+import { SettingsTabs, type SettingsTab } from "./SettingsTabs";
+import {
+    type AgentDraft,
+    type OcrDraftProfile,
+    type TranslationDraftProfile,
+    toIntWithFallback,
+} from "./types";
 
 const SETTINGS_AUTOSAVE_KEY = "settings.autosave.enabled";
-type SettingsTab =
-    | "translation"
-    | "detection"
-    | "ocr";
 
 export function SettingsLayout() {
     const {
@@ -32,22 +35,29 @@ export function SettingsLayout() {
     const {
         agent,
         ocrProfiles,
+        translationProfiles,
         loading: agentLoading,
         error: agentError,
         refresh: refreshAgent,
         saveAgent,
         saveOcrProfiles,
+        saveTranslationProfiles,
     } = useAgentSettings();
 
     const [draft, setDraft] = useState<Record<string, unknown>>({});
     const [agentDraft, setAgentDraft] = useState<AgentDraft | null>(null);
     const [ocrDraft, setOcrDraft] = useState<OcrDraftProfile[]>([]);
+    const [translationDraft, setTranslationDraft] = useState<TranslationDraftProfile[]>(
+        [],
+    );
     const [baseDirty, setBaseDirty] = useState(false);
     const [agentDirty, setAgentDirty] = useState(false);
     const [ocrDirty, setOcrDirty] = useState(false);
+    const [translationDirty, setTranslationDirty] = useState(false);
     const [baseAutoSaving, setBaseAutoSaving] = useState(false);
     const [agentAutoSaving, setAgentAutoSaving] = useState(false);
     const [ocrAutoSaving, setOcrAutoSaving] = useState(false);
+    const [translationAutoSaving, setTranslationAutoSaving] = useState(false);
     const [saving, setSaving] = useState(false);
     const [restartingBackend, setRestartingBackend] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -102,6 +112,15 @@ export function SettingsLayout() {
         }
     }, [ocrProfiles]);
 
+    useEffect(() => {
+        if (translationProfiles?.profiles) {
+            setTranslationDraft(
+                translationProfiles.profiles.map((profile) => ({ ...profile })),
+            );
+            setTranslationDirty(false);
+        }
+    }, [translationProfiles]);
+
     const agentModelOptions = useMemo(() => {
         const models = agent?.options?.models;
         return Array.isArray(models) ? models.map(String) : [];
@@ -121,6 +140,16 @@ export function SettingsLayout() {
         const raw = ocrProfiles?.options?.reasoning_effort;
         return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
     }, [ocrProfiles]);
+
+    const translationModelOptions = useMemo(() => {
+        const raw = translationProfiles?.options?.models;
+        return Array.isArray(raw) ? raw.map(String) : [];
+    }, [translationProfiles]);
+
+    const translationReasoningOptions = useMemo(() => {
+        const raw = translationProfiles?.options?.reasoning_effort;
+        return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
+    }, [translationProfiles]);
 
     const confThreshold = useMemo(() => {
         const value = draft["detection.conf_threshold"];
@@ -144,6 +173,46 @@ export function SettingsLayout() {
 
     const translateSingleBoxUseContext = useMemo(() => {
         const value = draft["translation.single_box.use_context"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
+    const includePriorContextSummary = useMemo(() => {
+        const value = draft["agent.translate.include_prior_context_summary"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
+    const includePriorCharacters = useMemo(() => {
+        const value = draft["agent.translate.include_prior_characters"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
+    const includePriorOpenThreads = useMemo(() => {
+        const value = draft["agent.translate.include_prior_open_threads"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
+    const includePriorGlossary = useMemo(() => {
+        const value = draft["agent.translate.include_prior_glossary"];
+        if (typeof value === "boolean") {
+            return value;
+        }
+        return true;
+    }, [draft]);
+
+    const includeImage = useMemo(() => {
+        const value = draft["agent.translate.include_image"];
         if (typeof value === "boolean") {
             return value;
         }
@@ -213,6 +282,12 @@ export function SettingsLayout() {
                 : null,
             "agent.translate.detection_profile_id": agentDetectionProfileId,
             "translation.single_box.use_context": translateSingleBoxUseContext,
+            "agent.translate.include_prior_context_summary":
+                includePriorContextSummary,
+            "agent.translate.include_prior_characters": includePriorCharacters,
+            "agent.translate.include_prior_open_threads": includePriorOpenThreads,
+            "agent.translate.include_prior_glossary": includePriorGlossary,
+            "agent.translate.include_image": includeImage,
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -240,6 +315,11 @@ export function SettingsLayout() {
             containmentThreshold,
             agentDetectionProfileId,
             translateSingleBoxUseContext,
+            includePriorContextSummary,
+            includePriorCharacters,
+            includePriorOpenThreads,
+            includePriorGlossary,
+            includeImage,
             ocrParallelismLocal,
             ocrParallelismRemote,
             ocrParallelismMaxWorkers,
@@ -312,6 +392,18 @@ export function SettingsLayout() {
         setOcrDirty(true);
     };
 
+    const updateTranslationProfile = (
+        id: string,
+        updates: Partial<TranslationDraftProfile>,
+    ) => {
+        setTranslationDraft((prev) =>
+            prev.map((profile) =>
+                profile.id === id ? { ...profile, ...updates } : profile,
+            ),
+        );
+        setTranslationDirty(true);
+    };
+
     const buildOcrPayload = useCallback(
         () => ({
             profiles: ocrDraft.map((profile) => ({
@@ -332,6 +424,28 @@ export function SettingsLayout() {
             })),
         }),
         [ocrDraft],
+    );
+
+    const buildTranslationPayload = useCallback(
+        () => ({
+            profiles: translationDraft.map((profile) => ({
+                profile_id: profile.id,
+                single_box_enabled: profile.single_box_enabled,
+                model_id: profile.model_id ?? null,
+                max_output_tokens:
+                    profile.max_output_tokens === null ||
+                    profile.max_output_tokens === undefined
+                        ? null
+                        : Number(profile.max_output_tokens),
+                reasoning_effort: profile.reasoning_effort ?? null,
+                temperature:
+                    profile.temperature === null ||
+                    profile.temperature === undefined
+                        ? null
+                        : Number(profile.temperature),
+            })),
+        }),
+        [translationDraft],
     );
 
     const refreshDetectionProfiles = useCallback(async () => {
@@ -463,6 +577,40 @@ export function SettingsLayout() {
         buildOcrPayload,
     ]);
 
+    useEffect(() => {
+        if (!translationDirty || translationDraft.length === 0) {
+            return;
+        }
+        if (!autoSaveEnabled) {
+            return;
+        }
+        if (agentLoading) {
+            return;
+        }
+        const handle = setTimeout(() => {
+            setTranslationAutoSaving(true);
+            saveTranslationProfiles(buildTranslationPayload())
+                .then(() => {
+                    setSaveMessage("Translation profile settings saved.");
+                    setTranslationDirty(false);
+                })
+                .catch(() => {
+                    setSaveMessage(null);
+                })
+                .finally(() => {
+                    setTranslationAutoSaving(false);
+                });
+        }, 400);
+        return () => clearTimeout(handle);
+    }, [
+        translationDirty,
+        translationDraft.length,
+        autoSaveEnabled,
+        agentLoading,
+        saveTranslationProfiles,
+        buildTranslationPayload,
+    ]);
+
     const handleSave = async () => {
         setSaving(true);
         setSaveMessage(null);
@@ -486,10 +634,15 @@ export function SettingsLayout() {
                 await saveOcrProfiles(buildOcrPayload());
             }
 
+            if (translationDraft.length) {
+                await saveTranslationProfiles(buildTranslationPayload());
+            }
+
             setSaveMessage("Saved.");
             setBaseDirty(false);
             setAgentDirty(false);
             setOcrDirty(false);
+            setTranslationDirty(false);
         } catch {
             setSaveMessage(null);
         } finally {
@@ -602,67 +755,44 @@ export function SettingsLayout() {
                     {ocrAutoSaving && (
                         <div className={ui.trainingMetaSmall}>Saving OCR settings…</div>
                     )}
+                    {translationAutoSaving && (
+                        <div className={ui.trainingMetaSmall}>
+                            Saving translation profile settings…
+                        </div>
+                    )}
 
-                    <div
-                        role="tablist"
-                        aria-label="Settings categories"
-                        className={ui.trainingTabs}
-                    >
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === "translation"}
-                            onClick={() => setActiveTab("translation")}
-                            className={`${ui.trainingTab} ${
-                                activeTab === "translation"
-                                    ? ui.trainingTabActive
-                                    : ui.trainingTabInactive
-                            }`}
-                        >
-                            Translation
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === "detection"}
-                            onClick={() => setActiveTab("detection")}
-                            className={`${ui.trainingTab} ${
-                                activeTab === "detection"
-                                    ? ui.trainingTabActive
-                                    : ui.trainingTabInactive
-                            }`}
-                        >
-                            Detection
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === "ocr"}
-                            onClick={() => setActiveTab("ocr")}
-                            className={`${ui.trainingTab} ${
-                                activeTab === "ocr"
-                                    ? ui.trainingTabActive
-                                    : ui.trainingTabInactive
-                            }`}
-                        >
-                            OCR
-                        </button>
-                    </div>
+                    <SettingsTabs
+                        activeTab={activeTab}
+                        onChangeTab={setActiveTab}
+                    />
 
                     <div className="space-y-4">
                         {activeTab === "translation" && (
-                            <TranslationAgentCard
-                                agentDraft={agentDraft}
-                                agentModelOptions={agentModelOptions}
-                                agentReasoningOptions={agentReasoningOptions}
-                                onUpdateAgentDraft={updateAgentDraft}
-                                agentDetectionProfileId={agentDetectionProfileId}
-                                translateSingleBoxUseContext={translateSingleBoxUseContext}
-                                onUpdateDraft={updateDraft}
-                                agentDetectionLoading={agentDetectionLoading}
-                                agentDetectionOptions={agentDetectionOptions}
-                                hasAgentDetectionOptions={hasAgentDetectionOptions}
-                            />
+                            <>
+                                <TranslationAgentCard
+                                    agentDraft={agentDraft}
+                                    agentModelOptions={agentModelOptions}
+                                    agentReasoningOptions={agentReasoningOptions}
+                                    onUpdateAgentDraft={updateAgentDraft}
+                                    agentDetectionProfileId={agentDetectionProfileId}
+                                    translateSingleBoxUseContext={translateSingleBoxUseContext}
+                                    includePriorContextSummary={includePriorContextSummary}
+                                    includePriorCharacters={includePriorCharacters}
+                                    includePriorOpenThreads={includePriorOpenThreads}
+                                    includePriorGlossary={includePriorGlossary}
+                                    includeImage={includeImage}
+                                    onUpdateDraft={updateDraft}
+                                    agentDetectionLoading={agentDetectionLoading}
+                                    agentDetectionOptions={agentDetectionOptions}
+                                    hasAgentDetectionOptions={hasAgentDetectionOptions}
+                                />
+                                <TranslationProfilesCard
+                                    translationDraft={translationDraft}
+                                    translationModelOptions={translationModelOptions}
+                                    translationReasoningOptions={translationReasoningOptions}
+                                    onUpdateTranslationProfile={updateTranslationProfile}
+                                />
+                            </>
                         )}
 
                         {activeTab === "detection" && (

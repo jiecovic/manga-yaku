@@ -12,3 +12,4 @@ export * from "./ocr";
 export * from "./settings";
 export * from "./training";
 export * from "./translation";
+export * from "./translationProfileSettings";
