@@ -58,7 +58,7 @@ if (!existsSync(venvPython)) {
 }
 
 run(venvPython, ["-m", "pip", "install", "--upgrade", "pip"]);
-run(venvPython, ["-m", "pip", "install", "-e", backendDir]);
+run(venvPython, ["-m", "pip", "install", "-e", `${backendDir}[dev]`]);
 
 const hasRootDeps =
   existsSync(join(root, "node_modules", ".bin", "concurrently")) ||

@@ -29,6 +29,11 @@ dependencies = [
   "uvicorn==0.38.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest==8.4.2",
+]
+
 [tool.setuptools]
 py-modules = ["app", "config", "settings"]
 
@@ -52,4 +57,3 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "I", "DTZ", "B", "UP", "RUF"]
 ignore = ["E501"]
-
