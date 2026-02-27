@@ -27,11 +27,11 @@ from infra.db.workflow_store import (
     update_workflow_run,
 )
 
+from .context import WorkflowRunContext
 from .helpers import (
     apply_translation_payload,
     build_ocr_profile_meta,
     build_translation_boxes,
-    emit_progress,
     list_text_boxes,
     resolve_detection_profile_id,
     resolve_ocr_profiles,
@@ -41,6 +41,7 @@ from .helpers import (
 from .helpers import (
     is_canceled as is_cancel_requested,
 )
+from .progress import emit_workflow_progress
 from .state_machine import transition
 from .types import (
     AgentTranslatePageRequest,
@@ -74,29 +75,10 @@ async def run_agent_translate_page_workflow(
     on_progress: ProgressCallback | None = None,
     is_canceled: CancelCheck | None = None,
 ) -> dict[str, Any]:
-    loop = asyncio.get_running_loop()
-    run_started_at = loop.time()
-    stage_started_at: dict[str, float] = {}
-    stage_durations_ms: dict[str, int] = {}
-
-    def mark_stage_started(stage_name: str) -> None:
-        stage_started_at[stage_name] = loop.time()
-
-    def mark_stage_finished(stage_name: str) -> None:
-        started = stage_started_at.get(stage_name)
-        if started is None:
-            return
-        elapsed_ms = int((loop.time() - started) * 1000)
-        stage_durations_ms[stage_name] = max(0, elapsed_ms)
-
     request = AgentTranslatePageRequest.from_payload(payload)
     state = WorkflowState.queued
     detection_profile_id = resolve_detection_profile_id(request.detection_profile_id)
     ocr_profiles = resolve_ocr_profiles(payload)
-    detected_boxes = 0
-    ocr_tasks_total = 0
-    ocr_tasks_done = 0
-    updated_boxes = 0
 
     workflow_run_id = create_workflow_run(
         workflow_type="agent_translate_page",
@@ -111,18 +93,18 @@ async def run_agent_translate_page_workflow(
         result_json={"request": dict(payload)},
     )
 
-    emit_progress(
+    run_ctx = WorkflowRunContext(
+        workflow_run_id=workflow_run_id,
+        detection_profile_id=detection_profile_id,
+        on_progress=on_progress,
+    )
+
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="queued",
         progress=0,
         message="Queued",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
     )
 
     if is_cancel_requested(is_canceled):
@@ -138,22 +120,16 @@ async def run_agent_translate_page_workflow(
             stage="queued",
             progress=100,
             message="Canceled",
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            workflow_run_id=workflow_run_id,
+            detection_profile_id=run_ctx.detection_profile_id,
+            detected_boxes=run_ctx.detected_boxes,
+            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_progress(
+        emit_workflow_progress(
+            run_ctx,
             state=state,
             stage=snapshot.stage,
             progress=snapshot.progress,
             message=snapshot.message,
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            ocr_tasks_total=ocr_tasks_total,
-            ocr_tasks_done=ocr_tasks_done,
-            updated_boxes=updated_boxes,
-            workflow_run_id=workflow_run_id,
-            on_progress=on_progress,
         )
         return snapshot.to_result()
 
@@ -163,19 +139,13 @@ async def run_agent_translate_page_workflow(
         state=state.value,
         status="running",
     )
-    mark_stage_started("detect")
-    emit_progress(
+    run_ctx.start_stage("detect")
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="detect_boxes",
         progress=5,
         message="Detecting text boxes",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
     )
 
     try:
@@ -187,7 +157,7 @@ async def run_agent_translate_page_workflow(
             replace_existing=True,
         )
     except Exception as exc:
-        mark_stage_finished("detect")
+        run_ctx.finish_stage("detect")
         state = transition(state, WorkflowEvent.detect_failed)
         update_workflow_run(
             workflow_run_id,
@@ -199,8 +169,8 @@ async def run_agent_translate_page_workflow(
 
     page = load_page(request.volume_id, request.filename)
     text_boxes = list_text_boxes(page)
-    detected_boxes = len(text_boxes)
-    mark_stage_finished("detect")
+    run_ctx.detected_boxes = len(text_boxes)
+    run_ctx.finish_stage("detect")
 
     if is_cancel_requested(is_canceled):
         state = transition(state, WorkflowEvent.cancel_requested)
@@ -215,22 +185,16 @@ async def run_agent_translate_page_workflow(
             stage="detect_boxes",
             progress=100,
             message="Canceled",
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            workflow_run_id=workflow_run_id,
+            detection_profile_id=run_ctx.detection_profile_id,
+            detected_boxes=run_ctx.detected_boxes,
+            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_progress(
+        emit_workflow_progress(
+            run_ctx,
             state=state,
             stage=snapshot.stage,
             progress=snapshot.progress,
             message=snapshot.message,
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            ocr_tasks_total=ocr_tasks_total,
-            ocr_tasks_done=ocr_tasks_done,
-            updated_boxes=updated_boxes,
-            workflow_run_id=workflow_run_id,
-            on_progress=on_progress,
         )
         return snapshot.to_result()
 
@@ -240,19 +204,13 @@ async def run_agent_translate_page_workflow(
         state=state.value,
         status="running",
     )
-    mark_stage_started("ocr")
-    emit_progress(
+    run_ctx.start_stage("ocr")
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="ocr_fanout",
         progress=20,
-        message=f"Detected {detected_boxes} text boxes",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
+        message=f"Detected {run_ctx.detected_boxes} text boxes",
     )
 
     candidates: dict[int, dict[str, str]] = {}
@@ -303,13 +261,12 @@ async def run_agent_translate_page_workflow(
                 )
             )
 
-    ocr_tasks_total = len(specs)
+    run_ctx.ocr_tasks_total = len(specs)
     local_parallelism, remote_parallelism = resolve_parallel_limits()
     local_sem = asyncio.Semaphore(local_parallelism)
     remote_sem = asyncio.Semaphore(remote_parallelism)
 
     async def run_one_task(spec: _OcrTaskSpec) -> OcrTaskOutcome | None:
-        nonlocal ocr_tasks_done
         if is_cancel_requested(is_canceled):
             update_task_run(
                 spec.task_run_id,
@@ -389,20 +346,16 @@ async def run_agent_translate_page_workflow(
                 finished=True,
             )
 
-            ocr_tasks_done += 1
-            progress = 20 + int((ocr_tasks_done / max(ocr_tasks_total, 1)) * 50)
-            emit_progress(
+            run_ctx.ocr_tasks_done += 1
+            progress = 20 + int(
+                (run_ctx.ocr_tasks_done / max(run_ctx.ocr_tasks_total, 1)) * 50
+            )
+            emit_workflow_progress(
+                run_ctx,
                 state=state,
                 stage="ocr_running",
                 progress=progress,
-                message=f"OCR {ocr_tasks_done}/{ocr_tasks_total}",
-                detection_profile_id=detection_profile_id,
-                detected_boxes=detected_boxes,
-                ocr_tasks_total=ocr_tasks_total,
-                ocr_tasks_done=ocr_tasks_done,
-                updated_boxes=updated_boxes,
-                workflow_run_id=workflow_run_id,
-                on_progress=on_progress,
+                message=f"OCR {run_ctx.ocr_tasks_done}/{run_ctx.ocr_tasks_total}",
             )
             return outcome
 
@@ -412,7 +365,7 @@ async def run_agent_translate_page_workflow(
         outcomes = [item for item in raw_outcomes if item is not None]
 
     if is_cancel_requested(is_canceled):
-        mark_stage_finished("ocr")
+        run_ctx.finish_stage("ocr")
         state = transition(state, WorkflowEvent.cancel_requested)
         update_workflow_run(
             workflow_run_id,
@@ -425,25 +378,19 @@ async def run_agent_translate_page_workflow(
             stage="ocr_running",
             progress=100,
             message="Canceled",
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            ocr_tasks_total=ocr_tasks_total,
-            ocr_tasks_done=ocr_tasks_done,
-            updated_boxes=updated_boxes,
-            workflow_run_id=workflow_run_id,
+            detection_profile_id=run_ctx.detection_profile_id,
+            detected_boxes=run_ctx.detected_boxes,
+            ocr_tasks_total=run_ctx.ocr_tasks_total,
+            ocr_tasks_done=run_ctx.ocr_tasks_done,
+            updated_boxes=run_ctx.updated_boxes,
+            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_progress(
+        emit_workflow_progress(
+            run_ctx,
             state=state,
             stage=snapshot.stage,
             progress=snapshot.progress,
             message=snapshot.message,
-            detection_profile_id=detection_profile_id,
-            detected_boxes=detected_boxes,
-            ocr_tasks_total=ocr_tasks_total,
-            ocr_tasks_done=ocr_tasks_done,
-            updated_boxes=updated_boxes,
-            workflow_run_id=workflow_run_id,
-            on_progress=on_progress,
         )
         return snapshot.to_result()
 
@@ -461,8 +408,8 @@ async def run_agent_translate_page_workflow(
         elif outcome.status == "error":
             error_candidates.setdefault(box_id, set()).add(outcome.profile_id)
 
-    if not usable_ocr and ocr_tasks_total > 0:
-        mark_stage_finished("ocr")
+    if not usable_ocr and run_ctx.ocr_tasks_total > 0:
+        run_ctx.finish_stage("ocr")
         state = transition(state, WorkflowEvent.ocr_failed)
         update_workflow_run(
             workflow_run_id,
@@ -490,26 +437,20 @@ async def run_agent_translate_page_workflow(
                 ocr_text=chosen,
             )
 
-    mark_stage_finished("ocr")
+    run_ctx.finish_stage("ocr")
     state = transition(state, WorkflowEvent.ocr_succeeded)
     update_workflow_run(
         workflow_run_id,
         state=state.value,
         status="running",
     )
-    mark_stage_started("translate")
-    emit_progress(
+    run_ctx.start_stage("translate")
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="translating",
         progress=75,
         message="Translating page",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
     )
 
     payload_boxes, box_index_map = build_translation_boxes(
@@ -714,7 +655,7 @@ async def run_agent_translate_page_workflow(
             timeout=float(translation_timeout_seconds),
         )
     except asyncio.TimeoutError:
-        mark_stage_finished("translate")
+        run_ctx.finish_stage("translate")
         error_message = f"Agent translation timed out after {translation_timeout_seconds}s"
         update_task_run(
             translate_task_run_id,
@@ -752,7 +693,7 @@ async def run_agent_translate_page_workflow(
         )
         raise RuntimeError(error_message) from None
     except Exception as exc:
-        mark_stage_finished("translate")
+        run_ctx.finish_stage("translate")
         error_message = str(exc)
         update_task_run(
             translate_task_run_id,
@@ -790,26 +731,20 @@ async def run_agent_translate_page_workflow(
         )
         raise
 
-    mark_stage_finished("translate")
+    run_ctx.finish_stage("translate")
     state = transition(state, WorkflowEvent.translate_succeeded)
     update_workflow_run(
         workflow_run_id,
         state=state.value,
         status="running",
     )
-    mark_stage_started("commit")
-    emit_progress(
+    run_ctx.start_stage("commit")
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="commit",
         progress=90,
         message="Applying translated output",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
     )
 
     try:
@@ -821,7 +756,7 @@ async def run_agent_translate_page_workflow(
             translation_payload=translation_payload,
         )
     except Exception as exc:
-        mark_stage_finished("commit")
+        run_ctx.finish_stage("commit")
         state = transition(state, WorkflowEvent.commit_failed)
         update_workflow_run(
             workflow_run_id,
@@ -866,26 +801,26 @@ async def run_agent_translate_page_workflow(
         open_threads_snapshot=open_threads,
         glossary_snapshot=glossary,
     )
-    mark_stage_finished("commit")
+    run_ctx.finish_stage("commit")
 
-    updated_boxes = int(commit.get("updated") or 0)
+    run_ctx.updated_boxes = int(commit.get("updated") or 0)
     state = transition(state, WorkflowEvent.commit_succeeded)
     result = {
         "state": state.value,
         "stage": "completed",
         "processed": int(commit.get("processed") or 0),
         "total": int(commit.get("total") or 0),
-        "updated": updated_boxes,
+        "updated": run_ctx.updated_boxes,
         "orderApplied": bool(commit.get("orderApplied")),
-        "detectionProfileId": detection_profile_id,
+        "detectionProfileId": run_ctx.detection_profile_id,
         "workflowRunId": workflow_run_id,
         "characters": characters,
         "imageSummary": image_summary if isinstance(image_summary, str) else None,
         "storySummary": story_summary if isinstance(story_summary, str) else None,
         "openThreads": open_threads,
         "glossary": glossary,
-        "duration_ms": max(0, int((loop.time() - run_started_at) * 1000)),
-        "stage_durations_ms": dict(stage_durations_ms),
+        "duration_ms": run_ctx.total_duration_ms(),
+        "stage_durations_ms": dict(run_ctx.stage_durations_ms),
         "message": "Agent translation complete",
     }
     persisted = dict(result)
@@ -896,18 +831,12 @@ async def run_agent_translate_page_workflow(
         status="completed",
         result_json=persisted,
     )
-    emit_progress(
+    emit_workflow_progress(
+        run_ctx,
         state=state,
         stage="completed",
         progress=100,
         message="Agent translation complete",
-        detection_profile_id=detection_profile_id,
-        detected_boxes=detected_boxes,
-        ocr_tasks_total=ocr_tasks_total,
-        ocr_tasks_done=ocr_tasks_done,
-        updated_boxes=updated_boxes,
-        workflow_run_id=workflow_run_id,
-        on_progress=on_progress,
     )
     return result
 
