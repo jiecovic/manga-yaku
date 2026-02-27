@@ -8,6 +8,7 @@ import { useCanvasLayout } from "../../hooks/useCanvasLayout";
 import { useBoxDrawing } from "../../hooks/useBoxDrawing";
 import { ui } from "../../ui/tokens";
 import { BOX_RENDER_ORDER, BOX_TYPES } from "../../utils/boxes";
+import { buildTextBoxIndexMap } from "../../utils/textBoxIndex";
 
 interface PageCanvasProps {
     imageUrl: string | null;
@@ -81,7 +82,10 @@ export function PageCanvas({
     });
 
     // Hover state for tooltip
-    const [hoveredBoxId, setHoveredBoxId] = useState<number | null>(null);
+    const [hoveredBoxRef, setHoveredBoxRef] = useState<{
+        id: number;
+        type: BoxType;
+    } | null>(null);
 
     const handlePrevClick = useCallback(() => {
         if (!hasPrev) return;
@@ -100,21 +104,22 @@ export function PageCanvas({
         );
     }, [boxesByType, visibleBoxTypes]);
 
-    const hoveredBox = useMemo(
-        () => visibleBoxes.find((b) => b.id === hoveredBoxId),
-        [visibleBoxes, hoveredBoxId],
+    const hoveredBox = useMemo(() => {
+        if (!hoveredBoxRef) {
+            return null;
+        }
+        return (
+            visibleBoxes.find(
+                (box) =>
+                    box.id === hoveredBoxRef.id &&
+                    box.type === hoveredBoxRef.type,
+            ) ?? null
+        );
+    }, [visibleBoxes, hoveredBoxRef]);
+    const textIndexMap = useMemo(
+        () => buildTextBoxIndexMap(boxesByType.text),
+        [boxesByType.text],
     );
-    const textIndexMap = useMemo(() => {
-        const map = new Map<number, number>();
-        boxesByType.text.forEach((box, index) => {
-            const order =
-                box.orderIndex && box.orderIndex > 0
-                    ? box.orderIndex
-                    : index + 1;
-            map.set(box.id, order);
-        });
-        return map;
-    }, [boxesByType.text]);
 
     const renderTooltip = () => {
         if (!hoveredBox || !hoveredBox.translation) return null;
@@ -264,6 +269,7 @@ export function PageCanvas({
                             onMouseDown={handleMouseDown}
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
+                            onMouseLeave={() => setHoveredBoxRef(null)}
                         >
                             <Layer>
                                 {/* Page image */}
@@ -304,22 +310,27 @@ export function PageCanvas({
                                                 y={rect.y}
                                                 width={rect.width}
                                                 height={rect.height}
+                                                fill="rgba(0,0,0,0.001)"
                                                 stroke={style.stroke}
                                                 strokeWidth={style.strokeWidth}
                                                 dash={style.dash}
                                                 onMouseEnter={() =>
-                                                    setHoveredBoxId(box.id)
+                                                    setHoveredBoxRef({
+                                                        id: box.id,
+                                                        type: box.type,
+                                                    })
                                                 }
                                                 onMouseLeave={() =>
-                                                    setHoveredBoxId((current) =>
-                                                        current === box.id
+                                                    setHoveredBoxRef((current) =>
+                                                        current?.id === box.id &&
+                                                        current?.type === box.type
                                                             ? null
                                                             : current,
                                                     )
                                                 }
                                             />
                                             {label && (
-                                                <Group>
+                                                <Group listening={false}>
                                                     <Rect
                                                         x={badgeX}
                                                         y={badgeY}

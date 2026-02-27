@@ -15,12 +15,16 @@ interface UsePageJobEffectsArgs {
 
 interface OcrJobPayload {
     volumeId?: string;
+    volume_id?: string;
     filename?: string;
+    file_name?: string;
     boxId?: number;
+    box_id?: number;
     x?: number;
     y?: number;
     width?: number;
     height?: number;
+    request?: Record<string, unknown>;
 }
 
 interface OcrJobResult {
@@ -29,17 +33,82 @@ interface OcrJobResult {
 
 interface TranslateJobPayload {
     volumeId?: string;
+    volume_id?: string;
     filename?: string;
+    file_name?: string;
     boxId?: number;
+    box_id?: number;
+    request?: Record<string, unknown>;
 }
 
 interface TranslateJobResult {
     translation?: string;
 }
 
-interface DetectJobPayload {
-    volumeId?: string;
-    filename?: string;
+function asRecord(value: unknown): Record<string, unknown> | null {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+    return null;
+}
+
+function readTrimmedString(
+    source: Record<string, unknown> | null,
+    keys: string[],
+): string | null {
+    if (!source) {
+        return null;
+    }
+    for (const key of keys) {
+        const raw = source[key];
+        if (typeof raw === "string") {
+            const trimmed = raw.trim();
+            if (trimmed) {
+                return trimmed;
+            }
+        }
+    }
+    return null;
+}
+
+function resolvePayloadPage(
+    payload: Record<string, unknown> | null,
+): {volumeId: string; filename: string} | null {
+    if (!payload) {
+        return null;
+    }
+    const nestedRequest = asRecord(payload.request);
+    const candidates = [payload, nestedRequest];
+
+    for (const candidate of candidates) {
+        const resolvedVolumeId = readTrimmedString(candidate, [
+            "volumeId",
+            "volume_id",
+        ]);
+        const resolvedFilename = readTrimmedString(candidate, [
+            "filename",
+            "file_name",
+        ]);
+        if (resolvedVolumeId && resolvedFilename) {
+            return {
+                volumeId: resolvedVolumeId,
+                filename: resolvedFilename,
+            };
+        }
+    }
+    return null;
+}
+
+function payloadMatchesPage(
+    payload: Record<string, unknown> | null,
+    volumeId: string,
+    filename: string,
+): boolean {
+    const resolved = resolvePayloadPage(payload);
+    if (!resolved) {
+        return false;
+    }
+    return resolved.volumeId === volumeId && resolved.filename === filename;
 }
 
 // Helper: find box by coordinates (as stored in OCR job payload)
@@ -103,10 +172,7 @@ export function usePageJobEffects({
             const result = job.result as OcrJobResult;
 
             // Only apply to this page
-            if (
-                payload.volumeId !== volumeId ||
-                payload.filename !== filename
-            ) {
+            if (!payloadMatchesPage(asRecord(payload), volumeId, filename)) {
                 return;
             }
 
@@ -117,7 +183,7 @@ export function usePageJobEffects({
             }
 
             setPageBoxesLocal((currentBoxes) => {
-                const payloadBoxId = Number(payload.boxId);
+                const payloadBoxId = Number(payload.boxId ?? payload.box_id);
                 const idx = Number.isFinite(payloadBoxId)
                     ? currentBoxes.findIndex(
                           (b) =>
@@ -166,14 +232,11 @@ export function usePageJobEffects({
             const result = job.result as TranslateJobResult;
 
             // Only apply to this page
-            if (
-                payload.volumeId !== volumeId ||
-                payload.filename !== filename
-            ) {
+            if (!payloadMatchesPage(asRecord(payload), volumeId, filename)) {
                 return;
             }
 
-            const boxId = Number(payload.boxId);
+            const boxId = Number(payload.boxId ?? payload.box_id);
             if (!Number.isFinite(boxId)) {
                 appliedIds.add(job.id);
                 return;
@@ -244,13 +307,16 @@ export function usePageJobEffects({
             return;
         }
 
-        const matchesPage = pending.some((job) => {
-            const payload = job.payload as DetectJobPayload;
-            return payload.volumeId === volumeId && payload.filename === filename;
-        });
+        const matchesPage = pending.some((job) =>
+            payloadMatchesPage(asRecord(job.payload), volumeId, filename),
+        );
 
         if (!matchesPage) {
-            pending.forEach((job) => appliedIds.add(job.id));
+            pending.forEach((job) => {
+                if (resolvePayloadPage(asRecord(job.payload))) {
+                    appliedIds.add(job.id);
+                }
+            });
             return;
         }
 
@@ -293,13 +359,16 @@ export function usePageJobEffects({
             return;
         }
 
-        const matchesPage = pending.some((job) => {
-            const payload = job.payload as DetectJobPayload;
-            return payload.volumeId === volumeId && payload.filename === filename;
-        });
+        const matchesPage = pending.some((job) =>
+            payloadMatchesPage(asRecord(job.payload), volumeId, filename),
+        );
 
         if (!matchesPage) {
-            pending.forEach((job) => appliedIds.add(job.id));
+            pending.forEach((job) => {
+                if (resolvePayloadPage(asRecord(job.payload))) {
+                    appliedIds.add(job.id);
+                }
+            });
             return;
         }
 
@@ -342,13 +411,16 @@ export function usePageJobEffects({
             return;
         }
 
-        const matchesPage = pending.some((job) => {
-            const payload = job.payload as DetectJobPayload;
-            return payload.volumeId === volumeId && payload.filename === filename;
-        });
+        const matchesPage = pending.some((job) =>
+            payloadMatchesPage(asRecord(job.payload), volumeId, filename),
+        );
 
         if (!matchesPage) {
-            pending.forEach((job) => appliedIds.add(job.id));
+            pending.forEach((job) => {
+                if (resolvePayloadPage(asRecord(job.payload))) {
+                    appliedIds.add(job.id);
+                }
+            });
             return;
         }
 
@@ -392,10 +464,9 @@ export function usePageJobEffects({
             return;
         }
 
-        const matchesPage = pending.some((job) => {
-            const payload = job.payload as DetectJobPayload;
-            return payload.volumeId === volumeId && payload.filename === filename;
-        });
+        const matchesPage = pending.some((job) =>
+            payloadMatchesPage(asRecord(job.payload), volumeId, filename),
+        );
 
         if (!matchesPage) {
             return;

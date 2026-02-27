@@ -1,5 +1,5 @@
 // src/components/JobsPanel.tsx
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useJobs } from "../context/useJobs";
 import { ui } from "../ui/tokens";
@@ -13,6 +13,7 @@ import {
     isWorkflowJob,
     parseStageDurationsMs,
     summarizeTaskCounts,
+    taskTypeLabel,
     taskMessage,
     taskProgressValue,
     taskStatusBadgeClass,
@@ -22,11 +23,29 @@ import { useJobTasks } from "./jobs/useJobTasks";
 export function JobsPanel() {
     const { jobs, jobsError, jobsLoading, clearFinished, cancelJob, deleteJob } =
         useJobs();
+    const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
     const sortedJobs = useMemo(
         () => jobs.slice().sort((a, b) => b.created_at - a.created_at),
         [jobs],
     );
+    const hasActiveJobs = useMemo(
+        () =>
+            sortedJobs.some(
+                (job) => job.status === "running" || job.status === "queued",
+            ),
+        [sortedJobs],
+    );
+
+    useEffect(() => {
+        if (!hasActiveJobs) {
+            return undefined;
+        }
+        const timerId = window.setInterval(() => {
+            setNowMs(Date.now());
+        }, 1000);
+        return () => window.clearInterval(timerId);
+    }, [hasActiveJobs]);
 
     const { expandedJobs, setExpandedJobs, jobTasks } = useJobTasks(sortedJobs);
 
@@ -86,14 +105,14 @@ export function JobsPanel() {
                                     ? (job.result as { duration_ms?: unknown }).duration_ms
                                     : null;
                             const resultDurationMs = Number(resultDurationRaw);
-                            const durationMs = Number.isFinite(resultDurationMs)
-                                ? Math.max(0, Math.trunc(resultDurationMs))
-                                : computeJobDurationMs(
-                                      job,
-                                      Number.isFinite(Number(job.updated_at))
-                                          ? Number(job.updated_at) * 1000
-                                          : 0,
-                                  );
+                            const isTerminalJob =
+                                job.status === "finished" ||
+                                job.status === "failed" ||
+                                job.status === "canceled";
+                            const durationMs =
+                                isTerminalJob && Number.isFinite(resultDurationMs)
+                                    ? Math.max(0, Math.trunc(resultDurationMs))
+                                    : computeJobDurationMs(job, nowMs);
                             const stageDurations =
                                 job.type === "agent_translate_page"
                                     ? parseStageDurationsMs(job)
@@ -451,7 +470,7 @@ export function JobsPanel() {
                                                                     >
                                                                         <div className="mb-0.5 flex items-center justify-between gap-2">
                                                                             <span className={ui.jobsType}>
-                                                                                ocr_box
+                                                                                {taskTypeLabel(task)}
                                                                             </span>
                                                                             <span
                                                                                 className={taskStatusBadgeClass(
@@ -470,8 +489,10 @@ export function JobsPanel() {
                                                                             </div>
                                                                         )}
                                                                         <div className={`mt-1 ${ui.jobsMeta}`}>
-                                                                            attempts {attemptCount} |{" "}
-                                                                            {task.profile_id || "unknown_profile"}
+                                                                            attempts {attemptCount}
+                                                                            {task.profile_id
+                                                                                ? ` | ${task.profile_id}`
+                                                                                : ""}
                                                                         </div>
                                                                         {attemptEvents.length > 0 && (
                                                                             <div className="mt-1 space-y-0.5">

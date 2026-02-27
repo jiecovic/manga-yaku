@@ -54,6 +54,14 @@ export function summarizeTaskCounts(tasks: JobTaskRun[]): TaskCounts {
 }
 
 export function formatTaskTitle(task: JobTaskRun): string {
+    const stage = String(task.stage || "").trim();
+    if (stage !== "ocr") {
+        const stageLabel = taskTypeLabel(task);
+        if (task.profile_id) {
+            return `${stageLabel} | ${task.profile_id}`;
+        }
+        return stageLabel;
+    }
     const boxId =
         typeof task.box_id === "number" && Number.isFinite(task.box_id)
             ? `box #${task.box_id}`
@@ -78,6 +86,20 @@ export function taskStatusBadgeClass(status: string): string {
     return `${ui.statusBadgeBase} ${ui.statusBadgeRunning}`;
 }
 
+export function taskTypeLabel(task: JobTaskRun): string {
+    const stage = String(task.stage || "").trim();
+    if (stage === "ocr") {
+        return "ocr_box";
+    }
+    if (stage === "translate_page") {
+        return "translate_page";
+    }
+    if (stage === "merge_state") {
+        return "merge_state";
+    }
+    return stage || "task";
+}
+
 export function taskProgressValue(status: string): number {
     const normalized = status.trim();
     if (normalized === "completed") {
@@ -97,12 +119,19 @@ export function taskMessage(task: JobTaskRun): string | null {
     if (!result) {
         return null;
     }
+    const rawMessage = result.message;
+    if (typeof rawMessage === "string" && rawMessage.trim()) {
+        return rawMessage.trim();
+    }
     const rawText = result.text;
     if (typeof rawText === "string" && rawText.trim()) {
         const trimmed = rawText.trim();
         const preview =
             trimmed.length > 96 ? `${trimmed.slice(0, 96).trimEnd()}...` : trimmed;
-        return `OCR done: ${preview}`;
+        if (String(task.stage || "").trim() === "ocr") {
+            return `OCR done: ${preview}`;
+        }
+        return preview;
     }
     const rawError = result.error_message;
     if (typeof rawError === "string" && rawError.trim()) {

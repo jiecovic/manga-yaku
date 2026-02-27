@@ -6,6 +6,7 @@ interface PageBoxCardProps {
     box: Box;
     index: number;
     total: number;
+    displayOrder: number;
     onMove: (id: number, dir: "up" | "down") => void;
     onDelete: (id: number) => void;
     onUpdateText: (
@@ -22,6 +23,7 @@ export function PageBoxCard({
     box,
     index,
     total,
+    displayOrder,
     onMove,
     onDelete,
     onUpdateText,
@@ -50,7 +52,7 @@ export function PageBoxCard({
             <div className={ui.cardHeader}>
                 <div className="flex items-center gap-2">
                     <span className={ui.cardIndex}>
-                        #{index + 1}
+                        #{displayOrder}
                     </span>
 
                     <button

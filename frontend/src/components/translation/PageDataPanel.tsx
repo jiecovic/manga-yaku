@@ -3,6 +3,7 @@ import { useCallback, useRef } from "react";
 import type { Box } from "../../types";
 import { PageBoxCard } from "./PageBoxCard";
 import { ui } from "../../ui/tokens";
+import { buildTextBoxIndexMap } from "../../utils/textBoxIndex";
 
 export interface PageDataPanelProps {
     boxes: Box[];
@@ -29,6 +30,7 @@ export function PageDataPanel({
     toggleLabel,
 }: PageDataPanelProps) {
     const hasBoxes = boxes.length > 0;
+    const displayOrderMap = buildTextBoxIndexMap(boxes);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -106,6 +108,7 @@ export function PageDataPanel({
                                 box={box}
                                 index={idx}
                                 total={boxes.length}
+                                displayOrder={displayOrderMap.get(box.id) ?? idx + 1}
                                 onMove={onMoveBox}
                                 onDelete={onDeleteBox}
                                 onUpdateText={onUpdateBoxText}
