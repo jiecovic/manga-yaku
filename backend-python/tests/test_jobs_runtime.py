@@ -1,3 +1,4 @@
+# backend-python/tests/test_jobs_runtime.py
 """Unit tests for jobs runtime startup and shutdown lifecycle.
 
 These tests mock worker loops to verify idempotent startup and clean shutdown
@@ -48,6 +49,8 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_startup_is_idempotent(self) -> None:
         with (
             patch.object(runtime, "mark_running_workflows_interrupted") as mark_interrupted,
+            # Replace worker bodies with wait loops so we can assert lifecycle
+            # semantics without touching real DB-backed loops.
             patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
             patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
             patch.object(

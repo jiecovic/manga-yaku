@@ -1,3 +1,4 @@
+# backend-python/tests/test_jobs_worker_repo_adapters.py
 """Unit tests for worker adapters around shared workflow repository helpers.
 
 These tests verify per-worker payload shaping stays stable while claim/requeue
@@ -14,6 +15,7 @@ from infra.jobs import db_ocr_worker, db_translate_worker
 
 class OcrWorkerRepoAdapterTests(unittest.TestCase):
     def test_claim_adapter_maps_payload_fields(self) -> None:
+        # Adapter should coerce DB payload numerics into worker-friendly floats.
         with patch(
             "infra.jobs.db_ocr_worker.claim_next_task",
             return_value={

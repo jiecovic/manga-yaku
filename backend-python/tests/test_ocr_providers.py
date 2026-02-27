@@ -1,3 +1,4 @@
+# backend-python/tests/test_ocr_providers.py
 """Regression tests for OCR provider availability exposure.
 
 These tests ensure unavailable OCR providers (especially manga-ocr) are not

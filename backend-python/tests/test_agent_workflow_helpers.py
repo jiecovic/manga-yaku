@@ -1,3 +1,4 @@
+# backend-python/tests/test_agent_workflow_helpers.py
 """Unit tests for workflow helper pure functions and payload mapping.
 
 These tests patch storage-side effects and focus on deterministic helper
@@ -18,6 +19,8 @@ from core.workflows.agent_translate_page.helpers import (
 
 class ResolveOcrProfilesTests(unittest.TestCase):
     def test_resolve_ocr_profiles_filters_disabled_and_unknown(self) -> None:
+        # Duplicates should collapse, disabled profiles should drop, and
+        # unknown ids should fail closed instead of leaking through.
         payload = {"ocrProfiles": ["p1", "p2", "p1", "missing"]}
 
         def fake_get(profile_id: str) -> dict:
@@ -73,6 +76,8 @@ class ResolveOcrProfilesTests(unittest.TestCase):
 
 class BuildTranslationBoxesTests(unittest.TestCase):
     def test_build_translation_boxes_assigns_unique_box_indexes(self) -> None:
+        # Duplicate orderIndex values must be re-assigned deterministically
+        # so every output entry keeps a unique id space for the LLM stage.
         text_boxes = [
             {"id": 101, "orderIndex": 2},
             {"id": 102, "orderIndex": 2},
@@ -113,6 +118,8 @@ class BuildTranslationBoxesTests(unittest.TestCase):
 
 class ApplyTranslationPayloadTests(unittest.TestCase):
     def test_apply_translation_payload_merges_and_deletes_orphans(self) -> None:
+        # Boxes merged into one translated line should keep a single survivor;
+        # non-selected text boxes become delete candidates.
         text_boxes = [{"id": 10}, {"id": 20}, {"id": 30}, {"id": 40}]
         box_index_map = {1: 10, 2: 20, 3: 30}
         translation_payload = {

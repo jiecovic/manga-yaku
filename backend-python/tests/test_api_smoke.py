@@ -1,3 +1,4 @@
+# backend-python/tests/test_api_smoke.py
 """Smoke tests for key API router handlers without ASGI lifespan startup.
 
 These tests call router handler functions directly and validate baseline
@@ -11,10 +12,11 @@ import json
 import unittest
 from unittest.mock import patch
 
+from fastapi.responses import JSONResponse
+
 from api.routers.jobs import list_jobs
 from api.routers.training import list_training_models
 from api.routers.volumes import health
-from fastapi.responses import JSONResponse
 
 
 class ApiSmokeTests(unittest.TestCase):
@@ -33,6 +35,7 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual(degraded.get("database"), "unavailable")
 
     def test_jobs_list(self) -> None:
+        # Smoke-level contract only: we don't assert payload shape here.
         resp = asyncio.run(list_jobs())
         self.assertIsInstance(resp, list)
 
@@ -41,4 +44,3 @@ class ApiSmokeTests(unittest.TestCase):
         payload = resp.model_dump()
         self.assertIn("ultralytics_version", payload)
         self.assertIn("families", payload)
-

@@ -1,3 +1,4 @@
+# backend-python/tests/test_domain_page_ports.py
 """Unit tests for core domain page write port binding and delegation.
 
 These tests verify domain helpers route writes through the configured port and
@@ -39,6 +40,7 @@ class _FakePageWritePort:
 
 class DomainPagePortsTests(unittest.TestCase):
     def setUp(self) -> None:
+        # Preserve global port registration across tests.
         self._orig = page_ports._page_write_port
 
     def tearDown(self) -> None:

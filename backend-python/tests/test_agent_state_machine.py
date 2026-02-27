@@ -1,3 +1,4 @@
+# backend-python/tests/test_agent_state_machine.py
 """Unit tests for agent workflow state transitions and terminal checks.
 
 These tests assert allowed transition paths and confirm invalid transitions
@@ -14,6 +15,7 @@ from core.workflows.agent_translate_page.types import WorkflowEvent, WorkflowSta
 
 class AgentStateMachineTests(unittest.TestCase):
     def test_happy_path_transitions(self) -> None:
+        # Canonical workflow path from queue -> terminal success.
         state = WorkflowState.queued
         state = transition(state, WorkflowEvent.start_requested)
         self.assertEqual(state, WorkflowState.detecting_boxes)

@@ -1,3 +1,4 @@
+# backend-python/tests/test_jobs_service.py
 """Unit tests for jobs router service helpers.
 
 These tests verify non-HTTP orchestration logic extracted from
@@ -42,6 +43,7 @@ class JobsServiceTests(unittest.TestCase):
         self.assertEqual(public.type, "box_detection")
 
     def test_get_job_tasks_payload_rejects_non_persisted_memory_job(self) -> None:
+        # Only persisted workflow job types expose task-run details.
         now = self.store.now()
         self.store.add_job(
             Job(

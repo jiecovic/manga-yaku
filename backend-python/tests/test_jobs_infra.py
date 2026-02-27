@@ -1,3 +1,4 @@
+# backend-python/tests/test_jobs_infra.py
 """Unit tests for in-memory job store and worker behavior.
 
 These tests exercise SSE serialization safety and unknown-job failure handling
@@ -38,6 +39,7 @@ async def _run_unknown_job() -> Job:
         while loop.time() < deadline:
             await asyncio.sleep(0.01)
             stored = store.get_job(job.id)
+            # Poll to avoid race with async worker update timing.
             if stored and stored.status in (JobStatus.failed, JobStatus.finished):
                 break
         if not stored or stored.status not in (JobStatus.failed, JobStatus.finished):

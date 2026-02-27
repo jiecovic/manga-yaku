@@ -1,3 +1,4 @@
+# backend-python/tests/test_ocr_execution.py
 """Unit tests for shared OCR async execution helper behavior.
 
 These tests validate attempt callback forwarding and timeout handling used by
@@ -64,6 +65,8 @@ class OcrExecutionTests(unittest.IsolatedAsyncioTestCase):
         events: list[dict] = []
 
         async def fake_wait_for(awaitable, timeout):
+            # Explicitly close the coroutine to avoid un-awaited warnings when
+            # simulating asyncio.wait_for timeout behavior.
             close = getattr(awaitable, "close", None)
             if callable(close):
                 close()

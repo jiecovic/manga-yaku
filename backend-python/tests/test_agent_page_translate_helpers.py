@@ -1,3 +1,4 @@
+# backend-python/tests/test_agent_page_translate_helpers.py
 """Unit tests for page-translate helper sanitizers and OCR consensus guards.
 
 These tests use deterministic in-memory payloads to validate normalization and
@@ -16,6 +17,8 @@ from core.usecases.agent.page_translate_helpers import (
 
 class NormalizeTranslateStageResultTests(unittest.TestCase):
     def test_normalize_translate_stage_result_cleans_payload(self) -> None:
+        # Intentionally mixes bad types/duplicates so normalization has to
+        # coerce ids, sanitize strings, and default invalid enums.
         raw = {
             "boxes": [
                 {
@@ -72,6 +75,8 @@ class NormalizeTranslateStageResultTests(unittest.TestCase):
 
 class NoTextConsensusGuardTests(unittest.TestCase):
     def test_consensus_guard_marks_weak_short_local_hit_as_no_text(self) -> None:
+        # Local short repetitive hit should be dropped when remote OCR models
+        # consistently report "no text" for the same box.
         stage1 = {
             "boxes": [
                 {
@@ -106,6 +111,7 @@ class NoTextConsensusGuardTests(unittest.TestCase):
         self.assertEqual(adjusted["no_text_boxes"], [1])
 
     def test_consensus_guard_keeps_entry_when_remote_text_exists(self) -> None:
+        # Presence of any remote positive text should prevent forced no-text.
         stage1 = {
             "boxes": [
                 {

@@ -1,3 +1,4 @@
+# backend-python/tests/test_agent_workflow_stages.py
 """Unit tests for extracted workflow stage modules.
 
 These tests use mocks for DB/LLM integration points to verify stage contracts,
@@ -78,6 +79,7 @@ class TranslateStageTests(unittest.TestCase):
             update_calls.append({"task_id": task_id, **kwargs})
 
         async def fake_to_thread(_fn: object, **kwargs: object) -> dict[str, object]:
+            # Simulate both stage callbacks to verify event -> task status mapping.
             on_stage_event = kwargs.get("on_stage_event")
             if not callable(on_stage_event):
                 raise AssertionError("missing on_stage_event callback")
@@ -156,6 +158,8 @@ class TranslateStageTests(unittest.TestCase):
         )
 
     def test_run_translate_stage_failure_marks_merge_canceled(self) -> None:
+        # When translate fails, pre-created merge task should be canceled,
+        # not left in queued/running state.
         status_by_task: dict[str, list[str]] = {"task-translate": [], "task-merge": []}
 
         def fake_update_task_run(task_id: str, **kwargs: object) -> None:
