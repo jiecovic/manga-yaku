@@ -87,3 +87,16 @@ class CreateTrainModelJobRequest(BaseModel):
 
 class CreateJobResponse(BaseModel):
     jobId: str
+
+
+class JobCapability(BaseModel):
+    enabled: bool
+    reason: str | None = None
+
+
+class JobsCapabilitiesResponse(BaseModel):
+    ocr_page: JobCapability
+    ocr_box: JobCapability
+    translate_page: JobCapability
+    translate_box: JobCapability
+    agent_translate_page: JobCapability

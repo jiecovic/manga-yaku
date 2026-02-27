@@ -5,6 +5,7 @@ import type { BoxDetectionProfile } from "../../types";
 import { ui } from "../../ui/tokens";
 import { Button, Field, Select } from "../../ui/primitives";
 import { normalizeBoxType } from "../../utils/boxes";
+import { useJobs } from "../../context/useJobs";
 
 interface ActionsSectionProps {
     boxDetectionProfiles: BoxDetectionProfile[];
@@ -45,6 +46,7 @@ export function RightSidebarActionsSection({
     onOpenMemory,
     canOpenMemory,
 }: ActionsSectionProps) {
+    const { jobCapabilities } = useJobs();
     const [refreshingModels, setRefreshingModels] = useState(false);
     const loadingBoxDetectionProfiles = boxDetectionProfiles.length === 0;
     const enabledBoxDetectionProfiles = boxDetectionProfiles.filter(
@@ -81,6 +83,8 @@ export function RightSidebarActionsSection({
         : !hasAvailableBoxDetection
         ? "No box detection models available for this task. Train a model to enable detection."
         : "";
+    const translatePageDisabled = !jobCapabilities.translate_page.enabled;
+    const translatePageDisabledReason = jobCapabilities.translate_page.reason ?? "";
 
     useEffect(() => {
         if (
@@ -221,6 +225,12 @@ export function RightSidebarActionsSection({
                         type="button"
                         variant="actionEmerald"
                         onClick={onTranslatePage}
+                        disabled={translatePageDisabled}
+                        title={
+                            translatePageDisabled
+                                ? translatePageDisabledReason || undefined
+                                : undefined
+                        }
                     >
                         Translate
                     </Button>

@@ -12,6 +12,7 @@ export type TaskCounts = {
 const WORKFLOW_JOB_TYPES = new Set(["ocr_box", "ocr_page", "agent_translate_page"]);
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "canceled", "timed_out"]);
+const TERMINAL_JOB_STATUSES = new Set(["finished", "failed", "canceled"]);
 
 export function isWorkflowJob(job: Job): boolean {
     return WORKFLOW_JOB_TYPES.has(job.type);
@@ -111,6 +112,62 @@ export function taskMessage(task: JobTaskRun): string | null {
         return task.error_code.trim();
     }
     return null;
+}
+
+export function formatDurationMs(ms: number): string {
+    const safeMs = Number.isFinite(ms) ? Math.max(0, Math.trunc(ms)) : 0;
+    if (safeMs < 1000) {
+        return `${safeMs}ms`;
+    }
+    const totalSeconds = Math.floor(safeMs / 1000);
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
+
+    if (hours > 0) {
+        return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+    }
+    return `${totalSeconds}s`;
+}
+
+export function computeJobDurationMs(job: Job, nowMs: number): number | null {
+    const createdMs = Number(job.created_at) * 1000;
+    const updatedMs = Number(job.updated_at) * 1000;
+    if (!Number.isFinite(createdMs) || createdMs <= 0) {
+        return null;
+    }
+    const isTerminal = TERMINAL_JOB_STATUSES.has(String(job.status || "").trim());
+    const endMs = isTerminal
+        ? updatedMs
+        : Math.max(createdMs, Number.isFinite(nowMs) ? nowMs : createdMs);
+    if (!Number.isFinite(endMs) || endMs < createdMs) {
+        return null;
+    }
+    return Math.max(0, Math.trunc(endMs - createdMs));
+}
+
+export function parseStageDurationsMs(job: Job): Record<string, number> {
+    const result = job.result;
+    if (!result || typeof result !== "object") {
+        return {};
+    }
+    const raw = (result as { stage_durations_ms?: unknown }).stage_durations_ms;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return {};
+    }
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(raw)) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            continue;
+        }
+        out[key] = Math.trunc(parsed);
+    }
+    return out;
 }
 
 function parsePositiveInt(value: unknown): number | null {

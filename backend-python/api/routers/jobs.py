@@ -14,6 +14,8 @@ from api.schemas.jobs import (
     CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
     CreateTranslatePageJobRequest,
+    JobCapability,
+    JobsCapabilitiesResponse,
 )
 from core.usecases.settings.service import get_setting_value
 from fastapi import APIRouter, HTTPException, Request
@@ -52,6 +54,22 @@ from .jobs_workflow_helpers import (
 
 router = APIRouter(tags=["jobs"])
 logger = logging.getLogger(__name__)
+
+_TRANSLATE_PAGE_DISABLED_REASON = (
+    "Standalone translation jobs are temporarily disabled during workflow rewrite. "
+    "Use agent translate page workflow path."
+)
+
+_JOB_CAPABILITIES = JobsCapabilitiesResponse(
+    ocr_page=JobCapability(enabled=True),
+    ocr_box=JobCapability(enabled=True),
+    translate_page=JobCapability(
+        enabled=False,
+        reason=_TRANSLATE_PAGE_DISABLED_REASON,
+    ),
+    translate_box=JobCapability(enabled=True),
+    agent_translate_page=JobCapability(enabled=True),
+)
 
 
 STORE = JobStore()
@@ -299,10 +317,7 @@ async def create_translate_page_job(
 ) -> CreateJobResponse:
     raise HTTPException(
         status_code=409,
-        detail=(
-            "Standalone translation jobs are temporarily disabled during workflow rewrite. "
-            "Use agent translate page workflow path."
-        ),
+        detail=_TRANSLATE_PAGE_DISABLED_REASON,
     )
 
 
@@ -319,6 +334,11 @@ async def create_agent_translate_page_job(
     await STORE.queue.put(job_id)
 
     return CreateJobResponse(jobId=job_id)
+
+
+@router.get("/jobs/capabilities", response_model=JobsCapabilitiesResponse)
+async def get_job_capabilities() -> JobsCapabilitiesResponse:
+    return _JOB_CAPABILITIES
 
 
 @router.post("/jobs/box_detection", response_model=CreateJobResponse)

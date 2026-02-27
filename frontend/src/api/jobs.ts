@@ -5,6 +5,31 @@ export interface CreateJobResponse {
     jobId: string;
 }
 
+export interface JobCapability {
+    enabled: boolean;
+    reason?: string | null;
+}
+
+export interface JobCapabilities {
+    ocr_page: JobCapability;
+    ocr_box: JobCapability;
+    translate_page: JobCapability;
+    translate_box: JobCapability;
+    agent_translate_page: JobCapability;
+}
+
+export const DEFAULT_JOB_CAPABILITIES: JobCapabilities = {
+    ocr_page: { enabled: true },
+    ocr_box: { enabled: true },
+    translate_page: {
+        enabled: false,
+        reason:
+            "Standalone translation jobs are temporarily disabled during workflow rewrite. Use agent translate page workflow path.",
+    },
+    translate_box: { enabled: true },
+    agent_translate_page: { enabled: true },
+};
+
 export type JobStatus = "queued" | "running" | "finished" | "failed" | "canceled";
 
 export interface Job {
@@ -122,4 +147,13 @@ export async function fetchJobTasks(jobId: string): Promise<JobTasksResponse> {
         },
     });
     return res.json() as Promise<JobTasksResponse>;
+}
+
+export async function fetchJobCapabilities(): Promise<JobCapabilities> {
+    const res = await apiFetch(`${API_BASE}/api/jobs/capabilities`, {
+        headers: {
+            Accept: "application/json",
+        },
+    });
+    return res.json() as Promise<JobCapabilities>;
 }

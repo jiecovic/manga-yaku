@@ -8,6 +8,7 @@ import {
     createTranslatePageJob,
 } from "../api";
 import {usePage} from "../context/usePage";
+import { useJobs } from "../context/useJobs";
 import { useAgentSettings } from "../context/AgentSettingsContext";
 import { useSettings } from "../context/SettingsContext";
 import { normalizeBoxType } from "../utils/boxes";
@@ -34,6 +35,7 @@ export function usePageJobActions({
     boxDetectionProfileId,
 }: UsePageJobActionsArgs): UsePageJobActionsResult {
     const {volumeId, filename} = usePage();
+    const { jobCapabilities } = useJobs();
     const { ocrProfiles } = useAgentSettings();
     const { settings } = useSettings();
     const agentDetectionProfileId =
@@ -44,15 +46,14 @@ export function usePageJobActions({
         typeof settings?.values?.["translation.single_box.use_context"] === "boolean"
             ? settings.values["translation.single_box.use_context"]
             : true;
-    const standaloneOcrJobsDetached = false;
-    const standaloneTranslationPageJobsDetached = true;
-    const standaloneTranslationBoxJobsDetached = false;
 
     // =========================================
     // TRANSLATE PAGE (classic)
     // =========================================
     const handleTranslatePage = async () => {
-        if (standaloneTranslationPageJobsDetached) return;
+        if (!jobCapabilities.translate_page.enabled) {
+            return;
+        }
         if (!volumeId || !filename) return;
         if (!boxes || boxes.length === 0) return;
 
@@ -113,7 +114,7 @@ export function usePageJobActions({
     // (only boxes without OCR text)
     // =========================================
     const handleOcrPage = async () => {
-        if (standaloneOcrJobsDetached) return;
+        if (!jobCapabilities.ocr_page.enabled) return;
         if (!volumeId || !filename) return;
         if (!boxes || boxes.length === 0) return;
 
@@ -141,7 +142,7 @@ export function usePageJobActions({
     // OCR SINGLE BOX
     // =========================================
     const handleOcrBox = async (id: number) => {
-        if (standaloneOcrJobsDetached) return;
+        if (!jobCapabilities.ocr_box.enabled) return;
         if (!volumeId || !filename) return;
 
         const box = boxes.find(
@@ -182,7 +183,7 @@ export function usePageJobActions({
     // (re-run allowed, still requires OCR text)
     // =========================================
     const handleTranslateBox = async (id: number) => {
-        if (standaloneTranslationBoxJobsDetached) return;
+        if (!jobCapabilities.translate_box.enabled) return;
         if (!volumeId || !filename) return;
 
         const box = boxes.find(

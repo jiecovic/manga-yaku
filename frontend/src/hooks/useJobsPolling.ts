@@ -1,17 +1,22 @@
 // src/hooks/useJobsPolling.ts
 import { useEffect, useRef, useState } from "react";
 import {
+    DEFAULT_JOB_CAPABILITIES,
     fetchJobs,
+    fetchJobCapabilities,
     clearFinishedJobs,
     cancelJob,
     resumeJob as apiResumeJob,
     deleteJob,
     type Job,
+    type JobCapabilities,
 } from "../api";
 import { appConfig } from "../config";
 
 interface UseJobsPollingResult {
     jobs: Job[];
+    jobCapabilities: JobCapabilities;
+    jobCapabilitiesError: string | null;
     jobsError: string | null;
     jobsLoading: boolean;
     clearFinished: () => Promise<void>;
@@ -22,6 +27,12 @@ interface UseJobsPollingResult {
 
 export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult {
     const [jobs, setJobs] = useState<Job[]>([]);
+    const [jobCapabilities, setJobCapabilities] = useState<JobCapabilities>(
+        DEFAULT_JOB_CAPABILITIES,
+    );
+    const [jobCapabilitiesError, setJobCapabilitiesError] = useState<string | null>(
+        null,
+    );
     const [jobsError, setJobsError] = useState<string | null>(null);
     const [jobsLoading, setJobsLoading] = useState(false);
     const hasDataRef = useRef(false);
@@ -52,6 +63,19 @@ export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult 
                 if (!cancelled) {
                     setJobsLoading(false);
                 }
+            }
+        };
+
+        const loadCapabilities = async () => {
+            try {
+                const data = await fetchJobCapabilities();
+                if (cancelled) return;
+                setJobCapabilities(data);
+                setJobCapabilitiesError(null);
+            } catch (err) {
+                if (cancelled) return;
+                console.error("Failed to fetch job capabilities", err);
+                setJobCapabilitiesError("Failed to fetch job capabilities");
             }
         };
 
@@ -121,9 +145,11 @@ export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult 
         };
 
         if (typeof window !== "undefined" && "EventSource" in window) {
+            void loadCapabilities();
             startPolling();
             startStream();
         } else {
+            void loadCapabilities();
             startPolling();
         }
 
@@ -178,6 +204,8 @@ export function useJobsPolling(intervalMs: number = 2000): UseJobsPollingResult 
 
     return {
         jobs,
+        jobCapabilities,
+        jobCapabilitiesError,
         jobsError,
         jobsLoading,
         clearFinished,

@@ -1,9 +1,11 @@
 // src/context/JobsContext.ts
 import { createContext } from "react";
-import type { Job } from "../api";
+import type { Job, JobCapabilities } from "../api";
 
 export interface JobsContextValue {
     jobs: Job[];
+    jobCapabilities: JobCapabilities;
+    jobCapabilitiesError: string | null;
     jobsError: string | null;
     jobsLoading: boolean;
     clearFinished: () => Promise<void>;

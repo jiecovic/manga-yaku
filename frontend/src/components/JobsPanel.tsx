@@ -5,10 +5,13 @@ import { useJobs } from "../context/useJobs";
 import { ui } from "../ui/tokens";
 import { getProgressDisplay } from "../utils/progress";
 import {
+    computeJobDurationMs,
     formatAttemptEvent,
+    formatDurationMs,
     formatTaskTitle,
     isImplicitlyExpanded,
     isWorkflowJob,
+    parseStageDurationsMs,
     summarizeTaskCounts,
     taskMessage,
     taskProgressValue,
@@ -78,6 +81,42 @@ export function JobsPanel() {
                             const expanded = forceExpanded || Boolean(expandedJobs[job.id]);
                             const renderAsSingleTask = job.type === "ocr_box";
                             const singleTask = renderAsSingleTask ? tasks[0] : null;
+                            const resultDurationRaw =
+                                job.result && typeof job.result === "object"
+                                    ? (job.result as { duration_ms?: unknown }).duration_ms
+                                    : null;
+                            const resultDurationMs = Number(resultDurationRaw);
+                            const durationMs = Number.isFinite(resultDurationMs)
+                                ? Math.max(0, Math.trunc(resultDurationMs))
+                                : computeJobDurationMs(
+                                      job,
+                                      Number.isFinite(Number(job.updated_at))
+                                          ? Number(job.updated_at) * 1000
+                                          : 0,
+                                  );
+                            const stageDurations =
+                                job.type === "agent_translate_page"
+                                    ? parseStageDurationsMs(job)
+                                    : {};
+                            const orderedStageIds = ["detect", "ocr", "translate", "commit"];
+                            const orderedStageParts = orderedStageIds
+                                .filter((stageId) => Number.isFinite(stageDurations[stageId]))
+                                .map(
+                                    (stageId) =>
+                                        `${stageId} ${formatDurationMs(stageDurations[stageId])}`,
+                                );
+                            const extraStageParts = Object.entries(stageDurations)
+                                .filter(([stageId, stageMs]) => {
+                                    if (orderedStageIds.includes(stageId)) {
+                                        return false;
+                                    }
+                                    return Number.isFinite(stageMs);
+                                })
+                                .map(
+                                    ([stageId, stageMs]) =>
+                                        `${stageId} ${formatDurationMs(stageMs)}`,
+                                );
+                            const stageDurationLine = [...orderedStageParts, ...extraStageParts];
 
                             if (
                                 (job.type === "ocr_box" || job.type === "translate_box") &&
@@ -226,6 +265,16 @@ export function JobsPanel() {
                                             job.type === "translate_box") && (
                                             <div className={`mt-1 ${ui.jobsMeta}`}>{modelMeta}</div>
                                         )}
+                                    {durationMs !== null && (
+                                        <div className={`mt-1 ${ui.jobsMeta}`}>
+                                            Duration: {formatDurationMs(durationMs)}
+                                        </div>
+                                    )}
+                                    {stageDurationLine.length > 0 && (
+                                        <div className={`mt-1 ${ui.jobsMeta}`}>
+                                            Stages: {stageDurationLine.join(" | ")}
+                                        </div>
+                                    )}
 
                                     {job.type === "train_model" && job.metrics?.device && (
                                         <div className={`mt-1 ${ui.jobsMeta}`}>
