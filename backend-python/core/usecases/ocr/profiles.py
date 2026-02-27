@@ -23,7 +23,8 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "label": "manga-ocr (default)",
         "description": "Local manga-ocr on cropped region",
         "llm_hint": (
-            "Fast local; best on clean print."
+            "Fast local; best on clean print. Weaker at empty-crop detection and can "
+            "emit short false positives on noisy crops."
         ),
         "provider": "manga_ocr",
         "kind": "local",

@@ -211,14 +211,6 @@ export function SettingsLayout() {
         return true;
     }, [draft]);
 
-    const includeImage = useMemo(() => {
-        const value = draft["agent.translate.include_image"];
-        if (typeof value === "boolean") {
-            return value;
-        }
-        return true;
-    }, [draft]);
-
     const ocrParallelismLocal = useMemo(() => {
         const value = draft["ocr.parallelism.local"];
         return value === null || value === undefined ? "" : String(value);
@@ -287,7 +279,6 @@ export function SettingsLayout() {
             "agent.translate.include_prior_characters": includePriorCharacters,
             "agent.translate.include_prior_open_threads": includePriorOpenThreads,
             "agent.translate.include_prior_glossary": includePriorGlossary,
-            "agent.translate.include_image": includeImage,
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -319,7 +310,6 @@ export function SettingsLayout() {
             includePriorCharacters,
             includePriorOpenThreads,
             includePriorGlossary,
-            includeImage,
             ocrParallelismLocal,
             ocrParallelismRemote,
             ocrParallelismMaxWorkers,
@@ -780,7 +770,6 @@ export function SettingsLayout() {
                                     includePriorCharacters={includePriorCharacters}
                                     includePriorOpenThreads={includePriorOpenThreads}
                                     includePriorGlossary={includePriorGlossary}
-                                    includeImage={includeImage}
                                     onUpdateDraft={updateDraft}
                                     agentDetectionLoading={agentDetectionLoading}
                                     agentDetectionOptions={agentDetectionOptions}

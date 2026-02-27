@@ -61,10 +61,6 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default=True,
         value_type=bool,
     ),
-    "agent.translate.include_image": SettingSpec(
-        default=True,
-        value_type=bool,
-    ),
     "ocr.parallelism.local": SettingSpec(
         default=4,
         value_type=int,

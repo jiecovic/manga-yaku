@@ -1,267 +1,138 @@
-# backend-python/core/usecases/agent/page_translate.py
 from __future__ import annotations
 
 import json
 import logging
-import re
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
-import yaml
-from config import (
-    AGENT_DEBUG_DIR,
-    AGENT_MAX_OUTPUT_TOKENS,
-    AGENT_MODEL,
-    AGENT_REASONING_EFFORT,
-    AGENT_TEMPERATURE,
-    AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
-    AGENT_TRANSLATE_REASONING_EFFORT,
-    DEBUG_PROMPTS,
-)
+from config import AGENT_DEBUG_DIR, DEBUG_PROMPTS
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
-from infra.llm import (
-    build_response_params,
-    create_openai_client,
-    extract_response_text,
-    has_openai_sdk,
-    openai_responses_create,
+from infra.llm import create_openai_client, has_openai_sdk
+
+from .page_translate_helpers import (
+    apply_no_text_consensus_guard,
+    build_model_cfg,
+    build_state_merge_prompt_payload,
+    build_state_merge_text_format,
+    build_translate_stage_prompt_payload,
+    build_translate_stage_text_format,
+    coerce_positive_int,
+    normalize_state_merge_result,
+    normalize_translate_stage_result,
+    run_structured_call,
 )
-from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 logger = logging.getLogger(__name__)
 
-
-def _build_text_format() -> dict[str, Any]:
-    return {
-        "type": "json_schema",
-        "name": "translate_page",
-        "schema": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "boxes": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "box_ids": {
-                                "type": "array",
-                                "items": {"type": "integer"},
-                            },
-                            "ocr_profile_id": {"type": "string"},
-                            "ocr_text": {"type": "string"},
-                            "translation": {"type": "string"},
-                        },
-                        "required": [
-                            "box_ids",
-                            "ocr_profile_id",
-                            "ocr_text",
-                            "translation",
-                        ],
-                    },
-                },
-                "characters": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "name": {"type": "string"},
-                            "gender": {"type": "string"},
-                            "info": {"type": "string"},
-                        },
-                        "required": ["name", "gender", "info"],
-                    },
-                },
-                "image_summary": {"type": "string"},
-                "story_summary": {"type": "string"},
-                "no_text_boxes": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                },
-                "open_threads": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "glossary": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "term": {"type": "string"},
-                            "translation": {"type": "string"},
-                            "note": {"type": "string"},
-                        },
-                        "required": ["term", "translation", "note"],
-                    },
-                },
-            },
-            "required": [
-                "boxes",
-                "characters",
-                "image_summary",
-                "story_summary",
-                "no_text_boxes",
-                "open_threads",
-                "glossary",
-            ],
-        },
-        "strict": True,
-    }
+StageEventCallback = Callable[[str, str, dict[str, Any] | None], None]
 
 
-def _extract_json(text: str) -> dict[str, Any]:
-    raw = text.strip()
-    if not raw:
-        raise ValueError("Empty response")
+def _coerce_positive_int(value: Any) -> int | None:
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        pass
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
 
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError("No JSON object found in response")
-    snippet = raw[start : end + 1]
+
+def _coerce_non_negative_int(value: Any) -> int:
     try:
-        return json.loads(snippet)
-    except json.JSONDecodeError:
-        pass
-
-    repaired = _repair_json(snippet)
-    return json.loads(repaired)
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, parsed)
 
 
-def _repair_json(raw: str) -> str:
-    text = raw.strip()
-    text = re.sub(r",\s*([}\]])", r"\1", text)
-    text = re.sub(r"}\s*{", "},{", text)
-    text = re.sub(r"]\s*{", "],{", text)
-    text = re.sub(r'([0-9eE"\}\]])\s*("[^"]+"\s*:)', r"\1,\2", text)
-    return text
+def _extract_reasoning_effort(params: dict[str, Any] | None) -> str | None:
+    if not isinstance(params, dict):
+        return None
+    reasoning = params.get("reasoning")
+    if isinstance(reasoning, dict):
+        effort = reasoning.get("effort")
+        if isinstance(effort, str):
+            normalized = effort.strip()
+            if normalized:
+                return normalized
+    return None
 
 
-def _repair_with_llm(
+def _build_stage_event_payload(
     *,
-    client: Any,
-    model_cfg: dict[str, Any],
-    raw_text: str,
-    log_context: dict[str, Any] | None = None,
-) -> str:
-    if not raw_text.strip():
-        return raw_text
-    repair_prompt = (
-        "Fix the following JSON to match the required schema. "
-        "Return only valid JSON. Do not add commentary."
-    )
-    input_payload = [
-        {
-            "role": "system",
-            "content": [{"type": "input_text", "text": repair_prompt}],
-        },
-        {
-            "role": "user",
-            "content": [{"type": "input_text", "text": raw_text}],
-        },
-    ]
-    repair_cfg = dict(model_cfg)
-    repair_cfg.setdefault("text", {"format": _build_text_format()})
-    if "temperature" in repair_cfg:
-        repair_cfg["temperature"] = 0.0
-    if "max_output_tokens" in repair_cfg:
-        repair_cfg["max_output_tokens"] = min(
-            int(repair_cfg["max_output_tokens"]), 4096
+    stage: str,
+    status: str,
+    message: str,
+    cfg: dict[str, Any],
+    diagnostics: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    params = diagnostics.get("params") if isinstance(diagnostics, dict) else None
+    max_output_tokens = None
+    if isinstance(params, dict):
+        max_output_tokens = _coerce_positive_int(params.get("max_output_tokens"))
+    if max_output_tokens is None:
+        max_output_tokens = _coerce_positive_int(cfg.get("max_output_tokens"))
+    reasoning_effort = _extract_reasoning_effort(params)
+    if reasoning_effort is None:
+        reasoning_effort = _extract_reasoning_effort(cfg)
+
+    token_usage = diagnostics.get("token_usage") if isinstance(diagnostics, dict) else None
+    if not isinstance(token_usage, dict):
+        token_usage = None
+
+    payload: dict[str, Any] = {
+        "stage": stage,
+        "status": status,
+        "message": message,
+        "model_id": (
+            str(
+                (diagnostics.get("model") if isinstance(diagnostics, dict) else None)
+                or cfg.get("model")
+                or ""
+            ).strip()
+            or None
+        ),
+        "attempt_count": max(
+            1,
+            _coerce_non_negative_int(
+                diagnostics.get("attempt_count") if isinstance(diagnostics, dict) else 1
+            ),
+        ),
+        "latency_ms": _coerce_non_negative_int(
+            diagnostics.get("latency_ms") if isinstance(diagnostics, dict) else 0
+        ),
+        "finish_reason": (
+            str(diagnostics.get("finish_reason") or "").strip()
+            if isinstance(diagnostics, dict)
+            else ""
         )
-    params = build_response_params(repair_cfg, input_payload)
-    resp = openai_responses_create(
-        client,
-        params,
-        component="agent.translate_page.repair",
-        context=log_context,
-    )
-    return extract_response_text(resp, raise_on_refusal=True)
+        or ("error" if error else "completed"),
+        "params_snapshot": {
+            "max_output_tokens": max_output_tokens,
+            "reasoning_effort": reasoning_effort,
+        },
+        "token_usage": token_usage,
+    }
+    if error:
+        payload["error"] = error
+    return payload
 
 
-def _should_retry(response: Any) -> bool:
-    status = getattr(response, "status", None)
-    if status is None and isinstance(response, dict):
-        status = response.get("status")
-    if status != "incomplete":
-        return False
-    details = getattr(response, "incomplete_details", None)
-    if details is None and isinstance(response, dict):
-        details = response.get("incomplete_details") or {}
-    reason = None
-    if isinstance(details, dict):
-        reason = details.get("reason")
-    else:
-        reason = getattr(details, "reason", None)
-    return reason == "max_output_tokens"
-
-
-def _format_yaml(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, dict) and not value:
-        return ""
-    if isinstance(value, list) and not value:
-        return ""
-    try:
-        return yaml.safe_dump(
-            value,
-            allow_unicode=True,
-            sort_keys=False,
-        ).strip()
-    except Exception:
-        return str(value).strip()
-
-
-def _build_prompt_payload(
+def _emit_stage_event(
+    callback: StageEventCallback | None,
     *,
-    source_language: str,
-    target_language: str,
-    boxes: list[dict[str, Any]],
-    ocr_profiles: list[dict[str, Any]] | None,
-    prior_context_summary: str | None,
-    prior_characters: list[dict[str, Any]] | None,
-    prior_open_threads: list[str] | None,
-    prior_glossary: list[dict[str, Any]] | None,
-    include_image: bool,
-) -> tuple[str, str]:
-    bundle = load_prompt_bundle("agent_translate_page.yml")
-    input_yaml = yaml.safe_dump(
-        {"boxes": boxes},
-        allow_unicode=True,
-        sort_keys=False,
-    ).strip()
-    profiles_yaml = yaml.safe_dump(
-        {"profiles": ocr_profiles or []},
-        allow_unicode=True,
-        sort_keys=False,
-    ).strip()
-    rendered = render_prompt_bundle(
-        bundle,
-        system_context={
-            "SOURCE_LANG": source_language,
-            "TARGET_LANG": target_language,
-            "INCLUDE_IMAGE": include_image,
-            "PRIOR_CONTEXT_SUMMARY": _format_yaml(prior_context_summary),
-            "PRIOR_CHARACTERS": _format_yaml(prior_characters),
-            "PRIOR_OPEN_THREADS": _format_yaml(prior_open_threads),
-            "PRIOR_GLOSSARY": _format_yaml(prior_glossary),
-        },
-        user_context={
-            "INPUT_YAML": input_yaml,
-            "OCR_PROFILES_YAML": profiles_yaml,
-            "INCLUDE_IMAGE": include_image,
-        },
-    )
-    return rendered["system"], rendered["user_template"]
+    stage: str,
+    status: str,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    if callback is None:
+        return
+    try:
+        callback(stage, status, payload)
+    except Exception as exc:
+        logger.warning("Stage event callback failed (%s/%s): %s", stage, status, exc)
 
 
 def _write_debug_snapshot(
@@ -302,12 +173,12 @@ def run_agent_translate_page(
     max_output_tokens: int | None = None,
     reasoning_effort: str | None = None,
     temperature: float | None = None,
-    include_image: bool = True,
+    on_stage_event: StageEventCallback | None = None,
 ) -> dict[str, Any]:
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
 
-    system_prompt, user_content = _build_prompt_payload(
+    system_prompt, user_content = build_translate_stage_prompt_payload(
         source_language=source_language,
         target_language=target_language,
         boxes=boxes,
@@ -316,28 +187,21 @@ def run_agent_translate_page(
         prior_characters=prior_characters,
         prior_open_threads=prior_open_threads,
         prior_glossary=prior_glossary,
-        include_image=include_image,
     )
 
-    user_content_blocks: list[dict[str, Any]] = [
-        {"type": "input_text", "text": user_content}
-    ]
-    image_debug: dict[str, Any] = {"included": False}
-    if include_image:
-        original_image = load_volume_image(volume_id, filename)
-        image = resize_for_llm(original_image)
-        data_url = encode_image_data_url(image)
-        user_content_blocks.append(
-            {"type": "input_image", "image_url": data_url}
-        )
-        image_debug = {
-            "included": True,
-            "original_size": list(original_image.size),
-            "resized_size": list(image.size),
-            "data_url_len": len(data_url),
-        }
+    user_content_blocks: list[dict[str, Any]] = [{"type": "input_text", "text": user_content}]
+    original_image = load_volume_image(volume_id, filename)
+    image = resize_for_llm(original_image)
+    data_url = encode_image_data_url(image)
+    user_content_blocks.append({"type": "input_image", "image_url": data_url})
+    image_debug: dict[str, Any] = {
+        "included": True,
+        "original_size": list(original_image.size),
+        "resized_size": list(image.size),
+        "data_url_len": len(data_url),
+    }
 
-    input_payload = [
+    translate_stage_input_payload = [
         {
             "role": "system",
             "content": [{"type": "input_text", "text": system_prompt}],
@@ -348,113 +212,220 @@ def run_agent_translate_page(
         },
     ]
 
-    resolved_model = model_id or AGENT_MODEL
-    max_output = max_output_tokens or max(
-        AGENT_MAX_OUTPUT_TOKENS,
-        AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
-    )
-    cfg: dict[str, Any] = {
-        "model": resolved_model,
-        "max_output_tokens": max_output,
-    }
-    if str(resolved_model).startswith("gpt-5"):
-        effort = (
-            reasoning_effort
-            or AGENT_TRANSLATE_REASONING_EFFORT
-            or AGENT_REASONING_EFFORT
-        )
-        if effort not in {"low", "medium", "high"}:
-            effort = "medium"
-        cfg["reasoning"] = {"effort": effort}
-    else:
-        cfg["temperature"] = (
-            temperature if temperature is not None else AGENT_TEMPERATURE
-        )
-    cfg.setdefault("text", {"format": _build_text_format()})
-
     client = create_openai_client({})
-    params = build_response_params(cfg, input_payload)
-    log_context = {
+    base_cfg = build_model_cfg(
+        model_id=model_id,
+        max_output_tokens=max_output_tokens,
+        reasoning_effort=reasoning_effort,
+        temperature=temperature,
+    )
+
+    stage1_log_context = {
         "volume_id": volume_id,
         "filename": filename,
         "job_id": debug_id or "",
-        "include_image": include_image,
+        "include_image": True,
+        "stage": "translate",
     }
-    resp = openai_responses_create(
-        client,
-        params,
-        component="agent.translate_page",
-        context=log_context,
+    _emit_stage_event(
+        on_stage_event,
+        stage="translate_page",
+        status="started",
+        payload=_build_stage_event_payload(
+            stage="translate_page",
+            status="running",
+            message="Translating page",
+            cfg=base_cfg,
+        ),
     )
-    raw_text = extract_response_text(resp, raise_on_refusal=True)
-    if _should_retry(resp):
-        retry_cfg = dict(cfg)
-        retry_cfg["max_output_tokens"] = max(max_output * 2, max_output + 512)
-        retry_params = build_response_params(retry_cfg, input_payload)
-        retry_params.setdefault("text", {"format": _build_text_format()})
-        retry_resp = openai_responses_create(
-            client,
-            retry_params,
-            component="agent.translate_page",
-            context=log_context,
+    try:
+        stage1_result, stage1_debug = run_structured_call(
+            client=client,
+            model_cfg=base_cfg,
+            input_payload=translate_stage_input_payload,
+            text_format=build_translate_stage_text_format(),
+            parser=normalize_translate_stage_result,
+            component="agent.translate_page.translate",
+            repair_component="agent.translate_page.translate.repair",
+            log_context=stage1_log_context,
         )
-        retry_text = extract_response_text(retry_resp, raise_on_refusal=True)
-        if retry_text:
-            resp = retry_resp
-            raw_text = retry_text
-            cfg = retry_cfg
-            params = retry_params
+    except Exception as exc:
+        stage1_error = str(exc).strip() or repr(exc)
+        _emit_stage_event(
+            on_stage_event,
+            stage="translate_page",
+            status="failed",
+            payload=_build_stage_event_payload(
+                stage="translate_page",
+                status="failed",
+                message="Translate stage failed",
+                cfg=base_cfg,
+                error=stage1_error,
+            ),
+        )
+        raise
+    stage1_result, forced_no_text_box_ids = apply_no_text_consensus_guard(
+        stage1_result=stage1_result,
+        input_boxes=boxes,
+        ocr_profiles=ocr_profiles,
+    )
+    if forced_no_text_box_ids:
+        stage1_debug["post_guard_no_text_boxes"] = forced_no_text_box_ids
+    stage1_event = _build_stage_event_payload(
+        stage="translate_page",
+        status="completed",
+        message="Translate stage complete",
+        cfg=base_cfg,
+        diagnostics=stage1_debug,
+    )
+    _emit_stage_event(
+        on_stage_event,
+        stage="translate_page",
+        status="succeeded",
+        payload=stage1_event,
+    )
+
+    merge_system_prompt, merge_user_content = build_state_merge_prompt_payload(
+        source_language=source_language,
+        target_language=target_language,
+        prior_context_summary=prior_context_summary,
+        prior_characters=prior_characters,
+        prior_open_threads=prior_open_threads,
+        prior_glossary=prior_glossary,
+        stage1_result=stage1_result,
+    )
+    merge_stage_input_payload = [
+        {
+            "role": "system",
+            "content": [{"type": "input_text", "text": merge_system_prompt}],
+        },
+        {
+            "role": "user",
+            "content": [{"type": "input_text", "text": merge_user_content}],
+        },
+    ]
+
+    merge_cfg = dict(base_cfg)
+    max_out = coerce_positive_int(merge_cfg.get("max_output_tokens"))
+    if max_out is not None:
+        merge_cfg["max_output_tokens"] = max(256, min(max_out, 768))
+    else:
+        merge_cfg["max_output_tokens"] = 512
+    # Keep merge pass lightweight. It is state bookkeeping and does not need heavy reasoning.
+    if str(merge_cfg.get("model") or "").startswith("gpt-5"):
+        merge_cfg["reasoning"] = {"effort": "low"}
+
+    stage2_log_context = {
+        "volume_id": volume_id,
+        "filename": filename,
+        "job_id": debug_id or "",
+        "stage": "merge",
+    }
+
+    stage2_error: str | None = None
+    stage2_debug: dict[str, Any] = {}
+    _emit_stage_event(
+        on_stage_event,
+        stage="merge_state",
+        status="started",
+        payload=_build_stage_event_payload(
+            stage="merge_state",
+            status="running",
+            message="Merging continuity state",
+            cfg=merge_cfg,
+        ),
+    )
+    try:
+        stage2_result, stage2_debug = run_structured_call(
+            client=client,
+            model_cfg=merge_cfg,
+            input_payload=merge_stage_input_payload,
+            text_format=build_state_merge_text_format(),
+            parser=normalize_state_merge_result,
+            component="agent.translate_page.merge",
+            repair_component="agent.translate_page.merge.repair",
+            log_context=stage2_log_context,
+        )
+        stage2_event = _build_stage_event_payload(
+            stage="merge_state",
+            status="completed",
+            message="Merge stage complete",
+            cfg=merge_cfg,
+            diagnostics=stage2_debug,
+        )
+        _emit_stage_event(
+            on_stage_event,
+            stage="merge_state",
+            status="succeeded",
+            payload=stage2_event,
+        )
+    except Exception as exc:
+        stage2_error = str(exc).strip() or repr(exc)
+        logger.warning("State merge call failed, using fallback context: %s", stage2_error)
+        stage2_event = _build_stage_event_payload(
+            stage="merge_state",
+            status="failed",
+            message="Merge stage failed; using fallback context",
+            cfg=merge_cfg,
+            diagnostics=stage2_debug,
+            error=stage2_error,
+        )
+        _emit_stage_event(
+            on_stage_event,
+            stage="merge_state",
+            status="failed",
+            payload=stage2_event,
+        )
+        stage2_result = {
+            "characters": list(prior_characters) if isinstance(prior_characters, list) else [],
+            "open_threads": list(prior_open_threads) if isinstance(prior_open_threads, list) else [],
+            "glossary": list(prior_glossary) if isinstance(prior_glossary, list) else [],
+            "story_summary": str(prior_context_summary or "").strip(),
+        }
+        if not stage2_result["story_summary"] and stage1_result["page_events"]:
+            stage2_result["story_summary"] = " ".join(stage1_result["page_events"][:3]).strip()
+
+    result = {
+        "boxes": stage1_result["boxes"],
+        "no_text_boxes": stage1_result["no_text_boxes"],
+        "image_summary": stage1_result["image_summary"],
+        "page_events": stage1_result["page_events"],
+        "page_characters_detected": stage1_result["page_characters_detected"],
+        "characters": stage2_result["characters"],
+        "open_threads": stage2_result["open_threads"],
+        "glossary": stage2_result["glossary"],
+        "story_summary": stage2_result["story_summary"],
+    }
+    if stage2_error:
+        result["merge_warning"] = stage2_error
+    result["_stage_meta"] = {
+        "translate_page": stage1_event,
+        "merge_state": stage2_event,
+    }
 
     debug_payload = {
         "job_id": debug_id,
         "volume_id": volume_id,
         "filename": filename,
-        "model": cfg.get("model"),
-        "params": {
-            "max_output_tokens": cfg.get("max_output_tokens"),
-            "reasoning": cfg.get("reasoning"),
-            "temperature": cfg.get("temperature"),
-            "text": cfg.get("text"),
-        },
         "image": image_debug,
-        "system_prompt": system_prompt,
-        "user_prompt": user_content,
         "ocr_profiles": ocr_profiles,
         "boxes": boxes,
-        "raw_output_text": raw_text,
+        "calls": {
+            "translate": {
+                **stage1_debug,
+                "system_prompt": system_prompt,
+                "user_prompt": user_content,
+                "result": stage1_result,
+            },
+            "merge": {
+                **stage2_debug,
+                "system_prompt": merge_system_prompt,
+                "user_prompt": merge_user_content,
+                "result": stage2_result,
+                "error": stage2_error,
+            },
+        },
+        "result": result,
     }
-    try:
-        debug_payload["response"] = resp.model_dump()
-    except Exception:
-        debug_payload["response"] = repr(resp)
-    if not raw_text:
-        raw_dump: str
-        try:
-            raw_dump = json.dumps(resp.model_dump(), ensure_ascii=True)
-        except Exception:
-            raw_dump = repr(resp)
-        logger.warning("Empty agent translate response: %s", raw_dump)
-
-    repaired_text: str | None = None
-    try:
-        result = _extract_json(raw_text)
-    except Exception as exc:
-        logger.warning("Failed to parse agent JSON, retrying repair: %s", exc)
-        try:
-            repaired_text = _repair_with_llm(
-                client=client,
-                model_cfg=cfg,
-                raw_text=raw_text,
-                log_context=log_context,
-            )
-            result = _extract_json(repaired_text)
-        except Exception:
-            _write_debug_snapshot(
-                debug_id=debug_id,
-                payload={**debug_payload, "repair_output_text": repaired_text},
-            )
-            raise
-
-    debug_payload["repair_output_text"] = repaired_text
     _write_debug_snapshot(debug_id=debug_id, payload=debug_payload)
     return result

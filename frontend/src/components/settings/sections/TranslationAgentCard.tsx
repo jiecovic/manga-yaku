@@ -19,7 +19,6 @@ type Props = {
     includePriorCharacters: boolean;
     includePriorOpenThreads: boolean;
     includePriorGlossary: boolean;
-    includeImage: boolean;
     onUpdateDraft: (key: string, value: unknown) => void;
     agentDetectionLoading: boolean;
     agentDetectionOptions: DetectionOption[];
@@ -37,7 +36,6 @@ export function TranslationAgentCard({
     includePriorCharacters,
     includePriorOpenThreads,
     includePriorGlossary,
-    includeImage,
     onUpdateDraft,
     agentDetectionLoading,
     agentDetectionOptions,
@@ -142,19 +140,7 @@ export function TranslationAgentCard({
                     labelClassName={ui.label}
                 >
                     <div className="flex flex-col gap-1 text-xs text-slate-300">
-                        <label className="inline-flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                checked={includeImage}
-                                onChange={(e) =>
-                                    onUpdateDraft(
-                                        "agent.translate.include_image",
-                                        e.target.checked,
-                                    )
-                                }
-                            />
-                            include page image
-                        </label>
+                        <div className="text-slate-300">page image is always included</div>
                         <label className="inline-flex items-center gap-2">
                             <input
                                 type="checkbox"

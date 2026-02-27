@@ -6,6 +6,8 @@ import os
 import time
 from typing import Any
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
 from api.schemas.settings import (
     AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
@@ -32,7 +34,6 @@ from core.usecases.translation.profile_settings import (
     list_translation_profiles_with_settings,
     update_translation_profile_settings,
 )
-from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 router = APIRouter(tags=["settings"])
 logger = logging.getLogger(__name__)
@@ -48,7 +49,6 @@ def _build_options() -> dict[str, Any]:
         "agent.translate.include_prior_characters": {"type": "boolean"},
         "agent.translate.include_prior_open_threads": {"type": "boolean"},
         "agent.translate.include_prior_glossary": {"type": "boolean"},
-        "agent.translate.include_image": {"type": "boolean"},
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},

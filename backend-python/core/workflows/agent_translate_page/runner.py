@@ -549,16 +549,128 @@ async def run_agent_translate_page_workflow(
         "agent.translate.include_prior_glossary",
         default=True,
     )
-    include_image = _get_bool_setting(
-        "agent.translate.include_image",
-        default=True,
-    )
-
     agent_settings = resolve_agent_translate_settings()
     model_id = request.model_id or agent_settings.get("model_id")
     max_output_tokens = agent_settings.get("max_output_tokens")
     reasoning_effort = agent_settings.get("reasoning_effort")
     temperature = agent_settings.get("temperature")
+    resolved_model_id = str(model_id).strip() if isinstance(model_id, str) else ""
+    if not resolved_model_id:
+        resolved_model_id = None
+
+    translate_task_run_id = create_task_run(
+        workflow_id=workflow_run_id,
+        stage="translate_page",
+        status="queued",
+        profile_id=resolved_model_id,
+        input_json={
+            "volume_id": request.volume_id,
+            "filename": request.filename,
+            "source_language": request.source_language,
+            "target_language": request.target_language,
+            "model_id": resolved_model_id,
+        },
+    )
+    merge_task_run_id = create_task_run(
+        workflow_id=workflow_run_id,
+        stage="merge_state",
+        status="queued",
+        profile_id=resolved_model_id,
+        input_json={
+            "volume_id": request.volume_id,
+            "filename": request.filename,
+            "source_language": request.source_language,
+            "target_language": request.target_language,
+            "model_id": resolved_model_id,
+        },
+    )
+    stage_task_ids = {
+        "translate_page": translate_task_run_id,
+        "merge_state": merge_task_run_id,
+    }
+
+    def on_agent_stage_event(
+        stage_name: str,
+        status_name: str,
+        payload_meta: dict[str, Any] | None,
+    ) -> None:
+        task_run_id = stage_task_ids.get(stage_name)
+        if not task_run_id:
+            return
+
+        meta = payload_meta if isinstance(payload_meta, dict) else {}
+        raw_attempt = meta.get("attempt_count", 1)
+        try:
+            attempt = max(1, int(raw_attempt))
+        except (TypeError, ValueError):
+            attempt = 1
+
+        if status_name == "started":
+            update_task_run(
+                task_run_id,
+                status="running",
+                attempt=attempt,
+                started=True,
+            )
+            return
+
+        is_success = status_name == "succeeded"
+        finish_status = "completed" if is_success else "failed"
+        error_detail = None
+        if not is_success:
+            raw_error = meta.get("error")
+            error_detail = str(raw_error).strip() if raw_error is not None else ""
+            if not error_detail:
+                error_detail = f"{stage_name} failed"
+
+        update_task_run(
+            task_run_id,
+            status=finish_status,
+            attempt=attempt,
+            error_code=None if is_success else "stage_failed",
+            error_detail=error_detail,
+            result_json=meta or None,
+            finished=True,
+        )
+
+        params_snapshot = meta.get("params_snapshot")
+        if not isinstance(params_snapshot, dict):
+            params_snapshot = None
+        token_usage = meta.get("token_usage")
+        if not isinstance(token_usage, dict):
+            token_usage = None
+        raw_finish_reason = meta.get("finish_reason")
+        finish_reason = (
+            str(raw_finish_reason).strip()
+            if isinstance(raw_finish_reason, str)
+            else finish_status
+        )
+        raw_latency = meta.get("latency_ms")
+        try:
+            latency_ms = max(0, int(raw_latency))
+        except (TypeError, ValueError):
+            latency_ms = 0
+        raw_model = meta.get("model_id")
+        model_for_event = str(raw_model).strip() if isinstance(raw_model, str) else None
+        if not model_for_event:
+            model_for_event = resolved_model_id
+        prompt_version = (
+            "agent_translate_page_merge.yml"
+            if stage_name == "merge_state"
+            else "agent_translate_page.yml"
+        )
+        append_task_attempt_event(
+            task_id=task_run_id,
+            attempt=attempt,
+            tool_name=stage_name,
+            model_id=model_for_event,
+            prompt_version=prompt_version,
+            params_snapshot=params_snapshot,
+            token_usage=token_usage,
+            finish_reason=finish_reason,
+            latency_ms=latency_ms,
+            error_detail=error_detail,
+        )
 
     ocr_profile_meta = build_ocr_profile_meta(ocr_profiles)
     translation_timeout_seconds = max(30, int(AGENT_TRANSLATE_TIMEOUT_SECONDS))
@@ -574,7 +686,6 @@ async def run_agent_translate_page_workflow(
                 prior_characters=prior_characters if include_prior_characters else [],
                 prior_open_threads=prior_open_threads if include_prior_open_threads else [],
                 prior_glossary=prior_glossary if include_prior_glossary else [],
-                include_image=include_image,
                 source_language=request.source_language,
                 target_language=request.target_language,
                 model_id=model_id,
@@ -592,12 +703,40 @@ async def run_agent_translate_page_workflow(
                 temperature=(
                     float(temperature) if isinstance(temperature, int | float) else None
                 ),
+                on_stage_event=on_agent_stage_event,
             ),
             timeout=float(translation_timeout_seconds),
         )
     except asyncio.TimeoutError:
         mark_stage_finished("translate")
         error_message = f"Agent translation timed out after {translation_timeout_seconds}s"
+        update_task_run(
+            translate_task_run_id,
+            status="failed",
+            attempt=1,
+            error_code="timeout",
+            error_detail=error_message,
+            result_json={
+                "stage": "translate_page",
+                "status": "failed",
+                "message": error_message,
+                "error": error_message,
+            },
+            finished=True,
+        )
+        update_task_run(
+            merge_task_run_id,
+            status="canceled",
+            attempt=1,
+            error_code="upstream_failed",
+            error_detail="Skipped because translate stage failed",
+            result_json={
+                "stage": "merge_state",
+                "status": "canceled",
+                "message": "Skipped because translate stage failed",
+            },
+            finished=True,
+        )
         state = transition(state, WorkflowEvent.translate_failed)
         update_workflow_run(
             workflow_run_id,
@@ -608,12 +747,40 @@ async def run_agent_translate_page_workflow(
         raise RuntimeError(error_message) from None
     except Exception as exc:
         mark_stage_finished("translate")
+        error_message = str(exc)
+        update_task_run(
+            translate_task_run_id,
+            status="failed",
+            attempt=1,
+            error_code="translate_failed",
+            error_detail=error_message,
+            result_json={
+                "stage": "translate_page",
+                "status": "failed",
+                "message": "Translate stage failed",
+                "error": error_message,
+            },
+            finished=True,
+        )
+        update_task_run(
+            merge_task_run_id,
+            status="canceled",
+            attempt=1,
+            error_code="upstream_failed",
+            error_detail="Skipped because translate stage failed",
+            result_json={
+                "stage": "merge_state",
+                "status": "canceled",
+                "message": "Skipped because translate stage failed",
+            },
+            finished=True,
+        )
         state = transition(state, WorkflowEvent.translate_failed)
         update_workflow_run(
             workflow_run_id,
             state=state.value,
             status="failed",
-            error_message=str(exc),
+            error_message=error_message,
         )
         raise
 
