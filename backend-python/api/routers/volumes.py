@@ -4,11 +4,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
+from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-
-from config import VOLUMES_ROOT, safe_join
 from infra.db.db import check_db
 from infra.db.db_store import (
     clear_page_context_snapshot,
@@ -36,6 +34,7 @@ from infra.db.db_store import (
 from infra.db.db_store import (
     set_page_context as save_page_context,
 )
+from pydantic import BaseModel
 
 router = APIRouter(tags=["library"])
 

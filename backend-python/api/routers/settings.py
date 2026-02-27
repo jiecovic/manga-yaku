@@ -6,8 +6,6 @@ import os
 import time
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-
 from api.schemas.settings import (
     AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
@@ -34,6 +32,7 @@ from core.usecases.translation.profile_settings import (
     list_translation_profiles_with_settings,
     update_translation_profile_settings,
 )
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 router = APIRouter(tags=["settings"])
 logger = logging.getLogger(__name__)
