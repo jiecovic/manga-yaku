@@ -1,10 +1,14 @@
-# backend-python/api/schemas/agent.py
+# backend-python/api/schemas/agent_chat.py
+"""Request/response schemas for chat-style agent session endpoints."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class AgentSessionPublic(BaseModel):
+    """Public session metadata returned by agent session endpoints."""
+
     id: str
     volumeId: str
     title: str
@@ -14,17 +18,23 @@ class AgentSessionPublic(BaseModel):
 
 
 class CreateAgentSessionRequest(BaseModel):
+    """Payload to create a new chat agent session for a volume."""
+
     volumeId: str
     title: str | None = None
     modelId: str | None = None
 
 
 class UpdateAgentSessionRequest(BaseModel):
+    """Patch payload for editable session metadata."""
+
     title: str | None = None
     modelId: str | None = None
 
 
 class AgentMessagePublic(BaseModel):
+    """Public message record associated with an agent session."""
+
     id: int
     sessionId: str
     role: str
@@ -34,20 +44,28 @@ class AgentMessagePublic(BaseModel):
 
 
 class CreateAgentMessageRequest(BaseModel):
+    """Payload to append a user/tool/system message to a session."""
+
     role: str = "user"
     content: str
 
 
 class AgentReplyRequest(BaseModel):
+    """Request options for generating one assistant reply."""
+
     maxMessages: int = 20
 
 
 class AgentModelPublic(BaseModel):
+    """Agent model option exposed to the frontend."""
+
     id: str
     label: str
 
 
 class AgentConfigResponse(BaseModel):
+    """Config payload used to initialize the chat agent UI."""
+
     models: list[AgentModelPublic]
     defaultModel: str
     maxMessageChars: int

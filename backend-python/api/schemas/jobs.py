@@ -1,10 +1,18 @@
 # backend-python/api/schemas/jobs.py
+"""Schemas for job creation endpoints and job capability metadata.
+
+Field names intentionally follow the public API contract used by the frontend
+(mostly camelCase for legacy compatibility).
+"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class CreateOcrBoxJobRequest(BaseModel):
+    """Create one OCR task for a single box crop."""
+
     profileId: str
     volumeId: str
     filename: str
@@ -17,6 +25,8 @@ class CreateOcrBoxJobRequest(BaseModel):
 
 
 class CreateOcrPageJobRequest(BaseModel):
+    """Create a workflow that OCRs all boxes on a page."""
+
     profileId: str
     profileIds: list[str] | None = None
     volumeId: str
@@ -25,6 +35,8 @@ class CreateOcrPageJobRequest(BaseModel):
 
 
 class CreateTranslateBoxJobRequest(BaseModel):
+    """Create one single-box translation task."""
+
     profileId: str
     volumeId: str
     filename: str
@@ -34,6 +46,8 @@ class CreateTranslateBoxJobRequest(BaseModel):
 
 
 class CreateTranslatePageJobRequest(BaseModel):
+    """Legacy full-page translate job request shape."""
+
     profileId: str
     volumeId: str
     filename: str
@@ -42,6 +56,8 @@ class CreateTranslatePageJobRequest(BaseModel):
 
 
 class CreateAgentTranslatePageJobRequest(BaseModel):
+    """Create the staged agent translate-page workflow job."""
+
     volumeId: str
     filename: str
     detectionProfileId: str | None = None
@@ -52,6 +68,8 @@ class CreateAgentTranslatePageJobRequest(BaseModel):
 
 
 class CreateBoxDetectionJobRequest(BaseModel):
+    """Create a page-level text-box detection task."""
+
     volumeId: str
     filename: str
     profileId: str | None = None
@@ -60,6 +78,8 @@ class CreateBoxDetectionJobRequest(BaseModel):
 
 
 class CreatePrepareDatasetJobRequest(BaseModel):
+    """Create a dataset preparation job for training inputs."""
+
     dataset_id: str | None = None
     sources: list[str]
     targets: list[str] = ["text"]
@@ -71,6 +91,8 @@ class CreatePrepareDatasetJobRequest(BaseModel):
 
 
 class CreateTrainModelJobRequest(BaseModel):
+    """Create a model training job for a prepared dataset."""
+
     dataset_id: str
     model_family: str = "yolo26"
     model_size: str = "n"
@@ -86,15 +108,21 @@ class CreateTrainModelJobRequest(BaseModel):
 
 
 class CreateJobResponse(BaseModel):
+    """Job creation response containing the new job identifier."""
+
     jobId: str
 
 
 class JobCapability(BaseModel):
+    """Feature flag entry describing whether a job type is available."""
+
     enabled: bool
     reason: str | None = None
 
 
 class JobsCapabilitiesResponse(BaseModel):
+    """Capabilities payload for all frontend-visible job actions."""
+
     ocr_page: JobCapability
     ocr_box: JobCapability
     translate_page: JobCapability

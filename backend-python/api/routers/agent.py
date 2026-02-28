@@ -5,7 +5,7 @@ import asyncio
 import json
 import threading
 
-from api.schemas.agent import (
+from api.schemas.agent_chat import (
     AgentConfigResponse,
     AgentMessagePublic,
     AgentModelPublic,
