@@ -8,18 +8,18 @@ from api.routers import (
     box_detection,
     boxes,
     images,
-    jobs,
     logs,
-    ocr,
     training,
-    translation,
-    volumes,
-    volumes_memory,
-    volumes_sync,
 )
 from api.routers import (
     settings as settings_router,
 )
+from api.routers.jobs import routes as jobs
+from api.routers.ocr import routes as ocr
+from api.routers.translation import routes as translation
+from api.routers.volumes import memory as volumes_memory
+from api.routers.volumes import routes as volumes
+from api.routers.volumes import sync as volumes_sync
 from core.usecases.ocr import initialize_ocr_runtime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

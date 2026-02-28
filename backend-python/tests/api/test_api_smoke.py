@@ -17,20 +17,20 @@ import json
 import unittest
 from unittest.mock import patch
 
-from api.routers.jobs import list_jobs
+from api.routers.jobs.routes import list_jobs
 from api.routers.training import list_training_models
-from api.routers.volumes import health
+from api.routers.volumes.routes import health
 from fastapi.responses import JSONResponse
 
 
 class ApiSmokeTests(unittest.TestCase):
     def test_health(self) -> None:
-        with patch("api.routers.volumes.check_db", return_value=(True, None)):
+        with patch("api.routers.volumes.routes.check_db", return_value=(True, None)):
             resp = asyncio.run(health())
         self.assertEqual(resp, {"status": "ok", "database": "ok"})
 
     def test_health_degraded(self) -> None:
-        with patch("api.routers.volumes.check_db", return_value=(False, "db down")):
+        with patch("api.routers.volumes.routes.check_db", return_value=(False, "db down")):
             resp = asyncio.run(health())
         self.assertIsInstance(resp, JSONResponse)
         degraded = json.loads(resp.body.decode("utf-8"))

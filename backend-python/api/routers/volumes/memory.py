@@ -1,4 +1,4 @@
-# backend-python/api/routers/volumes_memory.py
+# backend-python/api/routers/volumes/memory.py
 from __future__ import annotations
 
 from api.schemas.volumes import (
@@ -109,4 +109,3 @@ async def clear_volume_derived_state(
     volume_id: str,
 ) -> ClearVolumeDerivedDataResponse:
     return ClearVolumeDerivedDataResponse(**clear_volume_derived_state_payload(volume_id))
-

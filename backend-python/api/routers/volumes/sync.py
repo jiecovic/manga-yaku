@@ -1,4 +1,4 @@
-# backend-python/api/routers/volumes_sync.py
+# backend-python/api/routers/volumes/sync.py
 from __future__ import annotations
 
 from api.schemas.volumes import (
@@ -145,4 +145,3 @@ async def prune_missing_pages(payload: PruneMissingPagesRequest) -> dict:
         delete_page(page.volumeId, page.filename)
         deleted += 1
     return {"deleted": deleted}
-

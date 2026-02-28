@@ -16,7 +16,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from api.routers.jobs import create_translate_box_job
+from api.routers.jobs.routes import create_translate_box_job
 from api.schemas.jobs import CreateTranslateBoxJobRequest
 from api.services.jobs_creation_service import create_translate_box_workflow
 from api.services.jobs_workflow_helpers import create_translate_workflow_with_task
@@ -77,7 +77,7 @@ class TranslateBoxJobRouteTests(unittest.IsolatedAsyncioTestCase):
             boxOrder=3,
         )
         with patch(
-            "api.routers.jobs.create_translate_box_workflow",
+            "api.routers.jobs.routes.create_translate_box_workflow",
             return_value="wf-xyz",
         ) as create_workflow_mock:
             result = await create_translate_box_job(req)

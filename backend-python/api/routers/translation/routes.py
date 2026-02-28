@@ -1,5 +1,4 @@
-# backend-python/api/routers/translation.py
-
+# backend-python/api/routers/translation/routes.py
 from api.schemas.providers import TranslationProvider
 from core.usecases.translation.profiles import list_translation_profiles_for_api
 from fastapi import APIRouter

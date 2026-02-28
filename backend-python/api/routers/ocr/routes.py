@@ -1,4 +1,4 @@
-# backend-python/api/routers/ocr.py
+# backend-python/api/routers/ocr/routes.py
 from api.schemas.providers import OcrProvider
 from core.usecases.ocr.profiles import list_ocr_profiles_for_api
 from fastapi import APIRouter

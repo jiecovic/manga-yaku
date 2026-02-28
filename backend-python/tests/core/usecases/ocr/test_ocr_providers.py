@@ -16,7 +16,7 @@ import asyncio
 import unittest
 from unittest.mock import patch
 
-from api.routers.ocr import list_ocr_providers
+from api.routers.ocr.routes import list_ocr_providers
 from core.usecases.ocr.profiles import OCR_PROFILES
 
 
