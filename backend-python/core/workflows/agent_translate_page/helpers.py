@@ -365,11 +365,25 @@ def apply_translation_payload(
         delete_boxes_by_ids(volume_id, filename, merged_ids)
 
     if ordered_primary_ids:
+        removed_ids = set(no_text_ids) | set(merged_ids)
+        preserved_ids: list[int] = []
+        for box in text_boxes:
+            try:
+                box_id = int(box.get("id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if box_id <= 0 or box_id in removed_ids:
+                continue
+            if box_id not in ordered_primary_ids:
+                preserved_ids.append(box_id)
+        # Keep explicit translated reading order first, then append untouched boxes
+        # in their existing order so persisted ordering remains total and stable.
+        final_ordered_ids = ordered_primary_ids + preserved_ids
         applied_order = set_box_order_for_type(
             volume_id,
             filename,
             box_type="text",
-            ordered_ids=ordered_primary_ids,
+            ordered_ids=final_ordered_ids,
         )
 
     result = {

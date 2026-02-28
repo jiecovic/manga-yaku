@@ -230,7 +230,7 @@ class ApplyTranslationPayloadTests(unittest.TestCase):
             "vol",
             "001.jpg",
             box_type="text",
-            ordered_ids=[10],
+            ordered_ids=[10, 20],
         )
         delete_boxes.assert_not_called()
         self.assertIn("coverageWarning", result)
