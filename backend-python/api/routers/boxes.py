@@ -1,6 +1,7 @@
 # backend-python/api/routers/boxes.py
 from __future__ import annotations
 
+from api.schemas.boxes import Box, BoxPage, BoxTextPatch
 from fastapi import APIRouter, HTTPException
 from infra.db.db_store import (
     load_page,
@@ -8,44 +9,8 @@ from infra.db.db_store import (
     set_box_ocr_text_by_id,
     set_box_translation_by_id,
 )
-from pydantic import BaseModel
 
 router = APIRouter()
-
-
-# -----------------------------
-# Pydantic models
-# -----------------------------
-class Box(BaseModel):
-    id: int
-    orderIndex: int | None = None
-    x: float
-    y: float
-    width: float
-    height: float
-    type: str = "text"
-    source: str | None = None
-    runId: str | None = None
-    modelId: str | None = None
-    modelLabel: str | None = None
-    modelVersion: str | None = None
-    modelPath: str | None = None
-    modelHash: str | None = None
-    modelTask: str | None = None
-    text: str | None = ""
-    translation: str | None = ""
-
-
-class BoxPage(BaseModel):
-    boxes: list[Box]
-    # None = field omitted → keep existing context on save
-    # ""   = explicitly clear context
-    pageContext: str | None = None
-
-
-class BoxTextPatch(BaseModel):
-    text: str | None = None
-    translation: str | None = None
 
 
 # -----------------------------
@@ -111,4 +76,3 @@ def patch_box_text(
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(500, f"Failed to update box text: {e}") from e
-
