@@ -39,9 +39,14 @@ from api.services.jobs_service import (
     get_resume_agent_payload,
     list_job_public_records,
 )
-from api.services.jobs_workflow_helpers import AGENT_WORKFLOW_TYPE
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from infra.jobs.job_modes import (
+    AGENT_WORKFLOW_TYPE,
+    BOX_DETECTION_JOB_TYPE,
+    PREPARE_DATASET_JOB_TYPE,
+    TRAIN_MODEL_JOB_TYPE,
+)
 from infra.jobs.runtime import STORE
 from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
@@ -52,6 +57,10 @@ _TRANSLATE_PAGE_DISABLED_REASON = (
     "Standalone translation jobs are temporarily disabled during workflow rewrite. "
     "Use agent translate page workflow path."
 )
+# Job mode boundary:
+# - DB task workflows are persisted and executed by DB workers.
+# - Memory-only jobs stay in JobStore/in-process handlers.
+# - Agent translate page is hybrid (memory queue + persisted workflow state).
 
 _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     ocr_page=JobCapability(enabled=True),
@@ -130,7 +139,7 @@ async def create_box_detection_job(
     """Create box detection job."""
     job_id = enqueue_memory_job(
         store=STORE,
-        job_type="box_detection",
+        job_type=BOX_DETECTION_JOB_TYPE,
         payload=req.dict(),
     )
     await STORE.queue.put(job_id)
@@ -155,7 +164,7 @@ async def create_prepare_dataset_job(
 
     job_id = enqueue_memory_job(
         store=STORE,
-        job_type="prepare_dataset",
+        job_type=PREPARE_DATASET_JOB_TYPE,
         payload=req.dict(),
         progress=0,
         message="Queued",
@@ -177,7 +186,7 @@ async def create_train_model_job(
 
     job_id = enqueue_memory_job(
         store=STORE,
-        job_type="train_model",
+        job_type=TRAIN_MODEL_JOB_TYPE,
         payload=req.dict(),
         progress=0,
         message="Queued",

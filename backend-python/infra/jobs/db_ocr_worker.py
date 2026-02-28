@@ -1,3 +1,4 @@
+# backend-python/infra/jobs/db_ocr_worker.py
 """Database-backed OCR task worker entrypoint."""
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
 from infra.db.db_store import set_box_ocr_text_by_id
+from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE, OCR_PAGE_WORKFLOW_TYPE
 from infra.jobs.workflow_repo import (
     append_task_attempt_event,
     claim_next_task,
@@ -23,7 +25,7 @@ from infra.jobs.workflow_repo import (
 
 logger = logging.getLogger(__name__)
 
-_OCR_WORKFLOW_TYPES = ("ocr_page", "ocr_box")
+_OCR_WORKFLOW_TYPES = (OCR_PAGE_WORKFLOW_TYPE, OCR_BOX_WORKFLOW_TYPE)
 _OCR_STAGE = "ocr"
 _TERMINAL_TASK_STATUSES = {"completed", "failed", "canceled", "timed_out"}
 _DEFAULT_LEASE_SECONDS = 180

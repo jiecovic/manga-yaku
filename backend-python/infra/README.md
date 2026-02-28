@@ -9,6 +9,8 @@ Contains:
 - job runtime/workers
 - logging and integration wiring
 
+Job mode boundary details: `infra/jobs/README.md`.
+
 Avoid:
 - business rules
 - workflow decision policy

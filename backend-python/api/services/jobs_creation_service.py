@@ -15,11 +15,10 @@ from core.usecases.translation.profiles import get_translation_profile
 from fastapi import HTTPException
 from infra.db.db_store import load_page
 from infra.jobs.handlers.utils import list_text_boxes
+from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE, OCR_PAGE_WORKFLOW_TYPE
 from infra.jobs.store import Job, JobStatus, JobStore
 
 from .jobs_workflow_helpers import (
-    OCR_BOX_WORKFLOW_TYPE,
-    OCR_PAGE_WORKFLOW_TYPE,
     create_ocr_workflow_with_tasks,
     create_translate_workflow_with_task,
     normalize_profile_ids,

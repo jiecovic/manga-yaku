@@ -1,3 +1,4 @@
+# backend-python/infra/jobs/runtime.py
 """Jobs runtime lifecycle management and worker startup/shutdown."""
 
 from __future__ import annotations
@@ -8,13 +9,12 @@ from threading import Event
 
 from infra.jobs.db_ocr_worker import run_ocr_db_worker
 from infra.jobs.db_translate_worker import run_translate_db_worker
+from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
 from infra.jobs.store import JobStatus, JobStore
 from infra.jobs.worker import job_worker
 from infra.jobs.workflow_repo import mark_running_workflows_interrupted
 
 logger = logging.getLogger(__name__)
-
-_AGENT_WORKFLOW_TYPE = "agent_translate_page"
 
 STORE = JobStore()
 
@@ -78,7 +78,7 @@ async def start_jobs_runtime() -> None:
 
         try:
             mark_running_workflows_interrupted(
-                workflow_type=_AGENT_WORKFLOW_TYPE,
+                workflow_type=AGENT_WORKFLOW_TYPE,
                 message="Interrupted by backend restart",
             )
         except Exception:

@@ -1,3 +1,4 @@
+# backend-python/infra/jobs/db_translate_worker.py
 """Database-backed translation task worker entrypoint."""
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from core.usecases.translation.execution import (
 )
 from core.usecases.translation.profiles import get_translation_profile
 from infra.jobs.handlers.utils import make_snippet
+from infra.jobs.job_modes import TRANSLATE_BOX_WORKFLOW_TYPE
 from infra.jobs.workflow_repo import (
     append_task_attempt_event,
     claim_next_task,
@@ -25,7 +27,7 @@ from infra.jobs.workflow_repo import (
 
 logger = logging.getLogger(__name__)
 
-_TRANSLATE_WORKFLOW_TYPE = "translate_box"
+_TRANSLATE_WORKFLOW_TYPE = TRANSLATE_BOX_WORKFLOW_TYPE
 _TRANSLATE_STAGE = "translate_box"
 _TERMINAL_TASK_STATUSES = {"completed", "failed", "canceled", "timed_out"}
 _DEFAULT_LEASE_SECONDS = 180

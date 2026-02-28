@@ -3,13 +3,20 @@
 
 from __future__ import annotations
 
+from infra.jobs.job_modes import (
+    AGENT_WORKFLOW_TYPE,
+    BOX_DETECTION_JOB_TYPE,
+    PREPARE_DATASET_JOB_TYPE,
+    TRAIN_MODEL_JOB_TYPE,
+)
+
 from .agent import AgentTranslatePageJobHandler
 from .detection import BoxDetectionJobHandler
 from .training import PrepareDatasetJobHandler, TrainModelJobHandler
 
 HANDLERS = {
-    "box_detection": BoxDetectionJobHandler(),
-    "agent_translate_page": AgentTranslatePageJobHandler(),
-    "prepare_dataset": PrepareDatasetJobHandler(),
-    "train_model": TrainModelJobHandler(),
+    BOX_DETECTION_JOB_TYPE: BoxDetectionJobHandler(),
+    AGENT_WORKFLOW_TYPE: AgentTranslatePageJobHandler(),
+    PREPARE_DATASET_JOB_TYPE: PrepareDatasetJobHandler(),
+    TRAIN_MODEL_JOB_TYPE: TrainModelJobHandler(),
 }

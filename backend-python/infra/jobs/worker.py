@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE, PERSISTED_WORKFLOW_TYPES
 from infra.jobs.workflow_repo import update_workflow_run
 from infra.training.job_runner import TrainingCanceled
 
@@ -13,12 +14,6 @@ from .handlers.registry import HANDLERS
 from .store import Job, JobStatus, JobStore
 
 logger = logging.getLogger(__name__)
-_PERSISTED_WORKFLOW_JOB_TYPES = {
-    "agent_translate_page",
-    "ocr_page",
-    "ocr_box",
-    "translate_box",
-}
 
 
 def _extract_workflow_run_id(job: Job, result: dict[str, Any] | None = None) -> str | None:
@@ -40,14 +35,14 @@ def _sync_terminal_workflow_status(
     result: dict[str, Any] | None = None,
     error_message: str | None = None,
 ) -> None:
-    if job.type not in _PERSISTED_WORKFLOW_JOB_TYPES:
+    if job.type not in PERSISTED_WORKFLOW_TYPES:
         return
     workflow_run_id = _extract_workflow_run_id(job, result=result)
     if not workflow_run_id:
         return
 
     state = terminal_status
-    if job.type == "agent_translate_page" and isinstance(result, dict):
+    if job.type == AGENT_WORKFLOW_TYPE and isinstance(result, dict):
         raw_state = str(result.get("state") or "").strip().lower()
         if raw_state in {"queued", "running", "detecting_boxes", "ocr_running", "translating", "committing"}:
             if terminal_status == "completed":

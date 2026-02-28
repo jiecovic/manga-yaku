@@ -12,20 +12,15 @@ from infra.db.workflow_store import (
     update_task_run,
     update_workflow_run,
 )
+from infra.jobs.job_modes import (
+    AGENT_WORKFLOW_TYPE,
+    PERSISTED_WORKFLOW_TYPES,
+    TRANSLATE_BOX_WORKFLOW_TYPE,
+)
 from infra.jobs.store import Job, JobPublic, JobStatus, JobStore
 
-AGENT_WORKFLOW_TYPE = "agent_translate_page"
-OCR_PAGE_WORKFLOW_TYPE = "ocr_page"
-OCR_BOX_WORKFLOW_TYPE = "ocr_box"
-TRANSLATE_BOX_WORKFLOW_TYPE = "translate_box"
 OCR_TASK_STAGE = "ocr"
 TRANSLATE_TASK_STAGE = "translate_box"
-PERSISTED_WORKFLOW_TYPES = {
-    AGENT_WORKFLOW_TYPE,
-    OCR_PAGE_WORKFLOW_TYPE,
-    OCR_BOX_WORKFLOW_TYPE,
-    TRANSLATE_BOX_WORKFLOW_TYPE,
-}
 
 
 def workflow_status_to_job_status(status: str) -> JobStatus:
