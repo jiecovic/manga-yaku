@@ -421,6 +421,10 @@ async def run_agent_translate_page_workflow(
 
     run_ctx.updated_boxes = commit_result.updated
     state = transition(state, WorkflowEvent.commit_succeeded)
+    merge_warning = str(translation_payload.get("merge_warning") or "").strip()
+    completion_message = "Agent translation complete"
+    if merge_warning:
+        completion_message = "Agent translation complete (merge fallback applied)"
     result = {
         "state": state.value,
         "stage": "completed",
@@ -437,8 +441,10 @@ async def run_agent_translate_page_workflow(
         "glossary": commit_result.glossary,
         "duration_ms": run_ctx.total_duration_ms(),
         "stage_durations_ms": dict(run_ctx.stage_durations_ms),
-        "message": "Agent translation complete",
+        "message": completion_message,
     }
+    if merge_warning:
+        result["mergeWarning"] = merge_warning
     persisted = dict(result)
     persisted["request"] = dict(payload)
     update_workflow_run(
@@ -452,7 +458,7 @@ async def run_agent_translate_page_workflow(
         state=state,
         stage="completed",
         progress=100,
-        message="Agent translation complete",
+        message=completion_message,
     )
     return result
 

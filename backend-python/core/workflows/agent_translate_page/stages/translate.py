@@ -102,7 +102,10 @@ async def run_translate_stage(
         is_success = status_name == "succeeded"
         finish_status = "completed" if is_success else "failed"
         error_detail = None
-        if not is_success:
+        warning_detail = str(meta.get("merge_warning") or "").strip() if is_success else ""
+        if warning_detail:
+            error_detail = warning_detail
+        elif not is_success:
             raw_error = meta.get("error")
             error_detail = str(raw_error).strip() if raw_error is not None else ""
             if not error_detail:

@@ -390,16 +390,17 @@ def run_agent_translate_page(
         logger.warning("State merge call failed, using fallback context: %s", stage2_error)
         stage2_event = _build_stage_event_payload(
             stage="merge_state",
-            status="failed",
-            message="Merge stage failed; using fallback context",
+            status="completed",
+            message="Merge stage fallback applied",
             cfg=merge_cfg,
             diagnostics=stage2_debug,
-            error=stage2_error,
         )
+        stage2_event["merge_warning"] = stage2_error
+        stage2_event["finish_reason"] = "fallback"
         _emit_stage_event(
             on_stage_event,
             stage="merge_state",
-            status="failed",
+            status="succeeded",
             payload=stage2_event,
         )
         stage2_result = {

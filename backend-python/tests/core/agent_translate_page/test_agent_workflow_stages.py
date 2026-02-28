@@ -109,7 +109,12 @@ class TranslateStageTests(unittest.TestCase):
             on_stage_event(
                 "merge_state",
                 "succeeded",
-                {"attempt_count": 1, "finish_reason": "stop", "latency_ms": 11},
+                {
+                    "attempt_count": 1,
+                    "finish_reason": "fallback",
+                    "latency_ms": 11,
+                    "merge_warning": "merge fallback applied",
+                },
             )
             return {"boxes": [], "no_text_boxes": []}
 
@@ -169,6 +174,13 @@ class TranslateStageTests(unittest.TestCase):
         self.assertTrue(
             any(
                 call.get("status") == "completed" and call.get("task_id") == "task-merge"
+                for call in update_calls
+            )
+        )
+        self.assertTrue(
+            any(
+                call.get("task_id") == "task-merge"
+                and call.get("error_detail") == "merge fallback applied"
                 for call in update_calls
             )
         )
