@@ -46,6 +46,7 @@ interface RightSidebarTabsProps {
     // page navigation
     pageIndex: number;
     pageCount: number;
+    pageFilenames: string[];
     hasPrev: boolean;
     hasNext: boolean;
     onPrev: () => void;
@@ -102,6 +103,7 @@ export function RightSidebarTabs({
     onPruneMissingVolumes,
     pageIndex,
     pageCount,
+    pageFilenames,
     hasPrev,
     hasNext,
     onPrev,
@@ -187,6 +189,7 @@ export function RightSidebarTabs({
                         <RightSidebarPageSection
                             pageIndex={pageIndex}
                             pageCount={pageCount}
+                            pageFilenames={pageFilenames}
                             hasPrev={hasPrev}
                             hasNext={hasNext}
                             loadingPages={loadingPages}

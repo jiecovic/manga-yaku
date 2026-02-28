@@ -433,6 +433,7 @@ function TranslateInner({
                 // page navigation
                 pageIndex={pageIndex}
                 pageCount={pageCount}
+                pageFilenames={pages.map((page) => page.filename)}
                 hasPrev={canPrev}
                 hasNext={canNext}
                 onPrev={handlePrevClick}

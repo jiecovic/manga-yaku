@@ -6,6 +6,7 @@ import { ui } from "../../ui/tokens";
 interface PageSectionProps {
     pageIndex: number;
     pageCount: number;
+    pageFilenames: string[];
     hasPrev: boolean;
     hasNext: boolean;
     loadingPages: boolean;
@@ -24,6 +25,7 @@ interface PageSectionProps {
 export function RightSidebarPageSection({
     pageIndex,
     pageCount,
+    pageFilenames,
     hasPrev,
     hasNext,
     loadingPages,
@@ -92,7 +94,11 @@ export function RightSidebarPageSection({
                         )}
                         {pageNumbers.map((n) => (
                             <option key={n} value={n}>
-                                Page {n}
+                                {`Page ${n}${
+                                    pageFilenames[n - 1]
+                                        ? ` - ${pageFilenames[n - 1]}`
+                                        : ""
+                                }`}
                             </option>
                         ))}
                         {pageCount > 0 && (
@@ -174,6 +180,11 @@ export function RightSidebarPageSection({
                         ? `${draftLabel ?? "New page"} (paste to add)`
                         : `Page ${pageIndex + 1} / ${pageCount}`}
                 </div>
+                {!isDraftPage && currentPageFilename && (
+                    <div className={ui.mutedTextTiny}>
+                        File: {currentPageFilename}
+                    </div>
+                )}
 
             </div>
             {confirmDeleteOpen && (
