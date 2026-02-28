@@ -1,3 +1,4 @@
+# backend-python/infra/db/store_context.py
 """Database persistence for page and volume context memory."""
 
 from __future__ import annotations

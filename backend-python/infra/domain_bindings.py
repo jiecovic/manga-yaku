@@ -1,3 +1,4 @@
+# backend-python/infra/domain_bindings.py
 """Binds domain ports to infrastructure implementations."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# backend-python/infra/db/store_volume_reset.py
 """Reset helpers that clear derived volume/page processing state."""
 
 from __future__ import annotations

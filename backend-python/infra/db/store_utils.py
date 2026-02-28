@@ -1,3 +1,4 @@
+# backend-python/infra/db/store_utils.py
 """Shared row mapping and SQL helper utilities for db stores."""
 
 from __future__ import annotations

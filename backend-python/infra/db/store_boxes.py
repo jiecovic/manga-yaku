@@ -1,3 +1,4 @@
+# backend-python/infra/db/store_boxes.py
 """Database box record CRUD and mapping helpers."""
 
 from __future__ import annotations
