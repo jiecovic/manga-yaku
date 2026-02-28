@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from threading import Event
 from typing import Any
 
 from config import AGENT_TRANSLATE_TIMEOUT_SECONDS
@@ -69,11 +70,15 @@ async def run_translate_stage(
         "merge_state": merge_task_run_id,
     }
 
+    stop_event = Event()
+
     def on_agent_stage_event(
         stage_name: str,
         status_name: str,
         payload_meta: dict[str, Any] | None,
     ) -> None:
+        if stop_event.is_set():
+            return
         task_run_id = stage_task_ids.get(stage_name)
         if not task_run_id:
             return
@@ -179,10 +184,12 @@ async def run_translate_stage(
                     else None
                 ),
                 on_stage_event=on_agent_stage_event,
+                stop_event=stop_event,
             ),
             timeout=float(translation_timeout_seconds),
         )
     except asyncio.TimeoutError:
+        stop_event.set()
         error_message = f"Agent translation timed out after {translation_timeout_seconds}s"
         update_task_run(
             translate_task_run_id,
@@ -204,6 +211,7 @@ async def run_translate_stage(
         )
         raise TranslateStageError(error_message) from None
     except Exception as exc:
+        stop_event.set()
         error_message = str(exc)
         update_task_run(
             translate_task_run_id,

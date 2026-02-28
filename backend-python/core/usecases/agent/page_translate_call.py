@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import time
+from threading import Event
 from typing import Any
 
 from config import (
@@ -142,7 +143,12 @@ def run_structured_call(
     component: str,
     repair_component: str,
     log_context: dict[str, Any],
+    stop_event: Event | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _raise_if_stopped() -> None:
+        if stop_event is not None and stop_event.is_set():
+            raise RuntimeError(f"{component} canceled")
+
     cfg = dict(model_cfg)
     cfg["text"] = {"format": text_format}
     attempt_count = 1
@@ -151,6 +157,7 @@ def run_structured_call(
 
     validator = json_result_validator(parser)
     params = build_response_params(cfg, input_payload)
+    _raise_if_stopped()
     call_started = time.perf_counter()
     resp = openai_responses_create(
         client,
@@ -160,6 +167,7 @@ def run_structured_call(
         result_validator=validator,
     )
     api_latency_ms += int((time.perf_counter() - call_started) * 1000)
+    _raise_if_stopped()
     raw_text = extract_response_text(resp, raise_on_refusal=True)
 
     if should_retry(resp):
@@ -168,6 +176,7 @@ def run_structured_call(
         current_limit = coerce_positive_int(retry_cfg.get("max_output_tokens")) or 1024
         retry_cfg["max_output_tokens"] = max(current_limit * 2, current_limit + 512)
         retry_params = build_response_params(retry_cfg, input_payload)
+        _raise_if_stopped()
         retry_started = time.perf_counter()
         retry_resp = openai_responses_create(
             client,
@@ -177,6 +186,7 @@ def run_structured_call(
             result_validator=validator,
         )
         api_latency_ms += int((time.perf_counter() - retry_started) * 1000)
+        _raise_if_stopped()
         retry_text = extract_response_text(retry_resp, raise_on_refusal=True)
         if retry_text:
             cfg = retry_cfg
@@ -188,6 +198,7 @@ def run_structured_call(
         result = parser(extract_json(raw_text))
     except Exception as exc:
         logger.warning("Failed to parse %s JSON, retrying repair: %s", component, exc)
+        _raise_if_stopped()
         repair_started = time.perf_counter()
         repaired_text = repair_with_llm(
             client=client,

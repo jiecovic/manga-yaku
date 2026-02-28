@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from threading import Event
 from typing import Any
 
 from . import page_translate_schema as _schema
@@ -109,6 +110,7 @@ def run_structured_call(
     component: str,
     repair_component: str,
     log_context: dict[str, Any],
+    stop_event: Event | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Backward-compatible wrapper; use `page_translate_call` directly."""
     return _run_structured_call(
@@ -120,4 +122,5 @@ def run_structured_call(
         component=component,
         repair_component=repair_component,
         log_context=log_context,
+        stop_event=stop_event,
     )

@@ -89,6 +89,9 @@ class TranslateStageTests(unittest.TestCase):
             on_stage_event = kwargs.get("on_stage_event")
             if not callable(on_stage_event):
                 raise AssertionError("missing on_stage_event callback")
+            stop_event = kwargs.get("stop_event")
+            if stop_event is None or not hasattr(stop_event, "is_set"):
+                raise AssertionError("missing stop_event")
             on_stage_event("translate_page", "started", {"attempt_count": 1})
             on_stage_event(
                 "translate_page",

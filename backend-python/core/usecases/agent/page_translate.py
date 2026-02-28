@@ -6,6 +6,7 @@ import json
 import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
+from threading import Event
 from typing import Any
 
 from config import AGENT_DEBUG_DIR, DEBUG_PROMPTS
@@ -179,6 +180,7 @@ def run_agent_translate_page(
     merge_max_output_tokens: int | None = None,
     merge_reasoning_effort: str | None = None,
     on_stage_event: StageEventCallback | None = None,
+    stop_event: Event | None = None,
 ) -> dict[str, Any]:
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
@@ -243,6 +245,12 @@ def run_agent_translate_page(
             cfg=base_cfg,
         ),
     )
+
+    def _raise_if_stopped() -> None:
+        if stop_event is not None and stop_event.is_set():
+            raise RuntimeError("translate stage canceled")
+
+    _raise_if_stopped()
     try:
         stage1_result, stage1_debug = run_structured_call(
             client=client,
@@ -253,6 +261,7 @@ def run_agent_translate_page(
             component="agent.translate_page.translate",
             repair_component="agent.translate_page.translate.repair",
             log_context=stage1_log_context,
+            stop_event=stop_event,
         )
     except Exception as exc:
         stage1_error = str(exc).strip() or repr(exc)
@@ -269,6 +278,7 @@ def run_agent_translate_page(
             ),
         )
         raise
+    _raise_if_stopped()
     stage1_result, forced_no_text_box_ids = apply_no_text_consensus_guard(
         stage1_result=stage1_result,
         input_boxes=boxes,
@@ -289,6 +299,7 @@ def run_agent_translate_page(
         status="succeeded",
         payload=stage1_event,
     )
+    _raise_if_stopped()
 
     merge_system_prompt, merge_user_content = build_state_merge_prompt_payload(
         source_language=source_language,
@@ -359,6 +370,7 @@ def run_agent_translate_page(
             component="agent.translate_page.merge",
             repair_component="agent.translate_page.merge.repair",
             log_context=stage2_log_context,
+            stop_event=stop_event,
         )
         stage2_event = _build_stage_event_payload(
             stage="merge_state",
