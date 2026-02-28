@@ -40,6 +40,21 @@ Source of truth: `infra/jobs/job_modes.py`.
   `agent_translate_page`
   queued through memory runtime while workflow state is persisted in DB.
 
+## Agent translate submission semantics
+
+`POST /api/jobs/agent_translate_page` uses request de-duplication rules:
+
+- Active-page dedupe:
+  if the same `volumeId + filename` already has a `queued/running` agent run,
+  the API returns the existing job/workflow id instead of creating another run.
+- Optional idempotency:
+  clients may send `Idempotency-Key`; the backend stores key + request hash.
+  same key + same payload replays existing id; same key + different payload
+  returns `409`.
+- `forceRerun`:
+  bypasses idempotency replay for intentional fresh runs, but active-page dedupe
+  still prevents parallel duplicate execution for the same page.
+
 ## Data flow (high-level)
 
 1. API route validates request and creates a workflow/job.

@@ -137,6 +137,10 @@ Jobs model:
 - Workflow-backed jobs (`ocr_box`, `ocr_page`, `translate_box`, `agent_translate_page`) are persisted
   in Postgres (`workflow_runs`/`task_runs`) and can be reloaded after backend restart.
 - Some utility jobs (for example, training/dataset prep) remain process-local in the in-memory `JobStore`.
+- `agent_translate_page` create requests support `Idempotency-Key` and same-page
+  active dedupe (`volumeId + filename`) to avoid duplicate runs from retries/double-clicks.
+- `forceRerun` can request a fresh run, but does not allow parallel duplicate runs
+  for the same page while one is already queued/running.
 
 Training:
 - Raw datasets live under `training-data/sources/` (ignored).
