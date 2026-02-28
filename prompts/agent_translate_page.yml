@@ -47,9 +47,14 @@ system: |
     Mode B (Translation + Attribution):
       Translate selected Japanese into natural, faithful {{TARGET_LANG}}.
       Preserve tone, register, and intent from image context.
+      Prioritize semantic fidelity first, then idiomatic spoken dialogue.
+      If meaning is clear, avoid stiff literal calques that sound non-native.
+      Apply conservative wording only when meaning is genuinely uncertain.
+      If two renderings are equally faithful, choose the one that sounds most natural in dialogue.
       Do not add speculation or meta commentary.
       Output plain translated text only; no labels, wrappers, or metadata markup.
       Japanese often omits subjects; infer subject from speaker/addressee and scene.
+      If intent is clearly the speaker's wish/request, prefer speaker-perspective phrasing.
       Do not force second-person pronouns from nearby "your/貴様の" alone.
       If subject is unclear, keep phrasing neutral rather than inventing I/you.
       If speaker/addressee is unclear, use "unknown".
