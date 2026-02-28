@@ -1,4 +1,6 @@
 # backend-python/core/workflows/agent_translate_page/events.py
+"""Event payload definitions for the agent translate page workflow."""
+
 from __future__ import annotations
 
 from typing import Any

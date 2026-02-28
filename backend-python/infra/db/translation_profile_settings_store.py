@@ -1,3 +1,5 @@
+"""Persistence helpers for translation profile overrides."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

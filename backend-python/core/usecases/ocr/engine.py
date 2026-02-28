@@ -1,4 +1,6 @@
 # backend-python/core/usecases/ocr/engine.py
+"""Primary orchestration logic for ocr operations."""
+
 from __future__ import annotations
 
 import base64

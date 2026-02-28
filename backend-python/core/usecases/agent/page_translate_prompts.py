@@ -1,4 +1,6 @@
 # backend-python/core/usecases/agent/page_translate_prompts.py
+"""Use-case helpers for agent page translate prompts operations."""
+
 from __future__ import annotations
 
 import json

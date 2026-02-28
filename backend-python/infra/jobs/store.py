@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/store.py
+"""In-memory job store and stream subscription primitives."""
+
 from __future__ import annotations
 
 import asyncio

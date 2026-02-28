@@ -1,3 +1,5 @@
+"""Reset helpers that clear derived volume/page processing state."""
+
 from __future__ import annotations
 
 import json

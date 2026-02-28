@@ -1,3 +1,5 @@
+"""High-level database store API used by routes and workflows."""
+
 from __future__ import annotations
 
 # compatibility facade: keep existing imports stable while logic lives in focused modules.

@@ -1,4 +1,6 @@
 # backend-python/api/routers/volumes/routes.py
+"""HTTP routes for volumes endpoints."""
+
 from pathlib import Path
 from typing import Annotated
 

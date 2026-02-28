@@ -1,3 +1,5 @@
+"""Persistence helpers for LLM call logs and query filters."""
+
 from __future__ import annotations
 
 import json

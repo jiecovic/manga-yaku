@@ -1,4 +1,6 @@
 # backend-python/infra/db/agent_store.py
+"""Persistence helpers for agent sessions, turns, and metadata."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

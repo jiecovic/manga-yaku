@@ -1,4 +1,6 @@
 # backend-python/infra/db/agent_translate_settings_store.py
+"""Persistence helpers for agent translate page settings."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

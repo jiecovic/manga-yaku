@@ -1,4 +1,6 @@
 # backend-python/api/routers/ocr/routes.py
+"""HTTP routes for ocr endpoints."""
+
 from api.schemas.providers import OcrProvider
 from core.usecases.ocr.profiles import list_ocr_profiles_for_api
 from fastapi import APIRouter

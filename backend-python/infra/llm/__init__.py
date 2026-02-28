@@ -1,4 +1,6 @@
 # backend-python/infra/llm/__init__.py
+"""Package exports for llm infrastructure utilities."""
+
 from .call_logger import (
     openai_chat_completions_create,
     openai_responses_create,

@@ -1,4 +1,6 @@
 # backend-python/api/routers/settings.py
+"""HTTP routes for settings endpoints."""
+
 from __future__ import annotations
 
 import logging

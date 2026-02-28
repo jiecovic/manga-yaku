@@ -1,4 +1,6 @@
 # backend-python/api/services/volumes_memory_service.py
+"""Service-layer helpers for volumes memory service operations."""
+
 from __future__ import annotations
 
 from datetime import datetime

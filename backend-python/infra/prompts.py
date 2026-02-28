@@ -1,4 +1,6 @@
 # backend-python/infra/prompts.py
+"""Prompt loading/rendering helpers for workflow and agent calls."""
+
 from __future__ import annotations
 
 import os

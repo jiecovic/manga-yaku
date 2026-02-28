@@ -1,4 +1,6 @@
 # backend-python/core/usecases/ocr/profiles.py
+"""Default profile definitions for ocr providers."""
+
 from __future__ import annotations
 
 from typing import Any, TypedDict, cast

@@ -1,4 +1,6 @@
 # backend-python/core/usecases/translation/profiles.py
+"""Default profile definitions for translation providers."""
+
 from __future__ import annotations
 
 import os

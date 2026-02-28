@@ -1,4 +1,6 @@
 # backend-python/api/routers/agent.py
+"""HTTP routes for agent endpoints."""
+
 from __future__ import annotations
 
 import asyncio

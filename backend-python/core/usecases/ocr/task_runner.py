@@ -1,3 +1,5 @@
+"""Queued task-runner logic for ocr jobs."""
+
 from __future__ import annotations
 
 import time

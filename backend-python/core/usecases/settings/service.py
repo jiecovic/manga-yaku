@@ -1,4 +1,6 @@
 # backend-python/core/usecases/settings/service.py
+"""Service API for reading/updating settings settings."""
+
 from __future__ import annotations
 
 from typing import Any

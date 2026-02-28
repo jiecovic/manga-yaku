@@ -1,3 +1,5 @@
+"""Execution helpers for ocr operations."""
+
 from __future__ import annotations
 
 import asyncio

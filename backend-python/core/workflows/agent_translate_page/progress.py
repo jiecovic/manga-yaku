@@ -1,3 +1,5 @@
+"""Progress computation and status formatting for the agent translate page workflow."""
+
 from __future__ import annotations
 
 from .context import WorkflowRunContext

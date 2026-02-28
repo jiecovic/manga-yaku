@@ -1,4 +1,6 @@
 # backend-python/core/usecases/box_detection/__init__.py
+"""Public exports for the box detection use case package."""
+
 from .engine import detect_boxes_for_page, detect_text_boxes_for_page
 from .profiles import (
     BOX_DETECTION_PROFILES,

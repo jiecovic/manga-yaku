@@ -1,4 +1,6 @@
 # backend-python/core/usecases/translation/utils.py
+"""Utility helpers shared across translation operations."""
+
 from __future__ import annotations
 
 

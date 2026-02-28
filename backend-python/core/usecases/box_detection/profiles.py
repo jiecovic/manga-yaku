@@ -1,4 +1,6 @@
 # backend-python/core/usecases/box_detection/profiles.py
+"""Default profile definitions for box detection providers."""
+
 from __future__ import annotations
 
 import json

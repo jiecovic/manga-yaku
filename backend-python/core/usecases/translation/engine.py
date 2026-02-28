@@ -1,4 +1,6 @@
 # backend-python/core/usecases/translation/engine.py
+"""Primary orchestration logic for translation operations."""
+
 from __future__ import annotations
 
 import json

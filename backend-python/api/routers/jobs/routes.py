@@ -1,4 +1,6 @@
 # backend-python/api/routers/jobs/routes.py
+"""HTTP routes for jobs endpoints."""
+
 from __future__ import annotations
 
 import asyncio

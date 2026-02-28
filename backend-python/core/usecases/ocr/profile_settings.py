@@ -1,4 +1,6 @@
 # backend-python/core/usecases/ocr/profile_settings.py
+"""Settings overlay and persistence mapping for ocr profiles."""
+
 from __future__ import annotations
 
 from typing import Any

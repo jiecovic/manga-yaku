@@ -1,3 +1,5 @@
+"""Adapters that expose workflow/task persistence operations."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

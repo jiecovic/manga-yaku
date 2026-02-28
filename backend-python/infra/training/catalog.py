@@ -1,4 +1,6 @@
 # backend-python/infra/training/catalog.py
+"""Training model/source catalog loading and validation."""
+
 from __future__ import annotations
 
 import json

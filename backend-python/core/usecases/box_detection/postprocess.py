@@ -1,4 +1,6 @@
 # backend-python/core/usecases/box_detection/postprocess.py
+"""Use-case helpers for box detection postprocess operations."""
+
 from __future__ import annotations
 
 from core.usecases.settings.service import resolve_detection_settings

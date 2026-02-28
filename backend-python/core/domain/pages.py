@@ -1,4 +1,6 @@
 # backend-python/core/domain/pages.py
+"""Core domain models and contracts for pages."""
+
 from __future__ import annotations
 
 from .page_ports import get_page_write_port

@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/registry.py
+"""Job handler implementation for registry tasks."""
+
 from __future__ import annotations
 
 from .agent import AgentTranslatePageJobHandler

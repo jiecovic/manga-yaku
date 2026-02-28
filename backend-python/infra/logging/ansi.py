@@ -1,4 +1,6 @@
 # backend-python/infra/logging/ansi.py
+"""ANSI color/style helpers for terminal log formatting."""
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,6 @@
 # backend-python/core/usecases/agent/page_translate_helpers.py
+"""Use-case helpers for agent page translate helpers operations."""
+
 from __future__ import annotations
 
 from typing import Any

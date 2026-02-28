@@ -1,3 +1,5 @@
+"""Database persistence for volume and page metadata."""
+
 from __future__ import annotations
 
 from typing import Any

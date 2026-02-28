@@ -1,4 +1,6 @@
 # backend-python/api/routers/logs.py
+"""HTTP routes for logs endpoints."""
+
 from __future__ import annotations
 
 import json

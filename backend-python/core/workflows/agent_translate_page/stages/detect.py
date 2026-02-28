@@ -1,3 +1,5 @@
+"""Workflow stage handler for agent translate page: detect."""
+
 from __future__ import annotations
 
 import asyncio

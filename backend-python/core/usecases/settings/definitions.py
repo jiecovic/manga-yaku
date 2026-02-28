@@ -1,4 +1,6 @@
 # backend-python/core/usecases/settings/definitions.py
+"""Setting key definitions, metadata, and validation constraints."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

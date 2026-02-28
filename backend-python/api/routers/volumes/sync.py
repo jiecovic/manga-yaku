@@ -1,4 +1,6 @@
 # backend-python/api/routers/volumes/sync.py
+"""HTTP routes for volume/database filesystem synchronization operations."""
+
 from __future__ import annotations
 
 from api.schemas.volumes import (

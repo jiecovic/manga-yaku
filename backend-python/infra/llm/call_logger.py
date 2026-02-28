@@ -1,3 +1,5 @@
+"""Persistence-backed logging for LLM request/response payloads."""
+
 from __future__ import annotations
 
 import json

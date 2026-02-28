@@ -1,4 +1,6 @@
 # backend-python/api/services/jobs_workflow_helpers.py
+"""Service-layer helpers for jobs workflow helpers operations."""
+
 from __future__ import annotations
 
 from core.usecases.ocr.profiles import get_ocr_profile

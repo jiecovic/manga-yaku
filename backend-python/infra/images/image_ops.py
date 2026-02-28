@@ -1,4 +1,6 @@
 # backend-python/infra/images/image_ops.py
+"""Image loading, cropping, and conversion helpers."""
+
 from __future__ import annotations
 
 from pathlib import Path

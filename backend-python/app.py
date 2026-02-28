@@ -1,4 +1,6 @@
 # backend-python/app.py
+"""FastAPI app bootstrap, lifecycle hooks, and router registration."""
+
 import sys
 from contextlib import asynccontextmanager
 

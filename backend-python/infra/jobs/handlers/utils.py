@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/utils.py
+"""Job handler implementation for utils tasks."""
+
 from __future__ import annotations
 
 from typing import Any

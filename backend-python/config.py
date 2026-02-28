@@ -1,4 +1,6 @@
 # backend-python/config.py
+"""Project filesystem and path configuration helpers."""
+
 import os
 from pathlib import Path
 

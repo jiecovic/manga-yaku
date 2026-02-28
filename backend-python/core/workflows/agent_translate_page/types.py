@@ -1,3 +1,5 @@
+"""Typed state and payload models for the agent translate page workflow."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

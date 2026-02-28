@@ -1,3 +1,5 @@
+"""Shared helper utilities for the agent translate page workflow."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

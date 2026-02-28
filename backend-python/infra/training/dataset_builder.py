@@ -1,4 +1,6 @@
 # backend-python/infra/training/dataset_builder.py
+"""Dataset preparation helpers for model training jobs."""
+
 from __future__ import annotations
 
 import json

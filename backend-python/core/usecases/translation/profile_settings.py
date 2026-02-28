@@ -1,3 +1,5 @@
+"""Settings overlay and persistence mapping for translation profiles."""
+
 from __future__ import annotations
 
 from typing import Any

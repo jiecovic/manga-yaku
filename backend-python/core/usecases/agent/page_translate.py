@@ -1,3 +1,5 @@
+"""Use-case helpers for agent page translate operations."""
+
 from __future__ import annotations
 
 import json

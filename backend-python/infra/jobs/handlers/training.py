@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/training.py
+"""Job handler implementation for training tasks."""
+
 from __future__ import annotations
 
 import asyncio

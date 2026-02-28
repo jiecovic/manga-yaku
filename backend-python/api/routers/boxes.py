@@ -1,4 +1,6 @@
 # backend-python/api/routers/boxes.py
+"""HTTP routes for boxes endpoints."""
+
 from __future__ import annotations
 
 from api.schemas.boxes import Box, BoxPage, BoxTextPatch

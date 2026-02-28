@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/base.py
+"""Job handler implementation for base tasks."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

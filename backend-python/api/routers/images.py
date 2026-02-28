@@ -1,4 +1,6 @@
 # backend-python/api/routers/images.py
+"""HTTP routes for images endpoints."""
+
 from pathlib import Path
 
 from config import VOLUMES_ROOT, safe_join

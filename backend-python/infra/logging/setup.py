@@ -1,4 +1,6 @@
 # backend-python/infra/logging/setup.py
+"""Structured logging setup and logger configuration."""
+
 from __future__ import annotations
 
 import logging

@@ -1,4 +1,6 @@
 # backend-python/infra/db/settings_store.py
+"""Persistence helpers for global backend settings."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

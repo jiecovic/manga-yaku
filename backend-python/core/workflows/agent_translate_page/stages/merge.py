@@ -1,4 +1,6 @@
 # backend-python/core/workflows/agent_translate_page/stages/merge.py
+"""Workflow stage handler for agent translate page: merge."""
+
 from __future__ import annotations
 
 from infra.db.workflow_store import create_task_run, update_task_run

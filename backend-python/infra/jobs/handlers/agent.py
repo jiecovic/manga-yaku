@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/agent.py
+"""Job handler implementation for agent tasks."""
+
 from __future__ import annotations
 
 from typing import Any

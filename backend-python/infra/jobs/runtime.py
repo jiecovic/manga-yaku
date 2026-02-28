@@ -1,3 +1,5 @@
+"""Jobs runtime lifecycle management and worker startup/shutdown."""
+
 from __future__ import annotations
 
 import asyncio

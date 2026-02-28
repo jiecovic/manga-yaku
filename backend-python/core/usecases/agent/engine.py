@@ -1,4 +1,6 @@
 # backend-python/core/usecases/agent/engine.py
+"""Primary orchestration logic for agent operations."""
+
 from __future__ import annotations
 
 from threading import Event

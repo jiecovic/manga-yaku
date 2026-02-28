@@ -1,4 +1,6 @@
 # backend-python/infra/llm/openai_client.py
+"""OpenAI API client wrappers for OCR and translation calls."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

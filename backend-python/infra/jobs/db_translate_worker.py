@@ -1,3 +1,5 @@
+"""Database-backed translation task worker entrypoint."""
+
 from __future__ import annotations
 
 import asyncio

@@ -1,4 +1,6 @@
 # backend-python/core/usecases/agent/settings.py
+"""Use-case helpers for agent settings operations."""
+
 from __future__ import annotations
 
 from typing import Any

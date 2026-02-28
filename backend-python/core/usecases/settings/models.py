@@ -1,3 +1,5 @@
+"""Typed setting models used by the settings service layer."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

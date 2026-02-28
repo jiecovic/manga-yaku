@@ -1,3 +1,5 @@
+"""Binds domain ports to infrastructure implementations."""
+
 from __future__ import annotations
 
 from core.domain.page_ports import PageWritePort, register_page_write_port

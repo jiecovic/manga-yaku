@@ -1,4 +1,6 @@
 # backend-python/api/routers/box_detection.py
+"""HTTP routes for box detection endpoints."""
+
 from __future__ import annotations
 
 from api.schemas.box_detection import BoxDetectionProfileInfo

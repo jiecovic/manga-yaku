@@ -1,4 +1,6 @@
 # backend-python/api/routers/volumes/memory.py
+"""HTTP routes for volume and page memory state management."""
+
 from __future__ import annotations
 
 from api.schemas.volumes import (

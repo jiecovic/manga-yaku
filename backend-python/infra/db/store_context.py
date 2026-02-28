@@ -1,3 +1,5 @@
+"""Database persistence for page and volume context memory."""
+
 from __future__ import annotations
 
 from typing import Any

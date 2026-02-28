@@ -1,4 +1,6 @@
 # backend-python/api/routers/training.py
+"""HTTP routes for training endpoints."""
+
 from __future__ import annotations
 
 from api.schemas.training import (

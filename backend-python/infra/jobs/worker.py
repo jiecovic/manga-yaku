@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/worker.py
+"""Main async worker loop that executes queued in-memory jobs."""
+
 from __future__ import annotations
 
 import logging

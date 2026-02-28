@@ -1,4 +1,6 @@
 # backend-python/infra/jobs/handlers/detection.py
+"""Job handler implementation for detection tasks."""
+
 from __future__ import annotations
 
 import asyncio

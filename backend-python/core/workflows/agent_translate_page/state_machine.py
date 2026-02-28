@@ -1,3 +1,5 @@
+"""State machine transitions and guards for the agent translate page workflow."""
+
 from __future__ import annotations
 
 from .types import WorkflowEvent, WorkflowState

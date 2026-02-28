@@ -1,4 +1,6 @@
 # backend-python/infra/http.py
+"""Shared HTTP client helpers and request utilities."""
+
 from __future__ import annotations
 
 import os

@@ -1,4 +1,6 @@
 # backend-python/api/services/jobs_service.py
+"""Service-layer helpers for jobs service operations."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,6 @@
 # backend-python/api/services/jobs_creation_service.py
+"""Service-layer helpers for jobs creation service operations."""
+
 from __future__ import annotations
 
 from uuid import uuid4

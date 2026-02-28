@@ -1,4 +1,6 @@
 # backend-python/infra/db/db.py
+"""Database engine initialization and schema bootstrap utilities."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

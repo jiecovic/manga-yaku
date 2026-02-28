@@ -1,4 +1,6 @@
 # backend-python/infra/training/job_runner.py
+"""Training job execution orchestration and process wrappers."""
+
 from __future__ import annotations
 
 import json

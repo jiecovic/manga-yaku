@@ -1,4 +1,6 @@
 # backend-python/core/usecases/box_detection/engine.py
+"""Primary orchestration logic for box detection operations."""
+
 from __future__ import annotations
 
 import hashlib

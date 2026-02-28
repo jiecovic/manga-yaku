@@ -1,3 +1,5 @@
+"""Workflow stage handler for agent translate page: commit."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
