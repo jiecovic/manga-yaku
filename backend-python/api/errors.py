@@ -1,4 +1,23 @@
 # backend-python/api/errors.py
+"""Global API error handling for FastAPI routes.
+
+The handlers in this module shape outbound HTTP JSON error responses returned
+by backend endpoints to API clients (frontend, curl, scripts, etc.).
+
+Responsibilities:
+- Normalize error responses into a stable payload shape:
+  `{"detail": ..., "error": {"code": str, "message": str, "details"?: ...}}`
+- Map framework/domain exceptions to consistent HTTP statuses:
+  - `HTTPException` -> passthrough status with `http_error`
+  - `RequestValidationError` -> `422` with `validation_error`
+  - `OperationalError` (SQLAlchemy) -> `503` with `db_unavailable`
+  - any other uncaught exception -> `500` with `internal_error`
+
+Why this exists:
+- Keeps frontend error handling simple and predictable.
+- Prevents leaking raw exception internals to clients.
+- Provides explicit user-facing messaging for common infra failures (DB down).
+"""
 from __future__ import annotations
 
 import logging
@@ -17,7 +36,7 @@ def _error_payload(
     code: str,
     message: str,
     detail: Any,
-) -> dict:
+) -> dict[str, Any]:
     payload = {
         "detail": detail,
         "error": {
@@ -39,7 +58,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         detail = exc.detail
         message = detail if isinstance(detail, str) else "Request failed"
         payload = _error_payload(code="http_error", message=message, detail=detail)
-        return JSONResponse(status_code=exc.status_code, content=payload)
+        return JSONResponse(status_code=exc.status_code, content=payload, headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
