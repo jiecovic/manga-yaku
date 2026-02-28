@@ -123,11 +123,11 @@ class BuildTranslationBoxesTests(unittest.TestCase):
 
 
 class ApplyTranslationPayloadTests(unittest.TestCase):
-    def test_apply_translation_payload_merges_and_deletes_orphans(self) -> None:
-        # Boxes merged into one translated line should keep a single survivor;
-        # non-selected text boxes become delete candidates.
+    def test_apply_translation_payload_merges_and_deletes_explicit_targets(self) -> None:
+        # Boxes merged into one translated line should keep a single survivor.
+        # Deletions should be explicit via no_text + merged ids.
         text_boxes = [{"id": 10}, {"id": 20}, {"id": 30}, {"id": 40}]
-        box_index_map = {1: 10, 2: 20, 3: 30}
+        box_index_map = {1: 10, 2: 20, 3: 30, 4: 40}
         translation_payload = {
             "boxes": [
                 {
@@ -135,13 +135,8 @@ class ApplyTranslationPayloadTests(unittest.TestCase):
                     "ocr_text": "jp line",
                     "translation": "translated",
                 },
-                {
-                    "box_ids": [3],
-                    "ocr_text": "ignored by no_text",
-                    "translation": "ignored by no_text",
-                },
             ],
-            "no_text_boxes": [3],
+            "no_text_boxes": [3, 4],
         }
 
         with (
@@ -192,3 +187,20 @@ class ApplyTranslationPayloadTests(unittest.TestCase):
         self.assertTrue(result["orderApplied"])
         self.assertEqual(result["processed"], 4)
         self.assertEqual(result["total"], 4)
+
+    def test_apply_translation_payload_raises_on_missing_coverage(self) -> None:
+        text_boxes = [{"id": 10}, {"id": 20}]
+        box_index_map = {1: 10, 2: 20}
+        translation_payload = {
+            "boxes": [{"box_ids": [1], "ocr_text": "a", "translation": "b"}],
+            "no_text_boxes": [],
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "coverage mismatch"):
+            apply_translation_payload(
+                volume_id="vol",
+                filename="001.jpg",
+                text_boxes=text_boxes,
+                box_index_map=box_index_map,
+                translation_payload=translation_payload,
+            )

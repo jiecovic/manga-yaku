@@ -237,8 +237,64 @@ def apply_translation_payload(
             except (TypeError, ValueError):
                 continue
 
+    expected_indices = set(box_index_map.keys())
+    seen_indices: set[int] = set()
+    duplicate_indices: set[int] = set()
+    unknown_indices: set[int] = set()
+    missing_indices: set[int] = set()
+
+    for box_index in sorted(no_text_box_indices):
+        if box_index in seen_indices:
+            duplicate_indices.add(box_index)
+        seen_indices.add(box_index)
+        if box_index not in expected_indices:
+            unknown_indices.add(box_index)
+
+    if isinstance(translations, list):
+        for entry in translations:
+            if not isinstance(entry, dict):
+                continue
+            box_ids_raw = entry.get("box_ids")
+            if not isinstance(box_ids_raw, list):
+                single_id = entry.get("box_id")
+                if single_id is None:
+                    continue
+                box_ids_raw = [single_id]
+
+            normalized_box_indices: list[int] = []
+            seen_in_entry: set[int] = set()
+            for item in box_ids_raw:
+                try:
+                    box_index = int(item)
+                except (TypeError, ValueError):
+                    continue
+                if box_index in seen_in_entry:
+                    continue
+                seen_in_entry.add(box_index)
+                normalized_box_indices.append(box_index)
+
+            for box_index in normalized_box_indices:
+                if box_index in seen_indices:
+                    duplicate_indices.add(box_index)
+                seen_indices.add(box_index)
+                if box_index not in expected_indices:
+                    unknown_indices.add(box_index)
+
+    missing_indices = expected_indices - seen_indices
+    if duplicate_indices or unknown_indices or missing_indices:
+        problems: list[str] = []
+        if duplicate_indices:
+            problems.append(f"duplicate indices {sorted(duplicate_indices)}")
+        if unknown_indices:
+            problems.append(f"unknown indices {sorted(unknown_indices)}")
+        if missing_indices:
+            problems.append(f"missing indices {sorted(missing_indices)}")
+        detail = ", ".join(problems) if problems else "invalid stage-1 coverage"
+        raise RuntimeError(f"Stage-1 box coverage mismatch: {detail}")
+
     updated = 0
     merged_ids: list[int] = []
+    no_text_ids: list[int] = []
     ordered_primary_ids: list[int] = []
 
     for entry in translations:
@@ -289,12 +345,14 @@ def apply_translation_payload(
             )
             updated += 1
 
+    for box_index in sorted(no_text_box_indices):
+        mapped = box_index_map.get(box_index)
+        if isinstance(mapped, int):
+            no_text_ids.append(mapped)
+
     applied_order = False
-    current_ids = {int(box.get("id") or 0) for box in text_boxes}
-    mentioned_ids = set(ordered_primary_ids) | set(merged_ids)
-    orphaned = list(current_ids - mentioned_ids)
-    if orphaned:
-        delete_boxes_by_ids(volume_id, filename, orphaned)
+    if no_text_ids:
+        delete_boxes_by_ids(volume_id, filename, no_text_ids)
     if merged_ids:
         delete_boxes_by_ids(volume_id, filename, merged_ids)
 
