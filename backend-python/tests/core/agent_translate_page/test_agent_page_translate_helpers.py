@@ -152,3 +152,44 @@ class NoTextConsensusGuardTests(unittest.TestCase):
         self.assertEqual(moved, [])
         self.assertEqual(len(adjusted["boxes"]), 1)
         self.assertEqual(adjusted["no_text_boxes"], [])
+
+    def test_consensus_guard_drops_hallucinated_text_on_remote_no_text(self) -> None:
+        # If both remote OCR profiles report no-text and no remote OCR returned
+        # text, stage-1 text should be forced to no_text even when stage-1 claims
+        # a remote profile selected it.
+        stage1 = {
+            "boxes": [
+                {
+                    "box_ids": [1],
+                    "ocr_profile_id": "openai_quality_ocr",
+                    "ocr_text": "ウゥ",
+                    "translation": "vrrr",
+                }
+            ],
+            "no_text_boxes": [],
+        }
+        input_boxes = [
+            {
+                "box_index": 1,
+                "ocr_no_text_profiles": ["openai_fast_ocr", "openai_quality_ocr"],
+                "ocr_candidates": [{"profile_id": "manga_ocr_default", "text": "ガス"}],
+            }
+        ]
+        ocr_profiles = [
+            {
+                "id": "manga_ocr_default",
+                "model": "manga_ocr",
+                "hint": "weak empty-crop detection",
+            },
+            {"id": "openai_fast_ocr", "model": "gpt-4.1-mini", "hint": "remote"},
+            {"id": "openai_quality_ocr", "model": "gpt-5-mini", "hint": "remote"},
+        ]
+
+        adjusted, moved = apply_no_text_consensus_guard(
+            stage1_result=stage1,
+            input_boxes=input_boxes,
+            ocr_profiles=ocr_profiles,
+        )
+        self.assertEqual(moved, [1])
+        self.assertEqual(adjusted["boxes"], [])
+        self.assertEqual(adjusted["no_text_boxes"], [1])

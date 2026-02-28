@@ -279,21 +279,23 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _is_short_repetitive_noise(text: str) -> bool:
-    cleaned = re.sub(r"\s+", "", str(text or "").strip())
-    if not cleaned:
-        return False
-    if len(cleaned) > 4:
-        return False
-    return len(set(cleaned)) == 1
-
-
 def apply_no_text_consensus_guard(
     *,
     stage1_result: dict[str, Any],
     input_boxes: list[dict[str, Any]],
     ocr_profiles: list[dict[str, Any]] | None,
 ) -> tuple[dict[str, Any], list[int]]:
+    """Enforce deterministic no-text consensus for stage-1 box outputs.
+
+    Policy:
+    - Hard rule only on strong remote no-text consensus:
+      `remote_no_text_count >= 2` and `remote_text_count == 0`.
+    - Otherwise keep stage-1 output as-is (agent decides mixed/ambiguous cases).
+
+    Returns:
+    - Adjusted stage-1 result payload.
+    - Box indices that were force-moved to `no_text_boxes`.
+    """
     source_by_index: dict[int, dict[str, Any]] = {}
     for box in input_boxes:
         if not isinstance(box, dict):
@@ -304,7 +306,6 @@ def apply_no_text_consensus_guard(
         source_by_index[box_index] = box
 
     remote_profile_ids: set[str] = set()
-    weak_empty_detection_profile_ids: set[str] = set()
     if isinstance(ocr_profiles, list):
         for profile in ocr_profiles:
             if not isinstance(profile, dict):
@@ -313,15 +314,8 @@ def apply_no_text_consensus_guard(
             if not profile_id:
                 continue
             model_id = str(profile.get("model") or "").strip().lower()
-            hint = str(profile.get("hint") or "").strip().lower()
             if profile_id.startswith("openai_") or "gpt" in model_id:
                 remote_profile_ids.add(profile_id)
-            if "empty-crop detection" in hint or "empty crop detection" in hint:
-                weak_empty_detection_profile_ids.add(profile_id)
-
-    # Backward-compatible fallback for old profile hints/configs.
-    if not weak_empty_detection_profile_ids:
-        weak_empty_detection_profile_ids.add("manga_ocr_default")
 
     def _is_remote_profile(profile_id: str) -> bool:
         return profile_id in remote_profile_ids or profile_id.startswith("openai_")
@@ -360,15 +354,6 @@ def apply_no_text_consensus_guard(
             filtered_boxes.append(entry)
             continue
 
-        chosen_profile_id = str(entry.get("ocr_profile_id") or "").strip()
-        if chosen_profile_id not in weak_empty_detection_profile_ids:
-            filtered_boxes.append(entry)
-            continue
-        chosen_text = str(entry.get("ocr_text") or "").strip()
-        if not _is_short_repetitive_noise(chosen_text):
-            filtered_boxes.append(entry)
-            continue
-
         raw_no_text_profiles = source_box.get("ocr_no_text_profiles")
         no_text_profiles = raw_no_text_profiles if isinstance(raw_no_text_profiles, list) else []
         remote_no_text_count = 0
@@ -388,8 +373,8 @@ def apply_no_text_consensus_guard(
                 if pid and text and _is_remote_profile(pid):
                     remote_text_count += 1
 
-        # Strong consensus fallback: weak local short/noisy hit is overridden by
-        # multiple remote no-text signals when no remote text candidate exists.
+        # Strong consensus fallback: multiple remote no-text signals with no
+        # remote positive text candidate override stage-1 text for this box.
         if remote_no_text_count >= 2 and remote_text_count == 0:
             no_text_box_ids.add(box_index)
             adjusted_no_text.append(box_index)
