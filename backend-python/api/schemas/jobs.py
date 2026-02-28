@@ -65,6 +65,7 @@ class CreateAgentTranslatePageJobRequest(BaseModel):
     sourceLanguage: str | None = None
     targetLanguage: str | None = None
     modelId: str | None = None
+    forceRerun: bool = False
 
 
 class CreateBoxDetectionJobRequest(BaseModel):

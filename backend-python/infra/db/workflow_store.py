@@ -342,6 +342,45 @@ def list_workflow_runs(
         ]
 
 
+def find_latest_active_workflow_run(
+    *,
+    workflow_type: str,
+    volume_id: str,
+    filename: str,
+) -> dict[str, Any] | None:
+    """Return newest queued/running workflow run for a page, if present."""
+    with get_session() as session:
+        row = (
+            session.execute(
+                select(WorkflowRun)
+                .where(WorkflowRun.workflow_type == workflow_type)
+                .where(WorkflowRun.volume_id == volume_id)
+                .where(WorkflowRun.filename == filename)
+                .where(WorkflowRun.status.in_(["queued", "running"]))
+                .order_by(WorkflowRun.updated_at.desc(), WorkflowRun.created_at.desc())
+                .limit(1)
+            )
+            .scalars()
+            .first()
+        )
+        if row is None:
+            return None
+        return {
+            "id": str(row.id),
+            "workflow_type": row.workflow_type,
+            "volume_id": row.volume_id,
+            "filename": row.filename,
+            "page_revision": row.page_revision,
+            "state": row.state,
+            "status": row.status,
+            "cancel_requested": bool(row.cancel_requested),
+            "error_message": row.error_message,
+            "result_json": row.result_json,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+        }
+
+
 def mark_running_workflows_interrupted(
     *,
     workflow_type: str | None = None,

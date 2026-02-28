@@ -179,12 +179,17 @@ export function formatDurationMs(ms: number): string {
 }
 
 export function computeJobDurationMs(job: Job, nowMs: number): number | null {
+    const status = String(job.status || "").trim();
+    if (status === "queued") {
+        // Queue wait time is not execution time; hide duration until work actually runs.
+        return null;
+    }
     const createdMs = Number(job.created_at) * 1000;
     const updatedMs = Number(job.updated_at) * 1000;
     if (!Number.isFinite(createdMs) || createdMs <= 0) {
         return null;
     }
-    const isTerminal = TERMINAL_JOB_STATUSES.has(String(job.status || "").trim());
+    const isTerminal = TERMINAL_JOB_STATUSES.has(status);
     const endMs = isTerminal
         ? updatedMs
         : Math.max(createdMs, Number.isFinite(nowMs) ? nowMs : createdMs);

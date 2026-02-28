@@ -301,6 +301,27 @@ class AppSetting(Base):
     )
 
 
+class IdempotencyKey(Base):
+    __tablename__ = "idempotency_keys"
+
+    id = Column(Integer, primary_key=True)
+    job_type = Column(String, nullable=False)
+    idempotency_key = Column(String, nullable=False)
+    request_hash = Column(String, nullable=False)
+    resource_id = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "job_type",
+            "idempotency_key",
+            name="uq_idempotency_keys_job_type_key",
+        ),
+        Index("ix_idempotency_keys_created", "created_at"),
+    )
+
+
 class OcrProfileSetting(Base):
     __tablename__ = "ocr_profile_settings"
 

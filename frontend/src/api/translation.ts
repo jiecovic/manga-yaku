@@ -28,6 +28,11 @@ export interface CreateAgentTranslatePageJobRequest {
     sourceLanguage?: string | null;
     targetLanguage?: string | null;
     modelId?: string | null;
+    forceRerun?: boolean;
+}
+
+export interface CreateAgentTranslatePageJobOptions {
+    idempotencyKey?: string;
 }
 
 export function fetchTranslationProviders(): Promise<TranslationProvider[]> {
@@ -68,13 +73,20 @@ export async function createTranslatePageJob(
 
 export async function createAgentTranslatePageJob(
     payload: CreateAgentTranslatePageJobRequest,
+    options: CreateAgentTranslatePageJobOptions = {},
 ): Promise<CreateJobResponse> {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+    };
+    const idempotencyKey = String(options.idempotencyKey || "").trim();
+    if (idempotencyKey) {
+        headers["Idempotency-Key"] = idempotencyKey;
+    }
+
     const res = await apiFetch(`${API_BASE}/api/jobs/agent_translate_page`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
     });
 

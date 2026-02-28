@@ -1,4 +1,5 @@
 // src/hooks/usePageJobActions.ts
+import { useRef } from "react";
 import type {Box} from "../types";
 import {
     createAgentTranslatePageJob,
@@ -26,6 +27,7 @@ interface UsePageJobActionsResult {
     handleTranslateBox: (id: number) => Promise<void>;
     handleTranslatePage: () => Promise<void>;
     handleAgentTranslatePage: () => Promise<void>;
+    handleAgentRetranslatePage: () => Promise<void>;
 }
 
 export function usePageJobActions({
@@ -35,7 +37,7 @@ export function usePageJobActions({
     boxDetectionProfileId,
 }: UsePageJobActionsArgs): UsePageJobActionsResult {
     const {volumeId, filename} = usePage();
-    const { jobCapabilities } = useJobs();
+    const { jobCapabilities, jobs } = useJobs();
     const { ocrProfiles } = useAgentSettings();
     const { settings } = useSettings();
     const agentDetectionProfileId =
@@ -46,6 +48,15 @@ export function usePageJobActions({
         typeof settings?.values?.["translation.single_box.use_context"] === "boolean"
             ? settings.values["translation.single_box.use_context"]
             : true;
+    const inFlightAgentRequestKeyRef = useRef<string | null>(null);
+
+    const createIdempotencyKey = () => {
+        // Reuse browser UUID when available; fallback keeps dev/tests working.
+        if (typeof globalThis.crypto?.randomUUID === "function") {
+            return globalThis.crypto.randomUUID();
+        }
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    };
 
     // =========================================
     // TRANSLATE PAGE (classic)
@@ -78,12 +89,48 @@ export function usePageJobActions({
     // =========================================
     // AGENT TRANSLATE PAGE (detect + multi-OCR + translate)
     // =========================================
-    const handleAgentTranslatePage = async () => {
+    const queueAgentTranslatePage = async ({
+        forceRerun,
+    }: {
+        forceRerun: boolean;
+    }) => {
         if (!volumeId || !filename) return;
+
+        const activeJob = jobs.find((job) => {
+            if (job.type !== "agent_translate_page") {
+                return false;
+            }
+            if (job.status !== "queued" && job.status !== "running") {
+                return false;
+            }
+            const jobVolumeId = String(job.payload?.volumeId ?? "").trim();
+            const jobFilename = String(job.payload?.filename ?? "").trim();
+            return jobVolumeId === volumeId && jobFilename === filename;
+        });
+        if (activeJob) {
+            window.alert(
+                "Agent translate is already queued/running for this page. Please wait until it finishes.",
+            );
+            return;
+        }
+
+        const inFlightKey = inFlightAgentRequestKeyRef.current;
+        if (inFlightKey) {
+            window.alert(
+                "Agent translate request is already being submitted for this page. Please wait.",
+            );
+            return;
+        }
+        const idempotencyKey = inFlightKey || createIdempotencyKey();
+        if (!inFlightKey) {
+            inFlightAgentRequestKeyRef.current = idempotencyKey;
+        }
 
         try {
             console.log(
-                `Queuing AGENT translate page job for ${volumeId}/${filename}`,
+                forceRerun
+                    ? `Queuing AGENT force re-translate job for ${volumeId}/${filename}`
+                    : `Queuing AGENT translate page job for ${volumeId}/${filename}`,
             );
 
             const configuredProfiles = ocrProfiles?.profiles ?? [];
@@ -103,10 +150,30 @@ export function usePageJobActions({
                     boxDetectionProfileId ||
                     undefined,
                 ocrProfiles: ocrProfilesForAgent,
+                forceRerun,
+            }, {
+                idempotencyKey,
             });
         } catch (err) {
-            console.error("Failed to queue agent translate job for page", err);
+            console.error(
+                forceRerun
+                    ? "Failed to queue agent force re-translate job for page"
+                    : "Failed to queue agent translate job for page",
+                err,
+            );
+        } finally {
+            if (inFlightAgentRequestKeyRef.current === idempotencyKey) {
+                inFlightAgentRequestKeyRef.current = null;
+            }
         }
+    };
+
+    const handleAgentTranslatePage = async () => {
+        await queueAgentTranslatePage({ forceRerun: false });
+    };
+
+    const handleAgentRetranslatePage = async () => {
+        await queueAgentTranslatePage({ forceRerun: true });
     };
 
     // =========================================
@@ -227,5 +294,6 @@ export function usePageJobActions({
         handleTranslateBox,
         handleTranslatePage,
         handleAgentTranslatePage,
+        handleAgentRetranslatePage,
     };
 }

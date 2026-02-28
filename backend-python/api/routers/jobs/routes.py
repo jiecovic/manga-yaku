@@ -19,6 +19,9 @@ from api.schemas.jobs import (
     JobsCapabilitiesResponse,
 )
 from api.services.jobs_creation_service import (
+    create_agent_translate_page_job as create_agent_translate_page_job_record,
+)
+from api.services.jobs_creation_service import (
     create_ocr_box_workflow,
     create_ocr_page_workflow,
     create_translate_box_workflow,
@@ -112,18 +115,18 @@ async def create_translate_page_job(
 @router.post("/jobs/agent_translate_page", response_model=CreateJobResponse)
 async def create_agent_translate_page_job(
     req: CreateAgentTranslatePageJobRequest,
+    request: Request,
 ) -> CreateJobResponse:
     """Create agent translate page job."""
-    job_id = enqueue_memory_job(
+    decision = create_agent_translate_page_job_record(
         store=STORE,
-        job_type=AGENT_WORKFLOW_TYPE,
-        payload=req.dict(),
-        progress=0,
-        message="Queued",
+        req=req,
+        idempotency_key=request.headers.get("Idempotency-Key"),
     )
-    await STORE.queue.put(job_id)
+    if decision["queued"]:
+        await STORE.queue.put(decision["job_id"])
 
-    return CreateJobResponse(jobId=job_id)
+    return CreateJobResponse(jobId=decision["job_id"])
 
 
 @router.get("/jobs/capabilities", response_model=JobsCapabilitiesResponse)
