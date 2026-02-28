@@ -1,5 +1,14 @@
 # backend-python/infra/domain_bindings.py
-"""Binds domain ports to infrastructure implementations."""
+"""Composition root for binding core domain ports to infra adapters.
+
+This module is the runtime wiring layer for dependency inversion:
+- `core` defines abstract ports (interfaces) for side-effecting operations.
+- `infra` provides concrete implementations backed by persistence/integrations.
+- startup code calls :func:`bind_domain_ports` once to register adapters.
+
+Keeping the binding here prevents `core` from importing infrastructure details
+and keeps adapter selection explicit at application boot.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +22,8 @@ from infra.db.db_store import (
 
 
 class DbStorePageWritePort(PageWritePort):
+    """Page write-port adapter backed by the DB store facade."""
+
     def set_box_ocr_text_by_id(
         self,
         volume_id: str,
@@ -45,4 +56,5 @@ class DbStorePageWritePort(PageWritePort):
 
 
 def bind_domain_ports() -> None:
+    """Register concrete infrastructure adapters for domain port interfaces."""
     register_page_write_port(DbStorePageWritePort())
