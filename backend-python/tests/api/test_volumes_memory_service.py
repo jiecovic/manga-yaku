@@ -15,7 +15,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from api.routers.volumes_memory_service import (
+from api.services.volumes_memory_service import (
     clear_page_memory,
     clear_volume_derived_state_payload,
     get_page_memory_payload,
@@ -27,8 +27,8 @@ from fastapi import HTTPException
 class VolumesMemoryServiceTests(unittest.TestCase):
     def test_get_volume_memory_defaults_when_missing_context(self) -> None:
         with (
-            patch("api.routers.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.routers.volumes_memory_service.get_volume_context", return_value=None),
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.get_volume_context", return_value=None),
         ):
             payload = get_volume_memory_payload("vol-a")
 
@@ -41,8 +41,8 @@ class VolumesMemoryServiceTests(unittest.TestCase):
 
     def test_get_page_memory_rejects_unknown_page(self) -> None:
         with (
-            patch("api.routers.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.routers.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
             self.assertRaises(HTTPException) as raised,
         ):
             get_page_memory_payload("vol-a", "002.jpg")
@@ -52,10 +52,10 @@ class VolumesMemoryServiceTests(unittest.TestCase):
 
     def test_clear_page_memory_clears_snapshot_and_text_context(self) -> None:
         with (
-            patch("api.routers.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.routers.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
-            patch("api.routers.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
-            patch("api.routers.volumes_memory_service.set_page_context") as set_context_mock,
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+            patch("api.services.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
+            patch("api.services.volumes_memory_service.set_page_context") as set_context_mock,
         ):
             clear_page_memory("vol-a", "001.jpg")
 
@@ -64,9 +64,9 @@ class VolumesMemoryServiceTests(unittest.TestCase):
 
     def test_clear_volume_derived_state_maps_runtime_error_to_409(self) -> None:
         with (
-            patch("api.routers.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
             patch(
-                "api.routers.volumes_memory_service.clear_volume_derived_data",
+                "api.services.volumes_memory_service.clear_volume_derived_data",
                 side_effect=RuntimeError("busy"),
             ),
             self.assertRaises(HTTPException) as raised,
@@ -78,9 +78,9 @@ class VolumesMemoryServiceTests(unittest.TestCase):
 
     def test_clear_volume_derived_state_maps_counts(self) -> None:
         with (
-            patch("api.routers.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
             patch(
-                "api.routers.volumes_memory_service.clear_volume_derived_data",
+                "api.services.volumes_memory_service.clear_volume_derived_data",
                 return_value={"pages_touched": 2, "boxes_deleted": 7},
             ),
         ):

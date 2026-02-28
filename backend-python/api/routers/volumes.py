@@ -1,8 +1,20 @@
 # backend-python/api/routers/volumes.py
-import re
 from pathlib import Path
 from typing import Annotated
 
+from api.schemas.volumes import (
+    CreateVolumeRequest,
+    PageInfo,
+    VolumeInfo,
+)
+from api.services.volumes_helpers import (
+    IMAGE_EXTENSIONS,
+    calculate_next_index,
+    page_exists,
+    resolve_image_extension,
+    resolve_insert_index,
+    sanitize_volume_id,
+)
 from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
@@ -12,9 +24,7 @@ from infra.db.db_store import (
 )
 from infra.db.db_store import (
     delete_page,
-    delete_volume,
     ensure_page,
-    get_max_page_index,
     get_volume,
     list_page_filenames,
     list_pages,
@@ -22,223 +32,8 @@ from infra.db.db_store import (
     update_volume_next_index,
     volume_name_exists,
 )
-from infra.db.db_store import (
-    get_page_context as load_page_context,
-)
-from infra.db.db_store import (
-    set_page_context as save_page_context,
-)
-from pydantic import BaseModel
-
-from .volumes_memory_service import (
-    clear_page_memory as clear_page_memory_data,
-)
-from .volumes_memory_service import (
-    clear_volume_derived_state_payload,
-    get_page_memory_payload,
-    get_volume_memory_payload,
-)
-from .volumes_memory_service import (
-    clear_volume_memory as clear_volume_memory_data,
-)
 
 router = APIRouter(tags=["library"])
-
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-
-
-class VolumeInfo(BaseModel):
-    id: str
-    name: str
-    pageCount: int
-    coverImageUrl: str | None
-
-
-class PageInfo(BaseModel):
-    id: str
-    volumeId: str
-    filename: str
-    relPath: str
-    imageUrl: str | None = None
-    missing: bool | None = None
-
-
-# ---------- context payloads ----------
-
-class PageContextPayload(BaseModel):
-    context: str
-
-
-class CharacterInfo(BaseModel):
-    name: str
-    gender: str
-    info: str
-
-
-class GlossaryEntry(BaseModel):
-    term: str
-    translation: str
-    note: str
-
-
-class VolumeMemoryResponse(BaseModel):
-    rollingSummary: str
-    activeCharacters: list[CharacterInfo]
-    openThreads: list[str]
-    glossary: list[GlossaryEntry]
-    lastPageIndex: float | None = None
-    updatedAt: str | None = None
-
-
-class PageMemoryResponse(BaseModel):
-    pageSummary: str
-    imageSummary: str
-    characters: list[CharacterInfo]
-    openThreads: list[str]
-    glossary: list[GlossaryEntry]
-    createdAt: str | None = None
-    updatedAt: str | None = None
-
-
-class ClearMemoryResponse(BaseModel):
-    cleared: bool
-
-
-class ClearVolumeDerivedDataDetails(BaseModel):
-    pagesTouched: int
-    boxesDeleted: int
-    detectionRunsDeleted: int
-    pageContextSnapshotsDeleted: int
-    pageNotesCleared: int
-    volumeContextDeleted: int
-    agentSessionsDeleted: int
-    workflowRunsDeleted: int
-    taskRunsDeleted: int
-    taskAttemptEventsDeleted: int
-    llmCallLogsDeleted: int
-    llmPayloadFilesDeleted: int
-    agentDebugFilesDeleted: int
-
-
-class ClearVolumeDerivedDataResponse(BaseModel):
-    cleared: bool
-    details: ClearVolumeDerivedDataDetails
-
-
-class CreateVolumeRequest(BaseModel):
-    name: str
-
-
-class MissingVolume(BaseModel):
-    id: str
-    name: str
-
-
-class PruneMissingRequest(BaseModel):
-    ids: list[str]
-
-
-class MissingPage(BaseModel):
-    volumeId: str
-    filename: str
-
-
-class PruneMissingPagesRequest(BaseModel):
-    pages: list[MissingPage]
-
-
-def _sanitize_volume_id(name: str) -> str:
-    cleaned = name.strip().lower()
-    cleaned = re.sub(r"[^a-z0-9_-]+", "-", cleaned)
-    cleaned = cleaned.strip("-_")
-    return cleaned
-
-
-def _calculate_next_index(volume_dir: Path) -> int:
-    max_index = 0
-    for entry in volume_dir.iterdir():
-        if entry.is_file() and entry.suffix.lower() in IMAGE_EXTENSIONS:
-            stem = entry.stem
-            if stem.isdigit():
-                max_index = max(max_index, int(stem))
-    return max_index + 1
-
-
-def _unique_volume_name(base: str) -> str:
-    candidate = base
-    suffix = 2
-    while volume_name_exists(candidate):
-        candidate = f"{base} ({suffix})"
-        suffix += 1
-    return candidate
-
-
-def _page_exists(volume_dir: Path, index: int) -> bool:
-    stem = f"{index:04d}"
-    return any((volume_dir / f"{stem}{ext}").exists() for ext in IMAGE_EXTENSIONS)
-
-
-def _resolve_image_extension(file: UploadFile) -> str:
-    if file.filename:
-        suffix = Path(file.filename).suffix.lower()
-        if suffix in IMAGE_EXTENSIONS:
-            return suffix
-
-    content_type = (file.content_type or "").lower()
-    if content_type == "image/jpeg":
-        return ".jpg"
-    if content_type == "image/png":
-        return ".png"
-    if content_type == "image/webp":
-        return ".webp"
-
-    raise HTTPException(status_code=400, detail="Unsupported image type")
-
-
-def _resolve_insert_index(
-    volume_id: str,
-    *,
-    insert_before: str | None,
-    insert_after: str | None,
-) -> float:
-    pages = list_pages(volume_id)
-    if not pages:
-        return 1.0
-
-    if insert_before:
-        target_idx = next(
-            (idx for idx, page in enumerate(pages) if page.filename == insert_before),
-            None,
-        )
-        if target_idx is None:
-            raise HTTPException(status_code=400, detail="insert_before not found")
-        target_index = pages[target_idx].page_index or float(target_idx + 1)
-        prev_index = pages[target_idx - 1].page_index if target_idx > 0 else None
-        if prev_index is None:
-            return target_index - 1.0
-        return (prev_index + target_index) / 2.0
-
-    if insert_after:
-        target_idx = next(
-            (idx for idx, page in enumerate(pages) if page.filename == insert_after),
-            None,
-        )
-        if target_idx is None:
-            raise HTTPException(status_code=400, detail="insert_after not found")
-        target_index = pages[target_idx].page_index or float(target_idx + 1)
-        next_index = (
-            pages[target_idx + 1].page_index
-            if target_idx + 1 < len(pages)
-            else None
-        )
-        if next_index is None:
-            return target_index + 1.0
-        return (target_index + next_index) / 2.0
-
-    max_index = get_max_page_index(volume_id)
-    return (max_index or float(len(pages))) + 1.0
-
-
 @router.get("/health")
 async def health():
     ok, _error = check_db()
@@ -284,129 +79,13 @@ async def get_volumes():
     return volumes
 
 
-@router.get("/volumes/sync/missing", response_model=list[MissingVolume])
-async def list_missing_volumes() -> list[MissingVolume]:
-    missing: list[MissingVolume] = []
-    for record in list_volumes():
-        volume_dir = VOLUMES_ROOT / record.id
-        if not volume_dir.exists():
-            missing.append(MissingVolume(id=record.id, name=record.name))
-    return missing
-
-
-@router.post("/volumes/sync/import")
-async def import_missing_volumes() -> dict:
-    imported: list[str] = []
-    if not VOLUMES_ROOT.exists():
-        return {"imported": 0, "ids": []}
-
-    for entry in sorted(VOLUMES_ROOT.iterdir()):
-        if not entry.is_dir():
-            continue
-        volume_id = entry.name
-        if get_volume(volume_id) is not None:
-            continue
-        display_name = _unique_volume_name(volume_id)
-        next_index = _calculate_next_index(entry)
-        create_volume_record(volume_id, display_name, next_index=next_index)
-        imported.append(volume_id)
-
-    return {"imported": len(imported), "ids": imported}
-
-
-@router.post("/volumes/sync/prune")
-async def prune_missing_volumes(payload: PruneMissingRequest) -> dict:
-    deleted = 0
-    for volume_id in payload.ids:
-        if get_volume(volume_id) is None:
-            continue
-        volume_dir = VOLUMES_ROOT / volume_id
-        if volume_dir.exists():
-            continue
-        delete_volume(volume_id)
-        deleted += 1
-    return {"deleted": deleted}
-
-
-@router.get("/volumes/sync/pages/missing", response_model=list[MissingPage])
-async def list_missing_pages() -> list[MissingPage]:
-    missing: list[MissingPage] = []
-    for record in list_volumes():
-        volume_dir = VOLUMES_ROOT / record.id
-        filenames = list_page_filenames(record.id)
-        if not volume_dir.exists():
-            missing.extend(
-                MissingPage(volumeId=record.id, filename=filename)
-                for filename in filenames
-            )
-            continue
-        for filename in filenames:
-            if not (volume_dir / filename).exists():
-                missing.append(MissingPage(volumeId=record.id, filename=filename))
-    return missing
-
-
-@router.post("/volumes/sync/pages/import")
-async def import_missing_pages() -> dict:
-    imported: list[MissingPage] = []
-    for record in list_volumes():
-        volume_dir = VOLUMES_ROOT / record.id
-        if not volume_dir.is_dir():
-            continue
-        pages = list_pages(record.id)
-        existing = {page.filename for page in pages}
-        new_entries = [
-            entry
-            for entry in volume_dir.iterdir()
-            if entry.is_file()
-            and entry.suffix.lower() in IMAGE_EXTENSIONS
-            and entry.name not in existing
-        ]
-        if not new_entries:
-            continue
-
-        new_entries.sort(key=lambda entry: entry.name)
-
-        if not pages:
-            next_index = 1.0
-        else:
-            max_index = max(
-                page.page_index or float(idx + 1)
-                for idx, page in enumerate(pages)
-            )
-            next_index = max_index + 1.0
-
-        for entry in new_entries:
-            if not entry.is_file():
-                continue
-            if entry.suffix.lower() not in IMAGE_EXTENSIONS:
-                continue
-            ensure_page(record.id, entry.name, page_index=next_index)
-            next_index += 1.0
-            imported.append(MissingPage(volumeId=record.id, filename=entry.name))
-        update_volume_next_index(record.id, _calculate_next_index(volume_dir))
-    return {"imported": len(imported), "items": [item.model_dump() for item in imported]}
-
-
-@router.post("/volumes/sync/pages/prune")
-async def prune_missing_pages(payload: PruneMissingPagesRequest) -> dict:
-    deleted = 0
-    for page in payload.pages:
-        volume_dir = VOLUMES_ROOT / page.volumeId
-        if (volume_dir / page.filename).exists():
-            continue
-        delete_page(page.volumeId, page.filename)
-        deleted += 1
-    return {"deleted": deleted}
-
-
 @router.post("/volumes", response_model=VolumeInfo, status_code=status.HTTP_201_CREATED)
 async def create_volume(payload: CreateVolumeRequest) -> VolumeInfo:
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
-    volume_id = _sanitize_volume_id(name)
+    volume_id = sanitize_volume_id(name)
     if not volume_id:
         raise HTTPException(
             status_code=400,
@@ -431,7 +110,7 @@ async def create_volume(payload: CreateVolumeRequest) -> VolumeInfo:
     else:
         volume_dir.mkdir(parents=True, exist_ok=False)
 
-    next_index = _calculate_next_index(volume_dir)
+    next_index = calculate_next_index(volume_dir)
     record = create_volume_record(volume_id, name, next_index=next_index)
 
     return VolumeInfo(
@@ -463,7 +142,7 @@ async def upload_volume_page(
     if not volume_dir.exists() or not volume_dir.is_dir():
         volume_dir.mkdir(parents=True, exist_ok=True)
 
-    ext = _resolve_image_extension(file)
+    ext = resolve_image_extension(file)
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty upload")
@@ -473,7 +152,7 @@ async def upload_volume_page(
         index = 1
     filename = f"{index:04d}{ext}"
     image_path = volume_dir / filename
-    while _page_exists(volume_dir, index):
+    while page_exists(volume_dir, index):
         index += 1
         filename = f"{index:04d}{ext}"
         image_path = volume_dir / filename
@@ -482,7 +161,7 @@ async def upload_volume_page(
 
     update_volume_next_index(volume_id, index + 1)
 
-    page_index = _resolve_insert_index(
+    page_index = resolve_insert_index(
         volume_id,
         insert_before=insert_before,
         insert_after=insert_after,
@@ -555,89 +234,3 @@ async def delete_volume_page(volume_id: str, filename: str) -> dict:
 
     delete_page(volume_id, filename)
     return {"deleted": True, "missingFile": missing_file}
-
-
-# =========================
-# PAGE CONTEXT (database)
-# =========================
-
-
-@router.get(
-    "/volumes/{volume_id}/pages/{filename}/context",
-    response_model=PageContextPayload,
-)
-async def get_page_context(
-        volume_id: str,
-        filename: str,
-) -> PageContextPayload:
-    try:
-        ctx = load_page_context(volume_id, filename)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
-    return PageContextPayload(context=ctx or "")
-
-
-@router.put(
-    "/volumes/{volume_id}/pages/{filename}/context",
-    response_model=PageContextPayload,
-)
-async def set_page_context(
-        volume_id: str,
-        filename: str,
-        payload: PageContextPayload,
-) -> PageContextPayload:
-    try:
-        save_page_context(volume_id, filename, payload.context)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
-    return payload
-
-
-@router.get(
-    "/volumes/{volume_id}/memory",
-    response_model=VolumeMemoryResponse,
-)
-async def get_volume_memory(volume_id: str) -> VolumeMemoryResponse:
-    return VolumeMemoryResponse(**get_volume_memory_payload(volume_id))
-
-
-@router.get(
-    "/volumes/{volume_id}/pages/{filename}/memory",
-    response_model=PageMemoryResponse,
-)
-async def get_page_memory(
-    volume_id: str,
-    filename: str,
-) -> PageMemoryResponse:
-    return PageMemoryResponse(**get_page_memory_payload(volume_id, filename))
-
-
-@router.delete(
-    "/volumes/{volume_id}/memory",
-    response_model=ClearMemoryResponse,
-)
-async def clear_volume_memory(volume_id: str) -> ClearMemoryResponse:
-    clear_volume_memory_data(volume_id)
-    return ClearMemoryResponse(cleared=True)
-
-
-@router.delete(
-    "/volumes/{volume_id}/pages/{filename}/memory",
-    response_model=ClearMemoryResponse,
-)
-async def clear_page_memory(
-    volume_id: str,
-    filename: str,
-) -> ClearMemoryResponse:
-    clear_page_memory_data(volume_id, filename)
-    return ClearMemoryResponse(cleared=True)
-
-
-@router.delete(
-    "/volumes/{volume_id}/derived-data",
-    response_model=ClearVolumeDerivedDataResponse,
-)
-async def clear_volume_derived_state(
-    volume_id: str,
-) -> ClearVolumeDerivedDataResponse:
-    return ClearVolumeDerivedDataResponse(**clear_volume_derived_state_payload(volume_id))

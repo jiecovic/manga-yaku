@@ -14,6 +14,8 @@ from api.routers import (
     training,
     translation,
     volumes,
+    volumes_memory,
+    volumes_sync,
 )
 from api.routers import (
     settings as settings_router,
@@ -66,6 +68,8 @@ app.add_middleware(
 
 # Everything gets prefix /api
 app.include_router(volumes.router, prefix="/api")
+app.include_router(volumes_sync.router, prefix="/api")
+app.include_router(volumes_memory.router, prefix="/api")
 app.include_router(images.router, prefix="/api")
 app.include_router(boxes.router, prefix="/api")
 app.include_router(ocr.router, prefix="/api")
