@@ -19,7 +19,6 @@ interface ActionsSectionProps {
     onOcrPage: () => void;
     onTranslatePage: () => void;
     onAgentTranslatePage: () => void;
-    onAgentRetranslatePage: () => void;
     onClearBoxes: () => void;
     onClearOcrText: () => void;
     onClearTranslationText: () => void;
@@ -42,7 +41,6 @@ export function RightSidebarActionsSection({
     onOcrPage,
     onTranslatePage,
     onAgentTranslatePage,
-    onAgentRetranslatePage,
     onClearBoxes,
     onClearOcrText,
     onClearTranslationText,
@@ -285,13 +283,6 @@ export function RightSidebarActionsSection({
                         onClick={onAgentTranslatePage}
                     >
                         Agent translate
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="actionSlate"
-                        onClick={onAgentRetranslatePage}
-                    >
-                        Re-translate page
                     </Button>
                 </div>
 

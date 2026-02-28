@@ -27,7 +27,6 @@ interface UsePageJobActionsResult {
     handleTranslateBox: (id: number) => Promise<void>;
     handleTranslatePage: () => Promise<void>;
     handleAgentTranslatePage: () => Promise<void>;
-    handleAgentRetranslatePage: () => Promise<void>;
 }
 
 export function usePageJobActions({
@@ -89,11 +88,7 @@ export function usePageJobActions({
     // =========================================
     // AGENT TRANSLATE PAGE (detect + multi-OCR + translate)
     // =========================================
-    const queueAgentTranslatePage = async ({
-        forceRerun,
-    }: {
-        forceRerun: boolean;
-    }) => {
+    const handleAgentTranslatePage = async () => {
         if (!volumeId || !filename) return;
 
         const activeJob = jobs.find((job) => {
@@ -128,9 +123,7 @@ export function usePageJobActions({
 
         try {
             console.log(
-                forceRerun
-                    ? `Queuing AGENT force re-translate job for ${volumeId}/${filename}`
-                    : `Queuing AGENT translate page job for ${volumeId}/${filename}`,
+                `Queuing AGENT translate page job for ${volumeId}/${filename}`,
             );
 
             const configuredProfiles = ocrProfiles?.profiles ?? [];
@@ -150,15 +143,12 @@ export function usePageJobActions({
                     boxDetectionProfileId ||
                     undefined,
                 ocrProfiles: ocrProfilesForAgent,
-                forceRerun,
             }, {
                 idempotencyKey,
             });
         } catch (err) {
             console.error(
-                forceRerun
-                    ? "Failed to queue agent force re-translate job for page"
-                    : "Failed to queue agent translate job for page",
+                "Failed to queue agent translate job for page",
                 err,
             );
         } finally {
@@ -166,14 +156,6 @@ export function usePageJobActions({
                 inFlightAgentRequestKeyRef.current = null;
             }
         }
-    };
-
-    const handleAgentTranslatePage = async () => {
-        await queueAgentTranslatePage({ forceRerun: false });
-    };
-
-    const handleAgentRetranslatePage = async () => {
-        await queueAgentTranslatePage({ forceRerun: true });
     };
 
     // =========================================
@@ -294,6 +276,5 @@ export function usePageJobActions({
         handleTranslateBox,
         handleTranslatePage,
         handleAgentTranslatePage,
-        handleAgentRetranslatePage,
     };
 }

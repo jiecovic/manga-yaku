@@ -24,7 +24,6 @@ export interface PageActions {
     onOcrPage: () => void;
     onTranslatePage: () => void;
     onAgentTranslatePage: () => void;
-    onAgentRetranslatePage: () => void;
     onClearBoxes: () => void;
     onClearOcrText: () => void;
     onClearTranslationText: () => void;
@@ -115,7 +114,6 @@ export function usePageWorkspace({
         handleTranslateBox,
         handleTranslatePage,
         handleAgentTranslatePage,
-        handleAgentRetranslatePage,
     } = usePageJobActions({
         boxes,
         ocrProfileId,
@@ -180,9 +178,6 @@ export function usePageWorkspace({
         },
         onAgentTranslatePage: () => {
             void handleAgentTranslatePage();
-        },
-        onAgentRetranslatePage: () => {
-            void handleAgentRetranslatePage();
         },
         onClearBoxes: () => {
             handleClearBoxes(normalizedDetectionTask);
