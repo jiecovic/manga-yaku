@@ -9,9 +9,10 @@ from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.ocr.task_runner import OcrTaskOutcome
 from infra.db.db_store import set_box_ocr_text_by_id
-from infra.db.workflow_store import append_task_attempt_event, create_task_run, update_task_run
+from infra.db.workflow_store import create_task_run, update_task_run
 
 from ..context import WorkflowRunContext
+from ..events import append_ocr_attempt_events
 from ..helpers import resolve_parallel_limits
 from ..progress import emit_workflow_progress
 from ..types import WorkflowState
@@ -158,21 +159,11 @@ async def run_ocr_fanout_stage(
             )
 
             prompt_version = resolve_ocr_prompt_version(spec.profile_id)
-            for event in attempt_events:
-                append_task_attempt_event(
-                    task_id=spec.task_run_id,
-                    attempt=int(event.get("attempt") or 1),
-                    tool_name="ocr_tool",
-                    model_id=event.get("model_id"),
-                    prompt_version=prompt_version,
-                    params_snapshot={
-                        "max_output_tokens": event.get("max_output_tokens"),
-                        "reasoning_effort": event.get("reasoning_effort"),
-                    },
-                    finish_reason=event.get("status"),
-                    latency_ms=int(event.get("latency_ms") or 0),
-                    error_detail=event.get("error_message"),
-                )
+            append_ocr_attempt_events(
+                task_id=spec.task_run_id,
+                prompt_version=prompt_version,
+                attempt_events=attempt_events,
+            )
 
             terminal_status = "completed" if outcome.status in {"ok", "no_text"} else "failed"
             update_task_run(

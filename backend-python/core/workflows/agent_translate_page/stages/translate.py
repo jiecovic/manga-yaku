@@ -4,24 +4,14 @@ import asyncio
 from typing import Any
 
 from config import AGENT_TRANSLATE_TIMEOUT_SECONDS
-from infra.db.workflow_store import append_task_attempt_event, create_task_run, update_task_run
+from infra.db.workflow_store import create_task_run, update_task_run
+
+from ..events import append_stage_attempt_event
+from .merge import create_merge_task_run, mark_merge_task_canceled
 
 
 class TranslateStageError(RuntimeError):
     """Raised when the translation stage fails."""
-
-
-def _coerce_non_negative_int(value: Any) -> int:
-    if isinstance(value, int):
-        return max(0, value)
-    if isinstance(value, float):
-        return max(0, int(value))
-    if isinstance(value, str):
-        try:
-            return max(0, int(value.strip()))
-        except ValueError:
-            return 0
-    return 0
 
 
 async def run_translate_stage(
@@ -63,18 +53,13 @@ async def run_translate_stage(
             "model_id": resolved_model_id,
         },
     )
-    merge_task_run_id = create_task_run(
-        workflow_id=workflow_run_id,
-        stage="merge_state",
-        status="queued",
-        profile_id=resolved_model_id,
-        input_json={
-            "volume_id": volume_id,
-            "filename": filename,
-            "source_language": source_language,
-            "target_language": target_language,
-            "model_id": resolved_model_id,
-        },
+    merge_task_run_id = create_merge_task_run(
+        workflow_run_id=workflow_run_id,
+        volume_id=volume_id,
+        filename=filename,
+        source_language=source_language,
+        target_language=target_language,
+        model_id=resolved_model_id,
     )
     stage_task_ids = {
         "translate_page": translate_task_run_id,
@@ -138,21 +123,17 @@ async def run_translate_stage(
             else finish_status
         )
         model_for_event = str(meta.get("model_id") or "").strip() or resolved_model_id
-        prompt_version = (
-            "agent_translate_page_merge.yml"
-            if stage_name == "merge_state"
-            else "agent_translate_page.yml"
-        )
-        append_task_attempt_event(
+        append_stage_attempt_event(
             task_id=task_run_id,
-            attempt=attempt,
-            tool_name=stage_name,
-            model_id=model_for_event,
-            prompt_version=prompt_version,
-            params_snapshot=params_snapshot,
-            token_usage=token_usage,
-            finish_reason=finish_reason,
-            latency_ms=_coerce_non_negative_int(meta.get("latency_ms")),
+            stage_name=stage_name,
+            stage_meta={
+                **meta,
+                "attempt_count": attempt,
+                "params_snapshot": params_snapshot,
+                "token_usage": token_usage,
+                "finish_reason": finish_reason,
+            },
+            fallback_model_id=model_for_event,
             error_detail=error_detail,
         )
 
@@ -214,18 +195,9 @@ async def run_translate_stage(
             },
             finished=True,
         )
-        update_task_run(
+        mark_merge_task_canceled(
             merge_task_run_id,
-            status="canceled",
-            attempt=1,
-            error_code="upstream_failed",
-            error_detail="Skipped because translate stage failed",
-            result_json={
-                "stage": "merge_state",
-                "status": "canceled",
-                "message": "Skipped because translate stage failed",
-            },
-            finished=True,
+            reason="Skipped because translate stage failed",
         )
         raise TranslateStageError(error_message) from None
     except Exception as exc:
@@ -244,17 +216,8 @@ async def run_translate_stage(
             },
             finished=True,
         )
-        update_task_run(
+        mark_merge_task_canceled(
             merge_task_run_id,
-            status="canceled",
-            attempt=1,
-            error_code="upstream_failed",
-            error_detail="Skipped because translate stage failed",
-            result_json={
-                "stage": "merge_state",
-                "status": "canceled",
-                "message": "Skipped because translate stage failed",
-            },
-            finished=True,
+            reason="Skipped because translate stage failed",
         )
         raise TranslateStageError(error_message) from exc
