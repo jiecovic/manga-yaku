@@ -113,15 +113,19 @@ class TranslateStageTests(unittest.TestCase):
         with (
             patch(
                 "core.workflows.agent_translate_page.stages.translate.create_task_run",
-                side_effect=["task-translate", "task-merge"],
+                return_value="task-translate",
             ) as create_task_run,
+            patch(
+                "core.workflows.agent_translate_page.stages.translate.create_merge_task_run",
+                return_value="task-merge",
+            ) as create_merge_task_run,
             patch(
                 "core.workflows.agent_translate_page.stages.translate.update_task_run",
                 side_effect=fake_update_task_run,
             ),
             patch(
-                "core.workflows.agent_translate_page.stages.translate.append_task_attempt_event",
-            ) as append_task_attempt_event,
+                "core.workflows.agent_translate_page.stages.translate.append_stage_attempt_event",
+            ) as append_stage_attempt_event,
             patch(
                 "core.workflows.agent_translate_page.stages.translate.asyncio.to_thread",
                 side_effect=fake_to_thread,
@@ -150,8 +154,9 @@ class TranslateStageTests(unittest.TestCase):
             )
 
         self.assertEqual(result, {"boxes": [], "no_text_boxes": []})
-        self.assertEqual(create_task_run.call_count, 2)
-        self.assertEqual(append_task_attempt_event.call_count, 2)
+        self.assertEqual(create_task_run.call_count, 1)
+        create_merge_task_run.assert_called_once()
+        self.assertEqual(append_stage_attempt_event.call_count, 2)
         self.assertTrue(
             any(
                 call.get("status") == "running" and call.get("task_id") == "task-translate"
@@ -181,14 +186,22 @@ class TranslateStageTests(unittest.TestCase):
         with (
             patch(
                 "core.workflows.agent_translate_page.stages.translate.create_task_run",
-                side_effect=["task-translate", "task-merge"],
+                return_value="task-translate",
+            ),
+            patch(
+                "core.workflows.agent_translate_page.stages.translate.create_merge_task_run",
+                return_value="task-merge",
             ),
             patch(
                 "core.workflows.agent_translate_page.stages.translate.update_task_run",
                 side_effect=fake_update_task_run,
             ),
+            patch("core.workflows.agent_translate_page.stages.translate.append_stage_attempt_event"),
             patch(
-                "core.workflows.agent_translate_page.stages.translate.append_task_attempt_event",
+                "core.workflows.agent_translate_page.stages.translate.mark_merge_task_canceled",
+                side_effect=lambda task_id, **kwargs: fake_update_task_run(
+                    task_id, status="canceled", **kwargs
+                ),
             ),
             patch(
                 "core.workflows.agent_translate_page.stages.translate.asyncio.to_thread",
