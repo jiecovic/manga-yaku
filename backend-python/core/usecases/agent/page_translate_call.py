@@ -32,6 +32,8 @@ should_retry = _schema.should_retry
 
 logger = logging.getLogger(__name__)
 
+_MAX_STRUCTURED_RETRY_OUTPUT_TOKENS = 4096
+
 
 def _response_status_parts(response_dump: Any) -> tuple[str, str | None]:
     if not isinstance(response_dump, dict):
@@ -174,7 +176,10 @@ def run_structured_call(
         attempt_count += 1
         retry_cfg = dict(cfg)
         current_limit = coerce_positive_int(retry_cfg.get("max_output_tokens")) or 1024
-        retry_cfg["max_output_tokens"] = max(current_limit * 2, current_limit + 512)
+        retry_cfg["max_output_tokens"] = min(
+            max(current_limit * 2, current_limit + 512),
+            _MAX_STRUCTURED_RETRY_OUTPUT_TOKENS,
+        )
         retry_params = build_response_params(retry_cfg, input_payload)
         _raise_if_stopped()
         retry_started = time.perf_counter()
