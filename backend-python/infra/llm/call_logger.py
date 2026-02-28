@@ -146,6 +146,26 @@ def _extract_response_text_excerpt(api: str, response: Any) -> str:
         return ""
 
 
+def _extract_response_text_for_validation(api: str, response: Any) -> str:
+    try:
+        if api == "chat_completions":
+            choices = _safe_get(response, "choices")
+            if isinstance(choices, list) and choices:
+                message = _safe_get(choices[0], "message")
+                content = _safe_get(message, "content")
+                if isinstance(content, str):
+                    return content
+                if content is not None:
+                    try:
+                        return json.dumps(content, ensure_ascii=True, default=str)
+                    except Exception:
+                        return str(content)
+            return ""
+        return extract_response_text(response)
+    except Exception:
+        return ""
+
+
 def _extract_request_excerpt(params: dict[str, Any]) -> str:
     input_payload = params.get("input")
     if isinstance(input_payload, list):
@@ -289,7 +309,8 @@ def _validate_response(
 ) -> tuple[bool, str | None]:
     if validator is None:
         return True, None
-    text = _extract_response_text_excerpt(api, response)
+    # Validate against the complete model text, not the truncated log excerpt.
+    text = _extract_response_text_for_validation(api, response)
     try:
         ok, detail = validator(text)
     except Exception as exc:
