@@ -1,4 +1,4 @@
-# backend-python/api/routers/settings.py
+# backend-python/api/routers/settings/routes.py
 """HTTP routes for settings endpoints."""
 
 from __future__ import annotations
@@ -91,6 +91,7 @@ def _exit_process_later(delay_seconds: float = 0.25) -> None:
 
 @router.get("/settings", response_model=SettingsResponse)
 async def get_settings(scope: str = "global") -> SettingsResponse:
+    """Return settings."""
     values = resolve_settings(scope)
     return SettingsResponse(
         scope=scope,
@@ -102,6 +103,7 @@ async def get_settings(scope: str = "global") -> SettingsResponse:
 
 @router.put("/settings", response_model=SettingsResponse)
 async def put_settings(req: UpdateSettingsRequest) -> SettingsResponse:
+    """Update settings."""
     try:
         values = update_settings(req.scope, dict(req.values))
     except ValueError as exc:
@@ -117,6 +119,7 @@ async def put_settings(req: UpdateSettingsRequest) -> SettingsResponse:
 
 @router.post("/settings/backend/restart")
 async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Handle restart backend."""
     enabled = _is_restart_enabled()
     logger.info(
         "Restart endpoint called (pid=%s, enabled=%s, exit_code=%s)",
@@ -142,6 +145,7 @@ async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
     response_model=AgentTranslateSettingsResponse,
 )
 async def get_agent_translate_settings() -> AgentTranslateSettingsResponse:
+    """Return agent translate settings."""
     value = resolve_agent_translate_settings()
     defaults = agent_translate_defaults()
     return AgentTranslateSettingsResponse(
@@ -161,6 +165,7 @@ async def get_agent_translate_settings() -> AgentTranslateSettingsResponse:
 async def put_agent_translate_settings(
     req: UpdateAgentTranslateSettingsRequest,
 ) -> AgentTranslateSettingsResponse:
+    """Update agent translate settings."""
     try:
         value = update_agent_translate_settings(req.model_dump(exclude_unset=True))
     except ValueError as exc:
@@ -181,6 +186,7 @@ async def put_agent_translate_settings(
     response_model=OcrProfileSettingsResponse,
 )
 async def get_ocr_profile_settings() -> OcrProfileSettingsResponse:
+    """Return ocr profile settings."""
     profiles = list_ocr_profiles_with_settings()
     models = set(AGENT_MODELS)
     for profile in profiles:
@@ -203,6 +209,7 @@ async def get_ocr_profile_settings() -> OcrProfileSettingsResponse:
 async def put_ocr_profile_settings(
     req: UpdateOcrProfileSettingsRequest,
 ) -> OcrProfileSettingsResponse:
+    """Update ocr profile settings."""
     try:
         profiles = update_ocr_profile_settings(
             [item.model_dump(exclude_unset=True) for item in req.profiles]
@@ -229,6 +236,7 @@ async def put_ocr_profile_settings(
     response_model=TranslationProfileSettingsResponse,
 )
 async def get_translation_profile_settings() -> TranslationProfileSettingsResponse:
+    """Return translation profile settings."""
     profiles = list_translation_profiles_with_settings()
     models = set(AGENT_MODELS)
     for profile in profiles:
@@ -251,6 +259,7 @@ async def get_translation_profile_settings() -> TranslationProfileSettingsRespon
 async def put_translation_profile_settings(
     req: UpdateTranslationProfileSettingsRequest,
 ) -> TranslationProfileSettingsResponse:
+    """Update translation profile settings."""
     try:
         profiles = update_translation_profile_settings(
             [item.model_dump(exclude_unset=True) for item in req.profiles]

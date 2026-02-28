@@ -38,6 +38,7 @@ from infra.db.db_store import (
 router = APIRouter(tags=["library"])
 @router.get("/health")
 async def health():
+    """Handle health."""
     ok, _error = check_db()
     if ok:
         return {"status": "ok", "database": "ok"}
@@ -53,6 +54,7 @@ async def health():
 
 @router.get("/volumes", response_model=list[VolumeInfo])
 async def get_volumes():
+    """Return volumes."""
     volumes: list[VolumeInfo] = []
 
     for record in list_volumes():
@@ -83,6 +85,7 @@ async def get_volumes():
 
 @router.post("/volumes", response_model=VolumeInfo, status_code=status.HTTP_201_CREATED)
 async def create_volume(payload: CreateVolumeRequest) -> VolumeInfo:
+    """Create volume."""
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
@@ -134,6 +137,7 @@ async def upload_volume_page(
     insert_before: str | None = Query(None),
     insert_after: str | None = Query(None),
 ) -> PageInfo:
+    """Handle upload volume page."""
     record = get_volume(volume_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Volume not found")
@@ -184,6 +188,7 @@ async def upload_volume_page(
 
 @router.get("/volumes/{volume_id}/pages", response_model=list[PageInfo])
 async def get_pages(volume_id: str):
+    """Return pages."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     try:
@@ -217,6 +222,7 @@ async def get_pages(volume_id: str):
 
 @router.delete("/volumes/{volume_id}/pages/{filename}")
 async def delete_volume_page(volume_id: str, filename: str) -> dict:
+    """Delete volume page."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     filenames = set(list_page_filenames(volume_id))

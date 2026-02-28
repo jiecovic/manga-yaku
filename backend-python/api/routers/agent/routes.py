@@ -1,4 +1,4 @@
-# backend-python/api/routers/agent.py
+# backend-python/api/routers/agent/routes.py
 """HTTP routes for agent endpoints."""
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ _STREAM_TASKS: set[asyncio.Task] = set()
 
 @router.get("/agent/config", response_model=AgentConfigResponse)
 async def get_agent_config() -> AgentConfigResponse:
+    """Return agent config."""
     models = [
         AgentModelPublic(id=model_id, label=model_id)
         for model_id in AGENT_MODELS
@@ -58,6 +59,7 @@ async def get_agent_config() -> AgentConfigResponse:
 async def get_agent_sessions(
     volume_id: str = Query(..., alias="volumeId"),
 ) -> list[AgentSessionPublic]:
+    """Return agent sessions."""
     return list_agent_sessions(volume_id)
 
 
@@ -65,6 +67,7 @@ async def get_agent_sessions(
 async def create_session(
     req: CreateAgentSessionRequest,
 ) -> AgentSessionPublic:
+    """Create session."""
     try:
         model_id = req.modelId
         if model_id:
@@ -84,6 +87,7 @@ async def create_session(
 async def get_agent_session_by_id(
     session_id: str,
 ) -> AgentSessionPublic:
+    """Return agent session by id."""
     session = get_agent_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -102,6 +106,7 @@ async def patch_agent_session(
     session_id: str,
     req: UpdateAgentSessionRequest,
 ) -> AgentSessionPublic:
+    """Partially update agent session."""
     model_id = req.modelId
     if model_id:
         model_id = model_id.strip()
@@ -119,6 +124,7 @@ async def patch_agent_session(
 
 @router.delete("/agent/sessions/{session_id}")
 async def delete_session(session_id: str) -> dict:
+    """Delete session."""
     try:
         delete_agent_session(session_id)
     except ValueError as exc:
@@ -131,6 +137,7 @@ async def delete_session(session_id: str) -> dict:
     response_model=list[AgentMessagePublic],
 )
 async def get_agent_messages(session_id: str) -> list[AgentMessagePublic]:
+    """Return agent messages."""
     if get_agent_session(session_id) is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return list_agent_messages(session_id)
@@ -144,6 +151,7 @@ async def create_agent_message(
     session_id: str,
     req: CreateAgentMessageRequest,
 ) -> AgentMessagePublic:
+    """Create agent message."""
     if len(req.content or "") > AGENT_MAX_MESSAGE_CHARS:
         raise HTTPException(
             status_code=400,
@@ -169,6 +177,7 @@ async def create_agent_reply(
     session_id: str,
     req: AgentReplyRequest,
 ) -> AgentMessagePublic:
+    """Create agent reply."""
     session = get_agent_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -199,6 +208,7 @@ async def stream_agent_reply(
     request: Request,
     max_messages: int = Query(20, alias="maxMessages"),
 ) -> StreamingResponse:
+    """Stream agent reply."""
     session = get_agent_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")

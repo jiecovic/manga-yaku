@@ -1,4 +1,4 @@
-# backend-python/api/routers/training.py
+# backend-python/api/routers/training/routes.py
 """HTTP routes for training endpoints."""
 
 from __future__ import annotations
@@ -29,11 +29,13 @@ router = APIRouter(tags=["training"])
 
 @router.get("/training/sources", response_model=list[TrainingSourcePublic])
 def list_training_sources() -> list[TrainingSourcePublic]:
+    """List training sources."""
     return list_training_sources_catalog()
 
 
 @router.get("/training/models", response_model=TrainingModelsResponse)
 def list_training_models() -> TrainingModelsResponse:
+    """List training models."""
     version, families = detect_model_families()
     return TrainingModelsResponse(
         ultralytics_version=version,
@@ -43,6 +45,7 @@ def list_training_models() -> TrainingModelsResponse:
 
 @router.get("/training/datasets", response_model=list[PreparedDatasetPublic])
 def list_prepared_datasets() -> list[PreparedDatasetPublic]:
+    """List prepared datasets."""
     return list_prepared_datasets_catalog()
 
 
@@ -50,6 +53,7 @@ def list_prepared_datasets() -> list[PreparedDatasetPublic]:
 def prepare_training_dataset(
     payload: PrepareDatasetRequest,
 ) -> PrepareDatasetResponse:
+    """Handle prepare training dataset."""
     if not payload.sources:
         raise HTTPException(status_code=400, detail="No sources selected")
     try:

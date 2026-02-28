@@ -1,4 +1,4 @@
-# backend-python/api/routers/boxes.py
+# backend-python/api/routers/boxes/routes.py
 """HTTP routes for boxes endpoints."""
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ router = APIRouter()
 # -----------------------------
 @router.get("/boxes/{volume_id}/{page_filename}", response_model=BoxPage)
 def get_boxes(volume_id: str, page_filename: str):
+    """Return boxes."""
     try:
         data = load_page(volume_id, page_filename)
     except Exception as e:
@@ -37,6 +38,7 @@ def get_boxes(volume_id: str, page_filename: str):
 # -----------------------------
 @router.post("/boxes/{volume_id}/{page_filename}")
 def save_boxes(volume_id: str, page_filename: str, payload: BoxPage):
+    """Handle save boxes."""
     try:
         page_ctx = payload.pageContext
         if page_ctx is None:
@@ -60,6 +62,7 @@ def patch_box_text(
     box_id: int,
     payload: BoxTextPatch,
 ):
+    """Partially update box text."""
     try:
         if payload.text is not None:
             set_box_ocr_text_by_id(

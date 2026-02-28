@@ -66,6 +66,7 @@ _JOB_CAPABILITIES = JobsCapabilitiesResponse(
 
 @router.post("/jobs/ocr_box", response_model=CreateJobResponse)
 async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
+    """Create ocr box job."""
     workflow_run_id = create_ocr_box_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
@@ -74,6 +75,7 @@ async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
 async def create_ocr_page_job(
     req: CreateOcrPageJobRequest,
 ) -> CreateJobResponse:
+    """Create ocr page job."""
     workflow_run_id = create_ocr_page_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
@@ -82,6 +84,7 @@ async def create_ocr_page_job(
 async def create_translate_box_job(
     req: CreateTranslateBoxJobRequest,
 ) -> CreateJobResponse:
+    """Create translate box job."""
     workflow_run_id = create_translate_box_workflow(req)
     return CreateJobResponse(jobId=workflow_run_id)
 
@@ -90,6 +93,7 @@ async def create_translate_box_job(
 async def create_translate_page_job(
     req: CreateTranslatePageJobRequest,
 ) -> CreateJobResponse:
+    """Create translate page job."""
     raise HTTPException(
         status_code=409,
         detail=_TRANSLATE_PAGE_DISABLED_REASON,
@@ -100,6 +104,7 @@ async def create_translate_page_job(
 async def create_agent_translate_page_job(
     req: CreateAgentTranslatePageJobRequest,
 ) -> CreateJobResponse:
+    """Create agent translate page job."""
     job_id = enqueue_memory_job(
         store=STORE,
         job_type=AGENT_WORKFLOW_TYPE,
@@ -114,6 +119,7 @@ async def create_agent_translate_page_job(
 
 @router.get("/jobs/capabilities", response_model=JobsCapabilitiesResponse)
 async def get_job_capabilities() -> JobsCapabilitiesResponse:
+    """Return job capabilities."""
     return _JOB_CAPABILITIES
 
 
@@ -121,6 +127,7 @@ async def get_job_capabilities() -> JobsCapabilitiesResponse:
 async def create_box_detection_job(
     req: CreateBoxDetectionJobRequest,
 ) -> CreateJobResponse:
+    """Create box detection job."""
     job_id = enqueue_memory_job(
         store=STORE,
         job_type="box_detection",
@@ -135,6 +142,7 @@ async def create_box_detection_job(
 async def create_prepare_dataset_job(
     req: CreatePrepareDatasetJobRequest,
 ) -> CreateJobResponse:
+    """Create prepare dataset job."""
     if not req.sources:
         raise HTTPException(status_code=400, detail="No sources selected")
     try:
@@ -161,6 +169,7 @@ async def create_prepare_dataset_job(
 async def create_train_model_job(
     req: CreateTrainModelJobRequest,
 ) -> CreateJobResponse:
+    """Create train model job."""
     try:
         resolve_prepared_dataset(req.dataset_id)
     except ValueError as exc:
@@ -180,11 +189,13 @@ async def create_train_model_job(
 
 @router.get("/jobs", response_model=list[JobPublic])
 async def list_jobs() -> list[JobPublic]:
+    """List jobs."""
     return list_job_public_records(store=STORE)
 
 
 @router.get("/jobs/stream")
 async def stream_jobs(request: Request) -> StreamingResponse:
+    """Stream jobs."""
     queue = STORE.subscribe()
 
     async def event_generator():
@@ -216,6 +227,7 @@ async def stream_jobs(request: Request) -> StreamingResponse:
 
 @router.get("/jobs/{job_id}/logs/stream")
 async def stream_job_logs(job_id: str, request: Request) -> StreamingResponse:
+    """Stream job logs."""
     job = STORE.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -255,16 +267,19 @@ async def stream_job_logs(job_id: str, request: Request) -> StreamingResponse:
 
 @router.get("/jobs/{job_id}", response_model=JobPublic)
 async def get_job(job_id: str) -> JobPublic:
+    """Return job."""
     return get_job_public(job_id=job_id, store=STORE)
 
 
 @router.get("/jobs/{job_id}/tasks")
 async def get_job_tasks(job_id: str) -> dict:
+    """Return job tasks."""
     return get_job_tasks_payload(job_id=job_id, store=STORE)
 
 
 @router.post("/jobs/{job_id}/resume", response_model=CreateJobResponse)
 async def resume_job(job_id: str) -> CreateJobResponse:
+    """Resume job."""
     payload = get_resume_agent_payload(job_id=job_id, store=STORE)
 
     new_job_id = enqueue_memory_job(
@@ -280,17 +295,20 @@ async def resume_job(job_id: str) -> CreateJobResponse:
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str) -> dict:
+    """Cancel job."""
     status = cancel_job_record(job_id=job_id, store=STORE)
     return {"status": status}
 
 
 @router.delete("/jobs/finished")
 async def clear_finished_jobs() -> dict:
+    """Clear finished jobs."""
     deleted = clear_finished_jobs_record(store=STORE)
     return {"deleted": deleted}
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str) -> dict:
+    """Delete job."""
     deleted = delete_job_record(job_id=job_id, store=STORE)
     return {"deleted": deleted}

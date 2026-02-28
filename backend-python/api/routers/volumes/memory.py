@@ -40,6 +40,7 @@ async def get_page_context(
     volume_id: str,
     filename: str,
 ) -> PageContextPayload:
+    """Return page context."""
     try:
         ctx = load_page_context(volume_id, filename)
     except Exception as exc:
@@ -56,6 +57,7 @@ async def set_page_context(
     filename: str,
     payload: PageContextPayload,
 ) -> PageContextPayload:
+    """Handle set page context."""
     try:
         save_page_context(volume_id, filename, payload.context)
     except Exception as exc:
@@ -68,6 +70,7 @@ async def set_page_context(
     response_model=VolumeMemoryResponse,
 )
 async def get_volume_memory(volume_id: str) -> VolumeMemoryResponse:
+    """Return volume memory."""
     return VolumeMemoryResponse(**get_volume_memory_payload(volume_id))
 
 
@@ -79,6 +82,7 @@ async def get_page_memory(
     volume_id: str,
     filename: str,
 ) -> PageMemoryResponse:
+    """Return page memory."""
     return PageMemoryResponse(**get_page_memory_payload(volume_id, filename))
 
 
@@ -87,6 +91,7 @@ async def get_page_memory(
     response_model=ClearMemoryResponse,
 )
 async def clear_volume_memory(volume_id: str) -> ClearMemoryResponse:
+    """Clear volume memory."""
     clear_volume_memory_data(volume_id)
     return ClearMemoryResponse(cleared=True)
 
@@ -99,6 +104,7 @@ async def clear_page_memory(
     volume_id: str,
     filename: str,
 ) -> ClearMemoryResponse:
+    """Clear page memory."""
     clear_page_memory_data(volume_id, filename)
     return ClearMemoryResponse(cleared=True)
 
@@ -110,4 +116,5 @@ async def clear_page_memory(
 async def clear_volume_derived_state(
     volume_id: str,
 ) -> ClearVolumeDerivedDataResponse:
+    """Clear volume derived state."""
     return ClearVolumeDerivedDataResponse(**clear_volume_derived_state_payload(volume_id))

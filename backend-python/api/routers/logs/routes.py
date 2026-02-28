@@ -1,4 +1,4 @@
-# backend-python/api/routers/logs.py
+# backend-python/api/routers/logs/routes.py
 """HTTP routes for logs endpoints."""
 
 from __future__ import annotations
@@ -80,6 +80,7 @@ async def list_llm_logs(
     component: str | None = None,
     status: str | None = None,
 ) -> LlmCallLogListResponse:
+    """List llm logs."""
     normalized_status = str(status or "").strip().lower() if status else None
     if normalized_status and normalized_status not in {"success", "error"}:
         raise HTTPException(status_code=400, detail="status must be success or error")
@@ -94,6 +95,7 @@ async def list_llm_logs(
 
 @router.get("/logs/llm-calls/{log_id}", response_model=LlmCallLogDetailResponse)
 async def get_llm_log(log_id: str) -> LlmCallLogDetailResponse:
+    """Return llm log."""
     row = get_llm_call_log(log_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Log not found")
@@ -109,6 +111,7 @@ async def get_llm_log(log_id: str) -> LlmCallLogDetailResponse:
 
 @router.delete("/logs/llm-calls/{log_id}")
 async def delete_llm_log(log_id: str) -> dict[str, int]:
+    """Delete llm log."""
     deleted = delete_llm_call_log(log_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Log not found")
@@ -117,12 +120,14 @@ async def delete_llm_log(log_id: str) -> dict[str, int]:
 
 @router.delete("/logs/llm-calls")
 async def delete_llm_logs() -> dict[str, int]:
+    """Delete llm logs."""
     deleted = clear_llm_call_logs()
     return {"deleted": deleted}
 
 
 @router.get("/logs/agent/translate_page", response_model=LogListResponse)
 async def list_agent_translate_logs() -> LogListResponse:
+    """List agent translate logs."""
     root = _log_dir()
     if not root.exists():
         return LogListResponse(files=[])
@@ -151,6 +156,7 @@ async def list_agent_translate_logs() -> LogListResponse:
 
 @router.get("/logs/agent/translate_page/{filename}", response_model=LogFileContent)
 async def get_agent_translate_log(filename: str) -> LogFileContent:
+    """Return agent translate log."""
     path = _resolve_log_path(filename)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Log file not found")
@@ -180,6 +186,7 @@ async def get_agent_translate_log(filename: str) -> LogFileContent:
 
 @router.delete("/logs/agent/translate_page/{filename}")
 async def delete_agent_translate_log(filename: str) -> dict[str, int]:
+    """Delete agent translate log."""
     path = _resolve_log_path(filename)
     if not path.exists():
         raise HTTPException(status_code=404, detail="Log file not found")
@@ -191,6 +198,7 @@ async def delete_agent_translate_log(filename: str) -> dict[str, int]:
 
 @router.delete("/logs/agent/translate_page")
 async def delete_agent_translate_logs() -> dict[str, int]:
+    """Delete agent translate logs."""
     root = _log_dir()
     if not root.exists():
         return {"deleted": 0}

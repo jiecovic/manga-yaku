@@ -1,4 +1,4 @@
-# backend-python/api/routers/images.py
+# backend-python/api/routers/images/routes.py
 """HTTP routes for images endpoints."""
 
 from pathlib import Path
@@ -12,6 +12,7 @@ router = APIRouter(tags=["images"])
 
 @router.get("/images/{volume_id}/{filename}")
 async def get_image(volume_id: str, filename: str):
+    """Return image."""
     try:
         img_path: Path = safe_join(VOLUMES_ROOT, volume_id, filename)
     except ValueError as e:

@@ -5,19 +5,15 @@ import sys
 from contextlib import asynccontextmanager
 
 from api.errors import register_exception_handlers
-from api.routers import (
-    agent,
-    box_detection,
-    boxes,
-    images,
-    logs,
-    training,
-)
-from api.routers import (
-    settings as settings_router,
-)
+from api.routers.agent import routes as agent
+from api.routers.box_detection import routes as box_detection
+from api.routers.boxes import routes as boxes
+from api.routers.images import routes as images
 from api.routers.jobs import routes as jobs
+from api.routers.logs import routes as logs
 from api.routers.ocr import routes as ocr
+from api.routers.settings import routes as settings_router
+from api.routers.training import routes as training
 from api.routers.translation import routes as translation
 from api.routers.volumes import memory as volumes_memory
 from api.routers.volumes import routes as volumes

@@ -35,6 +35,7 @@ router = APIRouter(tags=["library"])
 
 @router.get("/volumes/sync/missing", response_model=list[MissingVolume])
 async def list_missing_volumes() -> list[MissingVolume]:
+    """List missing volumes."""
     missing: list[MissingVolume] = []
     for record in list_volumes():
         volume_dir = VOLUMES_ROOT / record.id
@@ -45,6 +46,7 @@ async def list_missing_volumes() -> list[MissingVolume]:
 
 @router.post("/volumes/sync/import")
 async def import_missing_volumes() -> dict:
+    """Handle import missing volumes."""
     imported: list[str] = []
     if not VOLUMES_ROOT.exists():
         return {"imported": 0, "ids": []}
@@ -65,6 +67,7 @@ async def import_missing_volumes() -> dict:
 
 @router.post("/volumes/sync/prune")
 async def prune_missing_volumes(payload: PruneMissingRequest) -> dict:
+    """Handle prune missing volumes."""
     deleted = 0
     for volume_id in payload.ids:
         if get_volume(volume_id) is None:
@@ -79,6 +82,7 @@ async def prune_missing_volumes(payload: PruneMissingRequest) -> dict:
 
 @router.get("/volumes/sync/pages/missing", response_model=list[MissingPage])
 async def list_missing_pages() -> list[MissingPage]:
+    """List missing pages."""
     missing: list[MissingPage] = []
     for record in list_volumes():
         volume_dir = VOLUMES_ROOT / record.id
@@ -97,6 +101,7 @@ async def list_missing_pages() -> list[MissingPage]:
 
 @router.post("/volumes/sync/pages/import")
 async def import_missing_pages() -> dict:
+    """Handle import missing pages."""
     imported: list[MissingPage] = []
     for record in list_volumes():
         volume_dir = VOLUMES_ROOT / record.id
@@ -139,6 +144,7 @@ async def import_missing_pages() -> dict:
 
 @router.post("/volumes/sync/pages/prune")
 async def prune_missing_pages(payload: PruneMissingPagesRequest) -> dict:
+    """Handle prune missing pages."""
     deleted = 0
     for page in payload.pages:
         volume_dir = VOLUMES_ROOT / page.volumeId

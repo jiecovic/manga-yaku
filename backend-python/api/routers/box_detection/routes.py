@@ -1,4 +1,4 @@
-# backend-python/api/routers/box_detection.py
+# backend-python/api/routers/box_detection/routes.py
 """HTTP routes for box detection endpoints."""
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ def _extract_tasks(profile: dict) -> list[str]:
 
 @router.get("/box-detection/profiles", response_model=list[BoxDetectionProfileInfo])
 def list_box_detection_profiles() -> list[BoxDetectionProfileInfo]:
+    """List box detection profiles."""
     return [
         BoxDetectionProfileInfo(**profile, tasks=_extract_tasks(profile))
         for profile in list_box_detection_profiles_for_api()

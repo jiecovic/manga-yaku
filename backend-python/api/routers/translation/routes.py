@@ -10,6 +10,7 @@ router = APIRouter(tags=["translation"])
 
 @router.get("/translation/providers", response_model=list[TranslationProvider])
 async def get_translation_providers() -> list[TranslationProvider]:
+    """Return translation providers."""
     providers_raw = list_translation_profiles_for_api()
     return [
         TranslationProvider(
