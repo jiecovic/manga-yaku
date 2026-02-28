@@ -14,6 +14,7 @@ _PROMPT_VERSION_BY_STAGE = {
 
 
 def coerce_non_negative_int(value: Any) -> int:
+    """Handle coerce non negative int."""
     if isinstance(value, int):
         return max(0, value)
     if isinstance(value, float):
@@ -34,6 +35,7 @@ def append_stage_attempt_event(
     fallback_model_id: str | None,
     error_detail: str | None = None,
 ) -> None:
+    """Handle append stage attempt event."""
     meta = stage_meta if isinstance(stage_meta, dict) else {}
     raw_attempt = meta.get("attempt_count", 1)
     try:
@@ -79,6 +81,7 @@ def append_ocr_attempt_events(
     prompt_version: str,
     attempt_events: list[dict[str, Any]],
 ) -> None:
+    """Handle append ocr attempt events."""
     for event in attempt_events:
         append_task_attempt_event(
             task_id=task_id,

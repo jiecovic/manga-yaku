@@ -32,6 +32,7 @@ def run_commit_stage(
     translation_payload: dict[str, Any],
     prior_summary: str,
 ) -> CommitStageResult:
+    """Run commit stage."""
     commit = apply_translation_payload(
         volume_id=volume_id,
         filename=filename,

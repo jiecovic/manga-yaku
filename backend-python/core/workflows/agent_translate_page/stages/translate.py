@@ -36,6 +36,7 @@ async def run_translate_stage(
     merge_max_output_tokens: int | float | None,
     merge_reasoning_effort: str | None,
 ) -> dict[str, Any]:
+    """Run translate stage."""
     from core.usecases.agent.page_translate import run_agent_translate_page
 
     resolved_model_id = str(model_id).strip() if isinstance(model_id, str) else ""

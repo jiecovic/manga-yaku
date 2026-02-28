@@ -15,6 +15,7 @@ def emit_workflow_progress(
     progress: int,
     message: str,
 ) -> None:
+    """Emit workflow progress."""
     emit_progress(
         state=state,
         stage=stage,

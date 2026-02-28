@@ -15,6 +15,7 @@ def create_merge_task_run(
     target_language: str,
     model_id: str | None,
 ) -> str:
+    """Create merge task run."""
     return create_task_run(
         workflow_id=workflow_run_id,
         stage="merge_state",
@@ -31,6 +32,7 @@ def create_merge_task_run(
 
 
 def mark_merge_task_canceled(task_run_id: str, *, reason: str) -> None:
+    """Handle mark merge task canceled."""
     message = reason.strip() or "Skipped because translate stage failed"
     update_task_run(
         task_run_id,

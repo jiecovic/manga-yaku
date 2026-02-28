@@ -85,6 +85,7 @@ async def run_agent_translate_page_workflow(
     on_progress: ProgressCallback | None = None,
     is_canceled: CancelCheck | None = None,
 ) -> dict[str, Any]:
+    """Run agent translate page workflow."""
     request = AgentTranslatePageRequest.from_payload(payload)
     state = WorkflowState.queued
     detection_profile_id = resolve_detection_profile_id(request.detection_profile_id)
@@ -463,6 +464,7 @@ async def run_agent_translate_page_detect_stage(
     is_canceled: CancelCheck | None = None,
 ) -> dict[str, Any]:
     # Backward-compatible entrypoint name while the handler/API wiring is unchanged.
+    """Run agent translate page detect stage."""
     return await run_agent_translate_page_workflow(
         payload=payload,
         on_progress=on_progress,

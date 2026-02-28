@@ -29,6 +29,7 @@ PERSISTED_WORKFLOW_TYPES = {
 
 
 def workflow_status_to_job_status(status: str) -> JobStatus:
+    """Handle workflow status to job status."""
     if status == "queued":
         return JobStatus.queued
     if status == "running":
@@ -41,6 +42,7 @@ def workflow_status_to_job_status(status: str) -> JobStatus:
 
 
 def state_progress_fallback(state: str) -> int:
+    """Handle state progress fallback."""
     return {
         "queued": 0,
         "running": 50,
@@ -55,6 +57,7 @@ def state_progress_fallback(state: str) -> int:
 
 
 def extract_request_payload_from_result(result_json: dict | None) -> dict:
+    """Extract request payload from result."""
     if not isinstance(result_json, dict):
         return {}
     request = result_json.get("request")
@@ -64,6 +67,7 @@ def extract_request_payload_from_result(result_json: dict | None) -> dict:
 
 
 def extract_workflow_run_id(job: JobPublic | Job) -> str | None:
+    """Extract workflow run id."""
     payload = dict(job.payload or {})
     workflow_run_id = payload.get("workflowRunId")
     if isinstance(workflow_run_id, str) and workflow_run_id.strip():
@@ -76,6 +80,7 @@ def extract_workflow_run_id(job: JobPublic | Job) -> str | None:
 
 
 def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
+    """Handle workflow run to job public."""
     result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
     request_payload = extract_request_payload_from_result(result_json)
     payload = dict(request_payload)
@@ -129,6 +134,7 @@ def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
 
 
 def combined_jobs(store: JobStore) -> list[JobPublic]:
+    """Handle combined jobs."""
     memory_jobs = [store.public_job(job) for job in store.jobs.values()]
     workflow_ids_in_memory = {
         workflow_id
@@ -156,6 +162,7 @@ def combined_jobs(store: JobStore) -> list[JobPublic]:
 
 
 def restore_agent_payload_from_workflow(run: dict) -> dict:
+    """Handle restore agent payload from workflow."""
     result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
     payload = extract_request_payload_from_result(result_json)
     payload.setdefault("volumeId", run.get("volume_id"))
@@ -182,6 +189,7 @@ def restore_agent_payload_from_workflow(run: dict) -> dict:
 
 
 def cancel_pending_tasks(workflow_run_id: str) -> None:
+    """Cancel pending tasks."""
     tasks = list_task_runs(workflow_run_id)
     for task in tasks:
         status = str(task.get("status") or "")
@@ -201,6 +209,7 @@ def normalize_profile_ids(
     raw_profile_ids: list[str] | None,
     fallback_profile_id: str | None = None,
 ) -> list[str]:
+    """Normalize profile ids."""
     out: list[str] = []
     seen: set[str] = set()
 
@@ -218,6 +227,7 @@ def normalize_profile_ids(
 
 
 def resolve_enabled_ocr_profiles(profile_ids: list[str]) -> list[str]:
+    """Resolve enabled ocr profiles."""
     valid_profiles: list[str] = []
     for profile_id in profile_ids:
         try:
@@ -241,6 +251,7 @@ def create_ocr_workflow_with_tasks(
     processable_boxes: int,
     queued_tasks: list[dict],
 ) -> str:
+    """Create ocr workflow with tasks."""
     workflow_run_id = create_workflow_run(
         workflow_type=workflow_type,
         volume_id=volume_id,
@@ -342,6 +353,7 @@ def create_translate_workflow_with_task(
     profile_id: str,
     use_page_context: bool,
 ) -> str:
+    """Create translate workflow with task."""
     workflow_run_id = create_workflow_run(
         workflow_type=TRANSLATE_BOX_WORKFLOW_TYPE,
         volume_id=volume_id,

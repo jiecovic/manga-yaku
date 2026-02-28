@@ -29,10 +29,12 @@ from .jobs_workflow_helpers import (
 
 
 def list_job_public_records(*, store: JobStore) -> list[JobPublic]:
+    """List job public records."""
     return combined_jobs(store)
 
 
 def get_job_public(*, job_id: str, store: JobStore) -> JobPublic:
+    """Return job public."""
     job = store.get_job(job_id)
     if job is not None:
         return store.public_job(job)
@@ -45,6 +47,7 @@ def get_job_public(*, job_id: str, store: JobStore) -> JobPublic:
 
 
 def get_job_tasks_payload(*, job_id: str, store: JobStore) -> dict[str, Any]:
+    """Return job tasks payload."""
     job = store.get_job(job_id)
     workflow_run_id: str | None = None
     if job is not None:
@@ -72,6 +75,7 @@ def get_job_tasks_payload(*, job_id: str, store: JobStore) -> dict[str, Any]:
 
 
 def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
+    """Return resume agent payload."""
     payload: dict
 
     memory_job = store.get_job(job_id)
@@ -98,6 +102,7 @@ def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
 
 
 def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
+    """Cancel job."""
     job = store.get_job(job_id)
     if job is not None:
         if job.status in (JobStatus.finished, JobStatus.failed, JobStatus.canceled):
@@ -130,6 +135,7 @@ def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
 
 
 def clear_finished_jobs(*, store: JobStore) -> int:
+    """Clear finished jobs."""
     to_delete = [
         job_id
         for job_id, job in store.jobs.items()
@@ -148,6 +154,7 @@ def clear_finished_jobs(*, store: JobStore) -> int:
 
 
 def delete_job(*, job_id: str, store: JobStore) -> int:
+    """Delete job."""
     job = store.get_job(job_id)
     if job is not None:
         if job.status == JobStatus.running:

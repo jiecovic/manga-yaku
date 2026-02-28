@@ -40,10 +40,12 @@ __all__ = [
 
 
 def utc_now_iso() -> str:
+    """Handle utc now iso."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def resolve_detection_profile_id(preferred_profile_id: str | None) -> str | None:
+    """Resolve detection profile id."""
     if preferred_profile_id:
         return preferred_profile_id
     stored_profile_id = resolve_detection_settings().agent_detection_profile_id
@@ -53,6 +55,7 @@ def resolve_detection_profile_id(preferred_profile_id: str | None) -> str | None
 
 
 def resolve_ocr_profiles(payload: dict[str, Any]) -> list[str]:
+    """Resolve ocr profiles."""
     raw = payload.get("ocrProfiles")
     requested = [str(item).strip() for item in raw or [] if str(item).strip()]
     profile_ids = requested or agent_enabled_ocr_profiles()
@@ -88,11 +91,13 @@ def resolve_ocr_profiles(payload: dict[str, Any]) -> list[str]:
 
 
 def resolve_parallel_limits() -> tuple[int, int]:
+    """Resolve parallel limits."""
     settings = resolve_ocr_parallelism_settings()
     return (settings.local, settings.remote)
 
 
 def list_text_boxes(page: dict[str, Any]) -> list[dict[str, Any]]:
+    """List text boxes."""
     raw_boxes = page.get("boxes", []) if isinstance(page, dict) else []
     text_boxes = [box for box in raw_boxes if box.get("type") == "text"]
     text_boxes.sort(
@@ -118,6 +123,7 @@ def emit_progress(
     workflow_run_id: str,
     on_progress: ProgressCallback | None,
 ) -> None:
+    """Emit progress."""
     if on_progress is None:
         return
     on_progress(
@@ -137,10 +143,12 @@ def emit_progress(
 
 
 def is_canceled(check: CancelCheck | None) -> bool:
+    """Return whether canceled."""
     return bool(check and check())
 
 
 def build_ocr_profile_meta(profile_ids: list[str]) -> list[dict[str, Any]]:
+    """Handle build ocr profile meta."""
     meta: list[dict[str, Any]] = []
     for profile_id in profile_ids:
         try:
@@ -168,6 +176,7 @@ def build_translation_boxes(
     invalid_candidates: dict[int, set[str]],
     llm_profiles: set[str],
 ) -> tuple[list[dict[str, Any]], dict[int, int]]:
+    """Handle build translation boxes."""
     payload_boxes: list[dict[str, Any]] = []
     box_index_map: dict[int, int] = {}
     next_box_index = 1
@@ -217,6 +226,7 @@ def apply_translation_payload(
     box_index_map: dict[int, int],
     translation_payload: dict[str, Any],
 ) -> dict[str, Any]:
+    """Handle apply translation payload."""
     translations = translation_payload.get("boxes", [])
     no_text_raw = translation_payload.get("no_text_boxes")
     no_text_box_indices: set[int] = set()

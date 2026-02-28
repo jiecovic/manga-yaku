@@ -25,6 +25,7 @@ def _to_iso(value: datetime | None) -> str | None:
 
 
 def get_volume_memory_payload(volume_id: str) -> dict:
+    """Return volume memory payload."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     context = get_volume_context(volume_id)
@@ -48,6 +49,7 @@ def get_volume_memory_payload(volume_id: str) -> dict:
 
 
 def get_page_memory_payload(volume_id: str, filename: str) -> dict:
+    """Return page memory payload."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     if filename not in set(list_page_filenames(volume_id)):
@@ -75,12 +77,14 @@ def get_page_memory_payload(volume_id: str, filename: str) -> dict:
 
 
 def clear_volume_memory(volume_id: str) -> None:
+    """Clear volume memory."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     clear_volume_context(volume_id)
 
 
 def clear_page_memory(volume_id: str, filename: str) -> None:
+    """Clear page memory."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
     if filename not in set(list_page_filenames(volume_id)):
@@ -92,6 +96,7 @@ def clear_page_memory(volume_id: str, filename: str) -> None:
 
 
 def clear_volume_derived_state_payload(volume_id: str) -> dict:
+    """Clear volume derived state payload."""
     if get_volume(volume_id) is None:
         raise HTTPException(status_code=404, detail="Volume not found")
 

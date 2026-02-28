@@ -17,6 +17,7 @@ async def run_detect_stage(
     filename: str,
     detection_profile_id: str | None,
 ) -> list[dict[str, Any]]:
+    """Run detect stage."""
     await asyncio.to_thread(
         detect_text_boxes_for_page,
         volume_id,

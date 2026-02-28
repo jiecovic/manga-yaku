@@ -35,6 +35,7 @@ def enqueue_memory_job(
     progress: float | None = None,
     message: str | None = None,
 ) -> str:
+    """Handle enqueue memory job."""
     job_id = str(uuid4())
     now = store.now()
     store.add_job(
@@ -55,6 +56,7 @@ def enqueue_memory_job(
 
 
 def create_ocr_box_workflow(req: CreateOcrBoxJobRequest) -> str:
+    """Create ocr box workflow."""
     volume_id = str(req.volumeId or "").strip()
     filename = str(req.filename or "").strip()
     box_id = int(req.boxId or 0)
@@ -112,6 +114,7 @@ def create_ocr_box_workflow(req: CreateOcrBoxJobRequest) -> str:
 
 
 def create_ocr_page_workflow(req: CreateOcrPageJobRequest) -> str:
+    """Create ocr page workflow."""
     raw_profile_ids = req.profileIds if isinstance(req.profileIds, list) else []
     selected_profile_id = str(req.profileId or "").strip()
     if not selected_profile_id and raw_profile_ids:
@@ -184,6 +187,7 @@ def create_ocr_page_workflow(req: CreateOcrPageJobRequest) -> str:
 
 
 def create_translate_box_workflow(req: CreateTranslateBoxJobRequest) -> str:
+    """Create translate box workflow."""
     profile_id = str(req.profileId or "").strip()
     if not profile_id:
         raise HTTPException(status_code=400, detail="profileId is required")

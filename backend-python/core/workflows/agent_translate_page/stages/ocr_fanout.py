@@ -55,6 +55,7 @@ async def run_ocr_fanout_stage(
     state: WorkflowState,
     is_canceled: CancelCheck,
 ) -> OcrFanoutResult:
+    """Run ocr fanout stage."""
     candidates: dict[int, dict[str, str]] = {}
     no_text_candidates: dict[int, set[str]] = {}
     error_candidates: dict[int, set[str]] = {}

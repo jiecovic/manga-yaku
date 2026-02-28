@@ -35,6 +35,7 @@ _TRANSITIONS: dict[WorkflowState, dict[WorkflowEvent, WorkflowState]] = {
 
 
 def transition(state: WorkflowState, event: WorkflowEvent) -> WorkflowState:
+    """Handle transition."""
     next_state = _TRANSITIONS.get(state, {}).get(event)
     if next_state is None:
         raise ValueError(f"Invalid transition: {state.value} + {event.value}")
@@ -42,6 +43,7 @@ def transition(state: WorkflowState, event: WorkflowEvent) -> WorkflowState:
 
 
 def is_terminal(state: WorkflowState) -> bool:
+    """Return whether terminal."""
     return state in {
         WorkflowState.completed,
         WorkflowState.failed,
