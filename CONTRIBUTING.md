@@ -92,7 +92,12 @@ Core tables:
 - `agent_sessions` / `agent_messages` — optional chat-style agent history.
 - `app_settings` — persisted settings (e.g., detection thresholds, defaults).
 - `ocr_profile_settings` — per-OCR profile overrides for agent use.
+- `translation_profile_settings` — per-translation profile overrides for single-box translation.
 - `agent_translate_settings` — default model/params for agent page translate.
+- `workflow_runs` — persisted workflow jobs (ocr/translate/agent pipelines).
+- `task_runs` — child tasks for workflow runs (stage/model/box level execution).
+- `task_attempt_events` — per-attempt telemetry (latency/tokens/errors).
+- `llm_call_logs` — request/response metadata and payload references for debugging.
 
 Indexes and constraints are defined directly in `db.py`.
 
@@ -105,6 +110,7 @@ Relationships (high-level):
 - `volumes` -> `volume_context` (1:1)
 - `pages` -> `page_context` (1:1)
 - `volumes` -> `agent_sessions` -> `agent_messages`
+- `workflow_runs` -> `task_runs` -> `task_attempt_events`
 
 Important constraints:
 
@@ -123,9 +129,14 @@ OCR:
 - OCR results are stored per box in Postgres.
 
 Agent translate page:
-- Detects boxes → runs OCR (multi-profile) → sends a structured prompt to the LLM
-  → writes translations + page context back to Postgres.
+- Detects boxes → runs OCR fanout (multi-profile child tasks) → page translate stage
+  (image + OCR candidates) → merge stage (continuity updates) → commit to Postgres.
 - Default LLM model is configured in Settings → Translation Agent.
+
+Jobs model:
+- Workflow-backed jobs (`ocr_box`, `ocr_page`, `translate_box`, `agent_translate_page`) are persisted
+  in Postgres (`workflow_runs`/`task_runs`) and can be reloaded after backend restart.
+- Some utility jobs (for example, training/dataset prep) remain process-local in the in-memory `JobStore`.
 
 Training:
 - Raw datasets live under `training-data/sources/` (ignored).
