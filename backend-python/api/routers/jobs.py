@@ -1,3 +1,4 @@
+# backend-python/api/routers/jobs.py
 from __future__ import annotations
 
 import asyncio
@@ -15,34 +16,33 @@ from api.schemas.jobs import (
     JobCapability,
     JobsCapabilitiesResponse,
 )
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from infra.jobs.runtime import STORE
-from infra.jobs.store import JobPublic
-from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
-
-from .jobs_creation_service import (
+from api.services.jobs_creation_service import (
     create_ocr_box_workflow,
     create_ocr_page_workflow,
     create_translate_box_workflow,
     enqueue_memory_job,
 )
-from .jobs_service import (
+from api.services.jobs_service import (
     cancel_job as cancel_job_record,
 )
-from .jobs_service import (
+from api.services.jobs_service import (
     clear_finished_jobs as clear_finished_jobs_record,
 )
-from .jobs_service import (
+from api.services.jobs_service import (
     delete_job as delete_job_record,
 )
-from .jobs_service import (
+from api.services.jobs_service import (
     get_job_public,
     get_job_tasks_payload,
     get_resume_agent_payload,
     list_job_public_records,
 )
-from .jobs_workflow_helpers import AGENT_WORKFLOW_TYPE
+from api.services.jobs_workflow_helpers import AGENT_WORKFLOW_TYPE
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from infra.jobs.runtime import STORE
+from infra.jobs.store import JobPublic
+from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
 
 router = APIRouter(tags=["jobs"])
 

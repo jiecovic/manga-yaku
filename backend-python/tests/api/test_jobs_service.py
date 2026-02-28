@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import unittest
 
-from api.routers.jobs_service import (
+from api.services.jobs_service import (
     cancel_job,
     delete_job,
     get_job_public,

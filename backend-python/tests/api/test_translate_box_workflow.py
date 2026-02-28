@@ -17,9 +17,9 @@ import unittest
 from unittest.mock import patch
 
 from api.routers.jobs import create_translate_box_job
-from api.routers.jobs_creation_service import create_translate_box_workflow
-from api.routers.jobs_workflow_helpers import create_translate_workflow_with_task
 from api.schemas.jobs import CreateTranslateBoxJobRequest
+from api.services.jobs_creation_service import create_translate_box_workflow
+from api.services.jobs_workflow_helpers import create_translate_workflow_with_task
 from fastapi import HTTPException
 
 
@@ -27,12 +27,12 @@ class TranslateWorkflowHelpersTests(unittest.TestCase):
     def test_create_translate_workflow_with_task_creates_single_task(self) -> None:
         with (
             patch(
-                "api.routers.jobs_workflow_helpers.create_workflow_run",
+                "api.services.jobs_workflow_helpers.create_workflow_run",
                 return_value="wf-123",
             ) as create_workflow_run_mock,
-            patch("api.routers.jobs_workflow_helpers.update_workflow_run") as update_workflow_run_mock,
+            patch("api.services.jobs_workflow_helpers.update_workflow_run") as update_workflow_run_mock,
             patch(
-                "api.routers.jobs_workflow_helpers.create_task_runs",
+                "api.services.jobs_workflow_helpers.create_task_runs",
                 return_value=1,
             ) as create_task_runs_mock,
         ):
@@ -97,13 +97,13 @@ class TranslateBoxCreationServiceTests(unittest.TestCase):
             boxOrder=3,
         )
         with (
-            patch("api.routers.jobs_creation_service.get_setting_value", return_value=True),
+            patch("api.services.jobs_creation_service.get_setting_value", return_value=True),
             patch(
-                "api.routers.jobs_creation_service.get_translation_profile",
+                "api.services.jobs_creation_service.get_translation_profile",
                 return_value={"enabled": True},
             ),
             patch(
-                "api.routers.jobs_creation_service.create_translate_workflow_with_task",
+                "api.services.jobs_creation_service.create_translate_workflow_with_task",
                 return_value="wf-xyz",
             ) as create_workflow_mock,
         ):
@@ -128,7 +128,7 @@ class TranslateBoxCreationServiceTests(unittest.TestCase):
         )
         with (
             patch(
-                "api.routers.jobs_creation_service.get_translation_profile",
+                "api.services.jobs_creation_service.get_translation_profile",
                 return_value={"enabled": False},
             ),
             self.assertRaises(HTTPException) as raised,
