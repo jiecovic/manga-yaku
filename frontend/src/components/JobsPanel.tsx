@@ -237,13 +237,16 @@ export function JobsPanel() {
                                     <div className="mb-0.5 flex items-center justify-between gap-2">
                                         <span className={ui.jobsType}>{job.type}</span>
                                         <div className="flex items-center gap-1">
-                                            {job.status === "running" && (
+                                            {(job.status === "running" ||
+                                                job.status === "queued") && (
                                                 <button
                                                     type="button"
                                                     onClick={() => cancelJob(job.id)}
                                                     className={ui.button.jobsStop}
                                                 >
-                                                    Stop
+                                                    {job.status === "queued"
+                                                        ? "Cancel"
+                                                        : "Stop"}
                                                 </button>
                                             )}
                                             {canDelete && (
