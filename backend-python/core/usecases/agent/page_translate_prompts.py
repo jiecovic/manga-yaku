@@ -7,7 +7,6 @@ import json
 from typing import Any
 
 import yaml
-
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 _MAX_MERGE_SUMMARY_CHARS = 2_400
