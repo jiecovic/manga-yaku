@@ -188,7 +188,7 @@ class ApplyTranslationPayloadTests(unittest.TestCase):
         self.assertEqual(result["processed"], 4)
         self.assertEqual(result["total"], 4)
 
-    def test_apply_translation_payload_raises_on_missing_coverage(self) -> None:
+    def test_apply_translation_payload_warns_on_missing_coverage(self) -> None:
         text_boxes = [{"id": 10}, {"id": 20}]
         box_index_map = {1: 10, 2: 20}
         translation_payload = {
@@ -196,7 +196,55 @@ class ApplyTranslationPayloadTests(unittest.TestCase):
             "no_text_boxes": [],
         }
 
-        with self.assertRaisesRegex(RuntimeError, "coverage mismatch"):
+        with (
+            patch(
+                "core.workflows.agent_translate_page.helpers.set_box_ocr_text_by_id",
+            ) as set_ocr,
+            patch(
+                "core.workflows.agent_translate_page.helpers.set_box_translation_by_id",
+            ) as set_translation,
+            patch(
+                "core.workflows.agent_translate_page.helpers.delete_boxes_by_ids",
+            ) as delete_boxes,
+            patch(
+                "core.workflows.agent_translate_page.helpers.set_box_order_for_type",
+                return_value=False,
+            ) as set_order,
+        ):
+            result = apply_translation_payload(
+                volume_id="vol",
+                filename="001.jpg",
+                text_boxes=text_boxes,
+                box_index_map=box_index_map,
+                translation_payload=translation_payload,
+            )
+
+        set_ocr.assert_called_once_with("vol", "001.jpg", box_id=10, ocr_text="a")
+        set_translation.assert_called_once_with(
+            "vol",
+            "001.jpg",
+            box_id=10,
+            translation="b",
+        )
+        set_order.assert_called_once_with(
+            "vol",
+            "001.jpg",
+            box_type="text",
+            ordered_ids=[10],
+        )
+        delete_boxes.assert_not_called()
+        self.assertIn("coverageWarning", result)
+        self.assertIn("omitted indices", result["coverageWarning"])
+
+    def test_apply_translation_payload_raises_on_duplicate_coverage(self) -> None:
+        text_boxes = [{"id": 10}, {"id": 20}]
+        box_index_map = {1: 10, 2: 20}
+        translation_payload = {
+            "boxes": [{"box_ids": [1], "ocr_text": "a", "translation": "b"}],
+            "no_text_boxes": [1, 2],
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "duplicate indices"):
             apply_translation_payload(
                 volume_id="vol",
                 filename="001.jpg",

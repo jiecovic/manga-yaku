@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -24,6 +25,8 @@ from .types import (
     ProgressCallback,
     WorkflowState,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "apply_translation_payload",
@@ -281,16 +284,21 @@ def apply_translation_payload(
                     unknown_indices.add(box_index)
 
     missing_indices = expected_indices - seen_indices
-    if duplicate_indices or unknown_indices or missing_indices:
+    if duplicate_indices or unknown_indices:
         problems: list[str] = []
         if duplicate_indices:
             problems.append(f"duplicate indices {sorted(duplicate_indices)}")
         if unknown_indices:
             problems.append(f"unknown indices {sorted(unknown_indices)}")
-        if missing_indices:
-            problems.append(f"missing indices {sorted(missing_indices)}")
         detail = ", ".join(problems) if problems else "invalid stage-1 coverage"
         raise RuntimeError(f"Stage-1 box coverage mismatch: {detail}")
+    coverage_warning: str | None = None
+    if missing_indices:
+        coverage_warning = (
+            "Stage-1 omitted indices "
+            f"{sorted(missing_indices)}; preserving unmatched boxes"
+        )
+        logger.warning(coverage_warning)
 
     updated = 0
     merged_ids: list[int] = []
@@ -364,9 +372,12 @@ def apply_translation_payload(
             ordered_ids=ordered_primary_ids,
         )
 
-    return {
+    result = {
         "updated": updated,
         "orderApplied": applied_order,
         "processed": len(text_boxes),
         "total": len(text_boxes),
     }
+    if coverage_warning:
+        result["coverageWarning"] = coverage_warning
+    return result
