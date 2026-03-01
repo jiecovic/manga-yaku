@@ -1,46 +1,45 @@
 # MangaYaku
 
-MangaYaku is a personal sandbox for manga translation workflows: box detection, OCR,
-and LLM translation with a local-first UI.
+MangaYaku is a manga translation workflow app with a local-first UI for box detection,
+OCR, and LLM-assisted translation.
 
 ## Status
 
 See `docs/STATUS.md` for stable vs experimental features and planned work.
+Current default page pipeline is `agent_translate_page`; standalone
+`translate_page` jobs are disabled.
 
 ## Features
 
 - Manual speech-bubble annotation in the browser
 - OCR via manga-ocr (local) or a multimodal LLM via the OpenAI API
-- Automatic translation of individual bubbles
-- JA->EN translation using OpenAI or a local OpenAI-compatible server
+- Single-box translation jobs via OpenAI or a local OpenAI-compatible server
 - Context handling for volume and page prompts
 - Persistent page state stored in Postgres
-
-## Experimental
-
-- Box detection via YOLO/Ultralytics (train models in the UI)
-- Agent translate page pipeline
-
-See `docs/STATUS.md` for more detail.
 
 ## Stack
 
 - Frontend: React + Vite + TypeScript
 - Backend: FastAPI (Python)
-- Database: Postgres + pgvector (Docker, reserved for future RAG)
+- Database: Postgres + pgvector (Docker)
 
 ## Quick Start
 
 From repo root:
 
+If you use published model weights under `models/`, fetch LFS objects first:
+
 ```text
-# if you use published model weights under models/, make sure LFS objects are fetched
 git lfs install
 git lfs pull
+```
 
+Start app services:
+
+```text
 docker compose up -d
 
-# one-time setup (creates venv + installs deps)
+# one-time setup
 npm run setup
 
 # run backend + frontend
@@ -61,19 +60,12 @@ npm run dev:frontend
 ## Configuration
 
 Copy the example env files and adjust as needed:
-- `frontend/.env.example` -> `frontend/.env` (set `VITE_API_BASE`)
-- `backend-python/.env.example` -> `backend-python/.env` (set `OPENAI_API_KEY`, `DATABASE_URL`, etc.)
+- copy `frontend/.env.example` to `frontend/.env` (set `VITE_API_BASE`, e.g. `http://127.0.0.1:8101` direct backend or `http://localhost:5174` dev proxy)
+- copy `backend-python/.env.example` to `backend-python/.env` (set `OPENAI_API_KEY`, `DATABASE_URL`, etc.)
 
 Optional overrides:
 - `MANGAYAKU_BACKEND_PORT=8101`
 - `MANGAYAKU_BACKEND_HOST=127.0.0.1`
-
-## Troubleshooting
-
-- Backend unreachable or DB unavailable: run `docker compose up -d` and restart the backend. `/api/health` returns `503` when the DB is down.
-- OpenAI providers disabled: set `OPENAI_API_KEY` in `backend-python/.env` and restart the backend.
-- Box detection shows no models: train a model first so weights exist under `training-data/runs`.
-- Box detection fails with `invalid load key, 'v'`: the `.pt` file is likely a Git LFS pointer. Run `git lfs install && git lfs pull` and restart backend.
 
 ## Data
 
@@ -90,28 +82,23 @@ Page state (boxes, OCR text, translations) is stored in Postgres.
 ### Manga109-s
 
 The published box-detection model `yolo26s-text-v1` was trained using Manga109-s.
-Dataset images are not redistributed in this repo. Dataset homepage:
-[Manga109](http://www.manga109.org/en/).
+Dataset images are not redistributed in this repo.
 
 You can train with Manga109-s using this framework, but you must download the dataset
 yourself from the official site. You can also use it for local testing, but no sample
-pages are included here due to licensing.
-
-References:
-
-1. Aizawa, K., Fujimoto, A., Otsubo, A., Ogawa, T., Matsui, Y., Tsubota, K., Ikuta, H. (2020).
-   Building a Manga Dataset "Manga109" with Annotations for Multimedia Applications.
-   IEEE MultiMedia, 27(2), 8-18. doi: 10.1109/MMUL.2020.2987895.
-2. Matsui, Y., Ito, K., Aramaki, Y., Fujimoto, A., Ogawa, T., Yamasaki, T., Aizawa, K. (2017).
-   Sketch-based Manga Retrieval using Manga109 Dataset.
-   Multimedia Tools and Applications, 76(20), 21811-21838. doi: 10.1007/s11042-016-4020-z.
+pages are included here due to licensing. See `docs/DATASETS.md` for links and references.
 
 ## Development
 
 See `CONTRIBUTING.md` for development setup, linting/testing, and internal conventions.
 
+## See Also
+
+- `docs/STATUS.md`
+- `backend-python/README.md`
+- `CONTRIBUTING.md`
+- Swagger UI: http://localhost:8101/docs
+
 ## License
 
 MIT License
-
-
