@@ -227,6 +227,7 @@ def save_page(volume_id: str, filename: str, data: dict[str, Any]) -> None:
                     row.text_content = TextBoxContent(
                         ocr_text=str(box.get("text") or ""),
                         translation=str(box.get("translation") or ""),
+                        note=str(box.get("note") or ""),
                     )
 
                 session.add(row)

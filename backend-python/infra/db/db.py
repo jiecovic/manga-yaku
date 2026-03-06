@@ -7,7 +7,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import uuid4
 
-from config import DATABASE_URL
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -25,6 +24,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+
+from config import DATABASE_URL
 
 Base = declarative_base()
 
@@ -225,6 +226,7 @@ class TextBoxContent(Base):
     )
     ocr_text = Column(Text, default="", nullable=False)
     translation = Column(Text, default="", nullable=False)
+    note = Column(Text, default="", nullable=False)
     ocr_language = Column(String, nullable=True)
     translation_language = Column(String, nullable=True)
     confidence = Column(Float, nullable=True)
@@ -564,6 +566,10 @@ def init_db() -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE text_box_contents ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''")
+        )
 
 
 def check_db() -> tuple[bool, str | None]:

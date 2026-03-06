@@ -5,7 +5,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import re
 import threading
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from api.schemas.agent_chat import (
     AgentConfigResponse,
@@ -19,8 +24,10 @@ from api.schemas.agent_chat import (
 )
 from config import AGENT_MAX_MESSAGE_CHARS, AGENT_MODEL, AGENT_MODELS
 from core.usecases.agent.engine import run_agent_chat, run_agent_chat_stream
-from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from core.usecases.agent.turn_state import (
+    get_active_page_text_box_count,
+    sanitize_agent_reply_text,
+)
 from infra.db.agent_store import (
     add_agent_message,
     create_agent_session,
@@ -33,9 +40,45 @@ from infra.db.agent_store import (
 from infra.http import cors_headers_for_stream
 
 router = APIRouter(tags=["agent"])
+logger = logging.getLogger(__name__)
 
 _STREAM_TASKS: set[asyncio.Task] = set()
 # Keep background stream tasks alive until completion.
+_REQUEST_ID_RE = re.compile(r"\b(req_[A-Za-z0-9]+)\b")
+
+
+def _extract_request_id(value: str) -> str | None:
+    match = _REQUEST_ID_RE.search(value or "")
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _provider_error_fallback_reply(
+    *,
+    request_id: str | None,
+    active_filename: str | None,
+) -> str:
+    page_suffix = f" for {active_filename}" if active_filename else ""
+    if request_id:
+        return (
+            "The model provider returned a transient server error"
+            f" ({request_id}){page_suffix} and no final text was produced. Please retry."
+        )
+    return (
+        "The model provider returned a transient server error"
+        f"{page_suffix} and no final text was produced. Please retry."
+    )
+
+
+def _is_provider_server_error(*, exc: Exception | None = None, text: str | None = None) -> bool:
+    if exc is not None:
+        err_type = str(getattr(exc, "type", "") or "").strip().lower()
+        err_code = str(getattr(exc, "code", "") or "").strip().lower()
+        if err_type == "server_error" or err_code == "server_error":
+            return True
+    lowered = str(text or "").strip().lower()
+    return "server_error" in lowered
 
 
 @router.get("/agent/config", response_model=AgentConfigResponse)
@@ -192,7 +235,24 @@ async def create_agent_reply(
     model_id = session.model_id or AGENT_MODEL
     if model_id not in AGENT_MODELS and AGENT_MODELS:
         model_id = AGENT_MODELS[0]
-    response_text = run_agent_chat(payload, model_id=model_id)
+    response_text = await asyncio.to_thread(
+        run_agent_chat,
+        payload,
+        model_id=model_id,
+        volume_id=session.volume_id,
+        current_filename=req.currentFilename,
+        session_id=session_id,
+    )
+    active_text_box_count = get_active_page_text_box_count(
+        volume_id=session.volume_id,
+        current_filename=req.currentFilename,
+    )
+    response_text, _ = sanitize_agent_reply_text(
+        response_text=response_text,
+        messages=payload,
+        active_filename=req.currentFilename,
+        active_text_box_count=active_text_box_count,
+    )
 
     return add_agent_message(
         session_id,
@@ -207,6 +267,7 @@ async def stream_agent_reply(
     session_id: str,
     request: Request,
     max_messages: int = Query(20, alias="maxMessages"),
+    current_filename: str | None = Query(None, alias="currentFilename"),
 ) -> StreamingResponse:
     """Stream agent reply."""
     session = get_agent_session(session_id)
@@ -230,38 +291,401 @@ async def stream_agent_reply(
 
     def run_stream() -> None:
         text_chunks: list[str] = []
+        action_events: list[dict[str, str]] = []
+        runtime_active_filename = current_filename
+        initial_text_box_count = get_active_page_text_box_count(
+            volume_id=session.volume_id,
+            current_filename=runtime_active_filename,
+        )
+        logger.info(
+            "agent stream start session_id=%s model_id=%s max_messages=%s",
+            session_id,
+            model_id,
+            limit,
+        )
         try:
-            for delta in run_agent_chat_stream(
+            for stream_event in run_agent_chat_stream(
                 payload,
                 model_id=model_id,
+                volume_id=session.volume_id,
+                current_filename=current_filename,
+                session_id=session_id,
                 stop_event=stop_event,
             ):
-                text_chunks.append(delta)
+                event_type = str(stream_event.get("type") or "").strip()
+                if event_type == "delta":
+                    delta = str(stream_event.get("delta") or "")
+                    if delta:
+                        text_chunks.append(delta)
+                        logger.debug(
+                            "agent stream delta session_id=%s chars=%s",
+                            session_id,
+                            len(delta),
+                        )
+                elif event_type in {"activity", "tool_called", "tool_output", "page_switch"}:
+                    if event_type == "tool_called" and text_chunks:
+                        # Discard provisional draft text once tool execution starts.
+                        # The post-tool model pass should produce the grounded final answer.
+                        text_chunks.clear()
+                        loop.call_soon_threadsafe(
+                            queue.put_nowait,
+                            {"type": "delta_reset"},
+                        )
+                        action_events.append(
+                            {
+                                "type": "activity",
+                                "message": "Reset draft response after tool call; waiting for grounded final answer",
+                            }
+                        )
+                    switched_filename = ""
+                    if event_type == "page_switch":
+                        switched_filename = str(stream_event.get("filename") or "").strip()
+                        if switched_filename:
+                            runtime_active_filename = switched_filename
+                    msg = str(stream_event.get("message") or "").strip()
+                    if msg:
+                        action: dict[str, str] = {"type": event_type, "message": msg}
+                        if event_type in {"tool_called", "tool_output", "page_switch"}:
+                            tool_name = str(stream_event.get("tool") or "").strip()
+                            if tool_name:
+                                action["tool"] = tool_name
+                        if event_type == "page_switch" and switched_filename:
+                            action["filename"] = switched_filename
+                        action_events.append(action)
+                        action_events = action_events[-40:]
+                elif event_type:
+                    logger.info(
+                        "agent stream event session_id=%s type=%s",
+                        session_id,
+                        event_type,
+                    )
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
-                    {"type": "delta", "delta": delta},
+                    stream_event,
                 )
             if stop_event.is_set():
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
                     {"type": "canceled"},
                 )
+                logger.info("agent stream canceled session_id=%s", session_id)
                 return
             response_text = "".join(text_chunks).strip()
+            if not response_text:
+                logger.warning(
+                    "agent stream empty output session_id=%s model_id=%s; retrying sync once",
+                    session_id,
+                    model_id,
+                )
+                try:
+                    retry_text = run_agent_chat(
+                        payload,
+                        model_id=model_id,
+                        volume_id=session.volume_id,
+                        current_filename=runtime_active_filename,
+                        session_id=session_id,
+                    ).strip()
+                except Exception as retry_exc:
+                    retry_error_text = str(retry_exc).strip()
+                    retry_request_id = (
+                        str(getattr(retry_exc, "request_id", "") or "").strip()
+                        or _extract_request_id(retry_error_text)
+                    )
+                    if _is_provider_server_error(exc=retry_exc, text=retry_error_text):
+                        response_text = _provider_error_fallback_reply(
+                            request_id=retry_request_id,
+                            active_filename=runtime_active_filename,
+                        )
+                        action_events.append(
+                            {
+                                "type": "activity",
+                                "message": (
+                                    f"Streaming empty-output retry hit provider server error ({retry_request_id}); returned deterministic provider fallback"
+                                    if retry_request_id
+                                    else "Streaming empty-output retry hit provider server error; returned deterministic provider fallback"
+                                ),
+                            }
+                        )
+                        logger.warning(
+                            "agent stream empty-output sync retry provider error session_id=%s request_id=%s",
+                            session_id,
+                            retry_request_id or "unknown",
+                        )
+                    else:
+                        logger.exception(
+                            "agent stream empty-output sync retry failed session_id=%s",
+                            session_id,
+                        )
+                else:
+                    if retry_text:
+                        response_text = retry_text
+                        action_events.append(
+                            {
+                                "type": "activity",
+                                "message": "Streaming produced empty output; recovered via sync retry",
+                            }
+                        )
+                    else:
+                        action_events.append(
+                            {
+                                "type": "activity",
+                                "message": "Streaming and sync retry returned empty output; applied deterministic fallback",
+                            }
+                        )
+            active_text_box_count = get_active_page_text_box_count(
+                volume_id=session.volume_id,
+                current_filename=runtime_active_filename,
+            )
+            if (
+                initial_text_box_count is not None
+                and active_text_box_count is not None
+                and active_text_box_count != initial_text_box_count
+            ):
+                action_events.append(
+                    {
+                        "type": "activity",
+                        "message": (
+                            "Refreshed active page state after tool calls: "
+                            f"text boxes {initial_text_box_count} -> {active_text_box_count}"
+                        ),
+                    }
+                )
+            response_text, guard_reason = sanitize_agent_reply_text(
+                response_text=response_text,
+                messages=payload,
+                active_filename=runtime_active_filename,
+                active_text_box_count=active_text_box_count,
+            )
+            if guard_reason == "stale_context":
+                action_events.append(
+                    {
+                        "type": "activity",
+                        "message": "Blocked stale page facts; returned grounded reply",
+                    }
+                )
+            elif guard_reason == "empty_output_no_boxes":
+                action_events.append(
+                    {
+                        "type": "activity",
+                        "message": "Model returned empty output; returned no-box deterministic reply",
+                    }
+                )
+            elif guard_reason == "empty_output":
+                action_events.append(
+                    {
+                        "type": "activity",
+                        "message": "Model returned empty output; returned deterministic fallback",
+                    }
+                )
+            meta: dict[str, object] = {"source": "agent_reply"}
+            if action_events:
+                meta["actions"] = action_events
             message = add_agent_message(
                 session_id,
                 role="assistant",
                 content=response_text,
-                meta={"source": "agent_reply"},
+                meta=meta,
             )
             loop.call_soon_threadsafe(
                 queue.put_nowait,
                 {"type": "done", "message": message},
             )
+            logger.info(
+                "agent stream done session_id=%s response_chars=%s",
+                session_id,
+                len(response_text),
+            )
         except Exception as exc:
+            error_text = str(exc).strip()
+            request_id = (
+                str(getattr(exc, "request_id", "") or "").strip()
+                or _extract_request_id(error_text)
+            )
+            provider_server_error = _is_provider_server_error(exc=exc, text=error_text)
+            if provider_server_error:
+                logger.warning(
+                    "agent stream provider server error session_id=%s model_id=%s; attempting sync fallback",
+                    session_id,
+                    model_id,
+                )
+            else:
+                logger.exception("agent stream failed session_id=%s", session_id)
+            if request_id:
+                log_fn = logger.warning if provider_server_error else logger.error
+                log_fn(
+                    "agent stream provider error session_id=%s request_id=%s",
+                    session_id,
+                    request_id,
+                )
+            if not stop_event.is_set():
+                try:
+                    logger.info(
+                        "agent stream fallback sync session_id=%s model_id=%s",
+                        session_id,
+                        model_id,
+                    )
+                    fallback_text = ""
+                    for attempt in range(2):
+                        try:
+                            fallback_text = run_agent_chat(
+                                payload,
+                                model_id=model_id,
+                                volume_id=session.volume_id,
+                                current_filename=runtime_active_filename,
+                                session_id=session_id,
+                            ).strip()
+                        except Exception as fallback_attempt_exc:
+                            fallback_attempt_text = str(fallback_attempt_exc).strip()
+                            fallback_attempt_request_id = (
+                                str(getattr(fallback_attempt_exc, "request_id", "") or "").strip()
+                                or _extract_request_id(fallback_attempt_text)
+                            )
+                            if not request_id and fallback_attempt_request_id:
+                                request_id = fallback_attempt_request_id
+                            if attempt == 0 and _is_provider_server_error(
+                                exc=fallback_attempt_exc,
+                                text=fallback_attempt_text,
+                            ):
+                                logger.warning(
+                                    "agent stream fallback sync provider error session_id=%s; retrying once",
+                                    session_id,
+                                )
+                                continue
+                            raise
+                        if fallback_text:
+                            break
+                        if attempt == 0:
+                            logger.warning(
+                                "agent stream fallback attempt empty session_id=%s; retrying once",
+                                session_id,
+                            )
+                    fallback_text_box_count = get_active_page_text_box_count(
+                        volume_id=session.volume_id,
+                        current_filename=runtime_active_filename,
+                    )
+                    fallback_text, guard_reason = sanitize_agent_reply_text(
+                        response_text=fallback_text,
+                        messages=payload,
+                        active_filename=runtime_active_filename,
+                        active_text_box_count=fallback_text_box_count,
+                    )
+                    if guard_reason == "empty_output":
+                        fallback_text = _provider_error_fallback_reply(
+                            request_id=request_id,
+                            active_filename=runtime_active_filename,
+                        )
+                        guard_reason = "provider_error_empty"
+                    fallback_actions = list(action_events)
+                    if guard_reason == "stale_context":
+                        fallback_actions.append(
+                            {
+                                "type": "activity",
+                                "message": "Blocked stale page facts in fallback reply",
+                            }
+                        )
+                    elif guard_reason == "empty_output_no_boxes":
+                        fallback_actions.append(
+                            {
+                                "type": "activity",
+                                "message": "Fallback produced empty output; returned no-box deterministic reply",
+                            }
+                        )
+                    elif guard_reason == "empty_output":
+                        fallback_actions.append(
+                            {
+                                "type": "activity",
+                                "message": "Fallback produced empty output; returned deterministic reply",
+                            }
+                        )
+                    elif guard_reason == "provider_error_empty":
+                        fallback_actions.append(
+                            {
+                                "type": "activity",
+                                "message": (
+                                    f"Provider server error ({request_id}); returned deterministic provider fallback"
+                                    if request_id
+                                    else "Provider server error; returned deterministic provider fallback"
+                                ),
+                            }
+                        )
+                    fallback_actions.append(
+                        {
+                            "type": "activity",
+                            "message": (
+                                f"Streaming failed ({request_id}), used sync fallback reply"
+                                if request_id
+                                else "Streaming failed, used sync fallback reply"
+                            ),
+                        }
+                    )
+                    fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
+                    if fallback_actions:
+                        fallback_meta["actions"] = fallback_actions[-40:]
+                    fallback_message = add_agent_message(
+                        session_id,
+                        role="assistant",
+                        content=fallback_text,
+                        meta=fallback_meta,
+                    )
+                    loop.call_soon_threadsafe(
+                        queue.put_nowait,
+                        {"type": "done", "message": fallback_message},
+                    )
+                    logger.info(
+                        "agent stream fallback done session_id=%s response_chars=%s",
+                        session_id,
+                        len(fallback_text),
+                    )
+                    return
+                except Exception as fallback_exc:
+                    fallback_error_text = str(fallback_exc).strip()
+                    fallback_request_id = (
+                        str(getattr(fallback_exc, "request_id", "") or "").strip()
+                        or _extract_request_id(fallback_error_text)
+                    )
+                    if _is_provider_server_error(exc=fallback_exc, text=fallback_error_text):
+                        final_request_id = fallback_request_id or request_id
+                        fallback_text = _provider_error_fallback_reply(
+                            request_id=final_request_id,
+                            active_filename=runtime_active_filename,
+                        )
+                        fallback_actions = list(action_events)
+                        fallback_actions.append(
+                            {
+                                "type": "activity",
+                                "message": (
+                                    f"Streaming+fallback hit provider server error ({final_request_id}); returned deterministic provider message"
+                                    if final_request_id
+                                    else "Streaming+fallback hit provider server error; returned deterministic provider message"
+                                ),
+                            }
+                        )
+                        fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
+                        if fallback_actions:
+                            fallback_meta["actions"] = fallback_actions[-40:]
+                        fallback_message = add_agent_message(
+                            session_id,
+                            role="assistant",
+                            content=fallback_text,
+                            meta=fallback_meta,
+                        )
+                        loop.call_soon_threadsafe(
+                            queue.put_nowait,
+                            {"type": "done", "message": fallback_message},
+                        )
+                        logger.warning(
+                            "agent stream fallback provider error session_id=%s request_id=%s; returned deterministic provider fallback",
+                            session_id,
+                            final_request_id or "unknown",
+                        )
+                        return
+                    logger.exception(
+                        "agent stream fallback failed session_id=%s",
+                        session_id,
+                    )
             loop.call_soon_threadsafe(
                 queue.put_nowait,
-                {"type": "error", "message": str(exc)},
+                {"type": "error", "message": error_text},
             )
 
     task = asyncio.create_task(asyncio.to_thread(run_stream))
@@ -276,6 +700,31 @@ async def stream_agent_reply(
             try:
                 payload = await asyncio.wait_for(queue.get(), timeout=15.0)
             except asyncio.TimeoutError:
+                if task.done() and queue.empty():
+                    stream_error = task.exception()
+                    if stream_error is not None:
+                        yield (
+                            "data: "
+                            + json.dumps(
+                                {
+                                    "type": "error",
+                                    "message": f"Streaming task ended: {stream_error}",
+                                }
+                            )
+                            + "\n\n"
+                        )
+                    else:
+                        yield (
+                            "data: "
+                            + json.dumps(
+                                {
+                                    "type": "error",
+                                    "message": "Streaming ended without completion event",
+                                }
+                            )
+                            + "\n\n"
+                        )
+                    break
                 yield ": keepalive\n\n"
                 continue
             yield f"data: {json.dumps(payload)}\n\n"

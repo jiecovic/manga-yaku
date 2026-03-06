@@ -13,6 +13,8 @@ How it is tested:
 from __future__ import annotations
 
 import asyncio
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -40,6 +42,41 @@ def _clear_store(store: JobStore) -> None:
         except asyncio.QueueEmpty:
             break
     store.shutdown_event.clear()
+
+
+async def _call_in_thread(
+    func,
+    /,
+    *args,
+    timeout_seconds: float = 5.0,
+    **kwargs,
+):
+    result: dict[str, object] = {}
+    done = threading.Event()
+
+    def _runner() -> None:
+        try:
+            result["value"] = func(*args, **kwargs)
+        except Exception as exc:  # pragma: no cover - exercised in tests
+            result["error"] = exc
+        finally:
+            done.set()
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+
+    deadline = time.monotonic() + timeout_seconds
+    while not done.is_set():
+        if time.monotonic() >= deadline:
+            raise AssertionError("Threaded helper call timed out")
+        await asyncio.sleep(0.01)
+
+    error = result.get("error")
+    if isinstance(error, Exception):
+        raise error
+    if error is not None:
+        raise RuntimeError(str(error))
+    return result.get("value")
 
 
 class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -116,3 +153,61 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
             raise AssertionError("Expected running job to remain in store")
         self.assertEqual(stored.status, JobStatus.canceled)
         self.assertEqual(stored.message, "Canceled (shutdown)")
+
+    async def test_create_and_enqueue_memory_job_from_thread(self) -> None:
+        with (
+            patch.object(runtime, "mark_running_workflows_interrupted"),
+            patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+            patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
+            patch.object(
+                runtime,
+                "_run_translate_db_worker_supervisor",
+                new=_wait_for_event_shutdown,
+            ),
+        ):
+            await runtime.start_jobs_runtime()
+
+            job_id = await _call_in_thread(
+                runtime.create_and_enqueue_memory_job,
+                job_type="box_detection",
+                payload={"volumeId": "vol", "filename": "001.jpg"},
+                message="Queued (test)",
+            )
+
+            stored = runtime.STORE.get_job(job_id)
+            if stored is None:
+                raise AssertionError("Expected job to be present in store")
+            self.assertEqual(stored.status, JobStatus.queued)
+            self.assertEqual(stored.message, "Queued (test)")
+
+            queued_id = runtime.STORE.queue.get_nowait()
+            self.assertEqual(queued_id, job_id)
+            runtime.STORE.queue.task_done()
+
+    async def test_create_and_enqueue_memory_job_marks_failed_when_enqueue_raises(self) -> None:
+        with (
+            patch.object(runtime, "mark_running_workflows_interrupted"),
+            patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+            patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
+            patch.object(
+                runtime,
+                "_run_translate_db_worker_supervisor",
+                new=_wait_for_event_shutdown,
+            ),
+        ):
+            await runtime.start_jobs_runtime()
+            with patch.object(runtime.STORE.queue, "put_nowait", side_effect=RuntimeError("queue down")):
+                with self.assertRaises(RuntimeError):
+                    await _call_in_thread(
+                        runtime.create_and_enqueue_memory_job,
+                        job_type="box_detection",
+                        payload={"volumeId": "vol", "filename": "002.jpg"},
+                    )
+
+            failed_jobs = [job for job in runtime.STORE.jobs.values() if job.status == JobStatus.failed]
+            self.assertEqual(len(failed_jobs), 1)
+            failed = failed_jobs[0]
+            self.assertIn("queue down", str(failed.error or ""))
+
+            queued_jobs = [job for job in runtime.STORE.jobs.values() if job.status == JobStatus.queued]
+            self.assertEqual(len(queued_jobs), 0)

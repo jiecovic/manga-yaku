@@ -12,7 +12,8 @@ dependencies = [
   "httpx==0.28.1",
   "Jinja2==3.1.6",
   "manga-ocr==0.1.14",
-  "openai==2.8.1",
+  "openai==2.24.0",
+  "openai-agents==0.10.4",
   "opencv-python==4.12.0.88",
   "pillow==12.0.0",
   "pydantic==2.12.4",
@@ -42,7 +43,7 @@ py-modules = ["app", "config", "settings"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["api*", "core*", "infra*"]
+include = ["api*", "core*", "infra*", "mcp_server*"]
 
 [tool.ruff]
 target-version = "py310"

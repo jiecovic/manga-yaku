@@ -20,6 +20,7 @@ export interface UpdateAgentSessionRequest {
 
 export interface AgentReplyRequest {
     maxMessages?: number;
+    currentFilename?: string;
 }
 
 export interface AgentConfigResponse {

@@ -87,9 +87,11 @@ def box_row_to_dict(
     if text_content:
         data["text"] = text_content.ocr_text or ""
         data["translation"] = text_content.translation or ""
+        data["note"] = text_content.note or ""
     elif data["type"] == "text":
         data["text"] = ""
         data["translation"] = ""
+        data["note"] = ""
 
     return data
 

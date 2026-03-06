@@ -249,6 +249,7 @@ function TranslateInner({
     // page workspace (boxes, per-page context, actions)
     const {
         boxesByType,
+        runtimeProbeBoxes,
         handleChangeBoxesForType,
         activeBoxType,
         setActiveBoxType,
@@ -378,6 +379,22 @@ function TranslateInner({
         return () => window.removeEventListener("paste", handlePaste);
     }, [handlePaste]);
 
+    const handleAgentPageSwitch = useCallback(
+        (filename: string) => {
+            const target = filename.trim();
+            if (!target || pages.length === 0) {
+                return;
+            }
+            const nextIndex = pages.findIndex((page) => page.filename === target);
+            if (nextIndex < 0) {
+                return;
+            }
+            clearDraftInsert();
+            setPageIndex(nextIndex);
+        },
+        [clearDraftInsert, pages, setPageIndex],
+    );
+
     return (
         <div className={ui.appBody}>
             {/* LEFT: Jobs */}
@@ -390,6 +407,7 @@ function TranslateInner({
                     loadingPages={loadingPages}
                     error={error}
                     boxesByType={boxesByType}
+                    runtimeProbeBoxes={runtimeProbeBoxes}
                     visibleBoxTypes={visibleBoxTypes}
                     activeBoxType={activeBoxType}
                     onChangeBoxesForType={handleChangeBoxesForType}
@@ -475,7 +493,9 @@ function TranslateInner({
                 onClearOcrText={pageActions.onClearOcrText}
                 onClearTranslationText={pageActions.onClearTranslationText}
                 onAutoDetectBoxes={pageActions.onAutoDetectBoxes}
+                onDetectMissingBoxes={pageActions.onDetectMissingBoxes}
                 onRefreshPageState={pageActions.onRefreshPageState}
+                onAgentPageSwitch={handleAgentPageSwitch}
                 onOpenMemory={() => setMemoryOpen(true)}
                 canOpenMemory={Boolean(selectedVolumeId)}
             />

@@ -214,6 +214,7 @@ data/volumes/**
 data/json/**
 data/json/
 data/logs/**
+data/agent_sdk_sessions.sqlite3*
 
 
 # Node (root)

@@ -54,6 +54,7 @@ class AgentReplyRequest(BaseModel):
     """Request options for generating one assistant reply."""
 
     maxMessages: int = 20
+    currentFilename: str | None = None
 
 
 class AgentModelPublic(BaseModel):

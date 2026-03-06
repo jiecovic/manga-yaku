@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
-from api.schemas.boxes import Box, BoxPage, BoxTextPatch
 from fastapi import APIRouter, HTTPException
+
+from api.schemas.boxes import Box, BoxPage, BoxTextPatch
 from infra.db.db_store import (
     load_page,
     save_page,
+    set_box_note_by_id,
     set_box_ocr_text_by_id,
     set_box_translation_by_id,
 )
@@ -77,6 +79,13 @@ def patch_box_text(
                 page_filename,
                 box_id=box_id,
                 translation=payload.translation,
+            )
+        if payload.note is not None:
+            set_box_note_by_id(
+                volume_id,
+                page_filename,
+                box_id=box_id,
+                note=payload.note,
             )
         return {"status": "ok"}
     except Exception as e:

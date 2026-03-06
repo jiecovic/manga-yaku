@@ -26,6 +26,7 @@ class Box(BaseModel):
     modelTask: str | None = None
     text: str | None = ""
     translation: str | None = ""
+    note: str | None = ""
 
 
 class BoxPage(BaseModel):
@@ -42,4 +43,4 @@ class BoxTextPatch(BaseModel):
 
     text: str | None = None
     translation: str | None = None
-
+    note: str | None = None

@@ -25,6 +25,7 @@ from infra.db.db import init_db
 from infra.domain_bindings import bind_domain_ports
 from infra.jobs.runtime import start_jobs_runtime, stop_jobs_runtime
 from infra.logging import setup_logging
+from mcp_server.server import create_server
 from settings import settings
 
 setup_logging(settings.log_level)
@@ -32,6 +33,9 @@ bind_domain_ports()
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
+
+agent_mcp_server = create_server()
+agent_mcp_app = agent_mcp_server.streamable_http_app()
 
 
 @asynccontextmanager
@@ -42,13 +46,17 @@ async def lifespan(_: FastAPI):
     initialize_ocr_runtime()
     await start_jobs_runtime()
     try:
-        yield
+        # Mounted sub-app lifespans are not guaranteed to run, so keep MCP
+        # session manager lifecycle in the main application lifespan.
+        async with agent_mcp_server.session_manager.run():
+            yield
     finally:
         await stop_jobs_runtime()
 
 
 app = FastAPI(title="MangaYaku Python Backend", lifespan=lifespan)
 register_exception_handlers(app)
+app.mount("/api/mcp", agent_mcp_app)
 
 cors_origins = settings.cors_origins
 allow_credentials = settings.cors_allow_credentials

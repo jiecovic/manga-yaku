@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import asyncio
 
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
     CreateJobResponse,
+    CreateMissingBoxDetectionJobRequest,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
     CreatePrepareDatasetJobRequest,
@@ -42,11 +46,10 @@ from api.services.jobs_service import (
     get_resume_agent_payload,
     list_job_public_records,
 )
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
 from infra.jobs.job_modes import (
     AGENT_WORKFLOW_TYPE,
     BOX_DETECTION_JOB_TYPE,
+    MISSING_BOX_DETECTION_JOB_TYPE,
     PREPARE_DATASET_JOB_TYPE,
     TRAIN_MODEL_JOB_TYPE,
 )
@@ -147,6 +150,22 @@ async def create_box_detection_job(
     )
     await STORE.queue.put(job_id)
 
+    return CreateJobResponse(jobId=job_id)
+
+
+@router.post("/jobs/detect_missing_boxes", response_model=CreateJobResponse)
+async def create_missing_box_detection_job(
+    req: CreateMissingBoxDetectionJobRequest,
+) -> CreateJobResponse:
+    """Create LLM-assisted missing text-box detection job."""
+    job_id = enqueue_memory_job(
+        store=STORE,
+        job_type=MISSING_BOX_DETECTION_JOB_TYPE,
+        payload=req.model_dump(),
+        progress=0,
+        message="Queued",
+    )
+    await STORE.queue.put(job_id)
     return CreateJobResponse(jobId=job_id)
 
 

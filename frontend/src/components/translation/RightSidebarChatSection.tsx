@@ -1,6 +1,6 @@
 // src/components/translation/RightSidebarChatSection.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AgentMessage, AgentModel, AgentSession } from "../../types";
+import type { AgentMessage, AgentModel } from "../../types";
 import {
     createAgentMessage,
     createAgentSession,
@@ -14,34 +14,32 @@ import {
 import { API_BASE } from "../../api/client";
 import { Button, Field, Select } from "../../ui/primitives";
 import { ui } from "../../ui/tokens";
+import { ChatMessageList } from "./ChatMessageList";
+import {
+    getPinnedActivityEntries,
+    messageHasMutatingToolAction,
+    messagePageSwitchFilename,
+    type AgentSessionState,
+    type AgentStreamPayload,
+    buildDraftSession,
+} from "./RightSidebarChatSection.helpers";
+import {
+    ChatStreamActivity,
+    type ChatStreamActivityEntry,
+} from "./ChatStreamActivity";
 
 interface RightSidebarChatSectionProps {
     volumeId: string;
+    currentFilename: string;
+    onPageMutated?: () => void | Promise<void>;
+    onRequestPageChange?: (filename: string) => void;
 }
-
-type AgentSessionState = AgentSession & {
-    isDraft?: boolean;
-};
-
-const buildDraftSession = (
-    volumeId: string,
-    title: string,
-    modelId: string | null,
-): AgentSessionState => {
-    const now = new Date().toISOString();
-    return {
-        id: `draft-${Date.now()}`,
-        volumeId,
-        title,
-        modelId,
-        createdAt: now,
-        updatedAt: now,
-        isDraft: true,
-    };
-};
 
 export function RightSidebarChatSection({
     volumeId,
+    currentFilename,
+    onPageMutated,
+    onRequestPageChange,
 }: RightSidebarChatSectionProps) {
     const [sessions, setSessions] = useState<AgentSessionState[]>([]);
     const [activeSessionId, setActiveSessionId] = useState("");
@@ -57,6 +55,10 @@ export function RightSidebarChatSection({
     const [error, setError] = useState<string | null>(null);
     const [streamingText, setStreamingText] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
+    const [streamActivity, setStreamActivity] = useState<
+        ChatStreamActivityEntry[]
+    >([]);
+    const [activityExpanded, setActivityExpanded] = useState(false);
     const endRef = useRef<HTMLDivElement | null>(null);
     const streamRef = useRef<EventSource | null>(null);
     const streamSessionRef = useRef<string | null>(null);
@@ -186,6 +188,19 @@ export function RightSidebarChatSection({
         () => sessions.find((session) => session.id === activeSessionId) ?? null,
         [sessions, activeSessionId],
     );
+    const pinnedActivity = useMemo(
+        () => getPinnedActivityEntries(messages, streamActivity),
+        [messages, streamActivity],
+    );
+    const latestInfoActivity = useMemo(() => {
+        for (let index = pinnedActivity.length - 1; index >= 0; index -= 1) {
+            const entry = pinnedActivity[index];
+            if (entry.kind === "activity") {
+                return entry;
+            }
+        }
+        return null;
+    }, [pinnedActivity]);
 
     useEffect(() => {
         if (!activeSession) return;
@@ -216,6 +231,7 @@ export function RightSidebarChatSection({
             setStreamingText("");
             setReplying(false);
             setIsStreaming(false);
+            setStreamActivity([]);
         }
         if (!activeSessionId && streamRef.current) {
             streamRef.current.close();
@@ -224,6 +240,7 @@ export function RightSidebarChatSection({
             setStreamingText("");
             setReplying(false);
             setIsStreaming(false);
+            setStreamActivity([]);
         }
     }, [activeSessionId]);
 
@@ -365,6 +382,7 @@ export function RightSidebarChatSection({
             setReplying(true);
             setStreamingText("");
             setIsStreaming(false);
+            setStreamActivity([]);
             receivedDeltaRef.current = false;
             streamCanceledRef.current = false;
 
@@ -372,9 +390,15 @@ export function RightSidebarChatSection({
                 if (streamRef.current) {
                     streamRef.current.close();
                 }
+                const params = new URLSearchParams();
+                params.set("maxMessages", "20");
+                const trimmedFilename = currentFilename.trim();
+                if (trimmedFilename) {
+                    params.set("currentFilename", trimmedFilename);
+                }
                 const url = `${API_BASE}/api/agent/sessions/${encodeURIComponent(
                     sessionId,
-                )}/reply/stream?maxMessages=20`;
+                )}/reply/stream?${params.toString()}`;
                 const source = new EventSource(url);
                 streamRef.current = source;
                 streamSessionRef.current = sessionId;
@@ -385,36 +409,90 @@ export function RightSidebarChatSection({
                         return;
                     }
                     try {
-                        const payload = JSON.parse(event.data);
-                        if (payload.type === "delta") {
+                        const payload = JSON.parse(event.data) as AgentStreamPayload;
+                        const streamType =
+                            typeof payload.type === "string" ? payload.type : "";
+                        if (streamType === "delta") {
                             receivedDeltaRef.current = true;
                             setStreamingText((prev) => prev + String(payload.delta || ""));
                             return;
                         }
-                        if (payload.type === "done" && payload.message) {
-                            setMessages((prev) => [...prev, payload.message as AgentMessage]);
+                        if (streamType === "delta_reset") {
+                            receivedDeltaRef.current = false;
+                            setStreamingText("");
+                            return;
+                        }
+                        if (
+                            streamType === "activity" ||
+                            streamType === "tool_called" ||
+                            streamType === "tool_output" ||
+                            streamType === "page_switch"
+                        ) {
+                            const text = String(payload.message || "").trim();
+                            const switchedFilename = String(payload.filename || "").trim();
+                            if (streamType === "page_switch" && switchedFilename) {
+                                onRequestPageChange?.(switchedFilename);
+                            }
+                            if (!text) {
+                                return;
+                            }
+                            setStreamActivity((prev) => {
+                                const next: ChatStreamActivityEntry = {
+                                    id: `${Date.now()}-${prev.length}`,
+                                    kind: streamType,
+                                    text,
+                                    filename: switchedFilename || undefined,
+                                };
+                                return [...prev, next].slice(-10);
+                            });
+                            return;
+                        }
+                        if (
+                            streamType === "done" &&
+                            payload.message &&
+                            typeof payload.message === "object"
+                        ) {
+                            const assistantMessage = payload.message as AgentMessage;
+                            setMessages((prev) => [
+                                ...prev,
+                                assistantMessage,
+                            ]);
+                            if (messageHasMutatingToolAction(assistantMessage)) {
+                                void onPageMutated?.();
+                            }
+                            const switchedFilename = messagePageSwitchFilename(assistantMessage);
+                            if (switchedFilename) {
+                                onRequestPageChange?.(switchedFilename);
+                            }
                             setStreamingText("");
                             setReplying(false);
                             setIsStreaming(false);
+                            setStreamActivity([]);
                             source.close();
                             streamRef.current = null;
                             streamSessionRef.current = null;
                             return;
                         }
-                        if (payload.type === "canceled") {
+                        if (streamType === "canceled") {
                             setStreamingText("");
                             setReplying(false);
                             setIsStreaming(false);
+                            setStreamActivity([]);
                             source.close();
                             streamRef.current = null;
                             streamSessionRef.current = null;
                             return;
                         }
-                        if (payload.type === "error") {
-                            setError(payload.message || "Streaming failed.");
+                        if (streamType === "error") {
+                            const message =
+                                typeof payload.message === "string"
+                                    ? payload.message
+                                    : "Streaming failed.";
+                            setError(message);
                             setStreamingText("");
                             setReplying(false);
                             setIsStreaming(false);
+                            setStreamActivity([]);
                             source.close();
                             streamRef.current = null;
                             streamSessionRef.current = null;
@@ -433,6 +511,7 @@ export function RightSidebarChatSection({
                         setStreamingText("");
                         setReplying(false);
                         setIsStreaming(false);
+                        setStreamActivity([]);
                         return;
                     }
                     source.close();
@@ -443,8 +522,16 @@ export function RightSidebarChatSection({
                         try {
                             const assistantMessage = await requestAgentReply(sessionId, {
                                 maxMessages: 20,
+                                currentFilename: currentFilename.trim() || undefined,
                             });
                             setMessages((prev) => [...prev, assistantMessage]);
+                            if (messageHasMutatingToolAction(assistantMessage)) {
+                                void onPageMutated?.();
+                            }
+                            const switchedFilename = messagePageSwitchFilename(assistantMessage);
+                            if (switchedFilename) {
+                                onRequestPageChange?.(switchedFilename);
+                            }
                         } catch (err) {
                             console.error("Failed to fetch agent reply", err);
                             setError("Failed to stream message.");
@@ -454,13 +541,23 @@ export function RightSidebarChatSection({
                     }
                     setStreamingText("");
                     setReplying(false);
+                    setStreamActivity([]);
                 };
             } else {
                 const assistantMessage = await requestAgentReply(sessionId, {
                     maxMessages: 20,
+                    currentFilename: currentFilename.trim() || undefined,
                 });
                 setMessages((prev) => [...prev, assistantMessage]);
+                if (messageHasMutatingToolAction(assistantMessage)) {
+                    void onPageMutated?.();
+                }
+                const switchedFilename = messagePageSwitchFilename(assistantMessage);
+                if (switchedFilename) {
+                    onRequestPageChange?.(switchedFilename);
+                }
                 setReplying(false);
+                setStreamActivity([]);
             }
         } catch (err) {
             console.error("Failed to send agent message", err);
@@ -468,6 +565,7 @@ export function RightSidebarChatSection({
             setStreamingText("");
             setReplying(false);
             setIsStreaming(false);
+            setStreamActivity([]);
             if (createdSessionId && !messageCreated) {
                 try {
                     await deleteAgentSession(createdSessionId);
@@ -504,6 +602,7 @@ export function RightSidebarChatSection({
         setStreamingText("");
         setReplying(false);
         setIsStreaming(false);
+        setStreamActivity([]);
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -601,56 +700,45 @@ export function RightSidebarChatSection({
 
             {error && <div className={ui.errorTextXs}>{error}</div>}
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                {loadingMessages && (
-                    <div className={ui.mutedTextXs}>Loading messages...</div>
-                )}
-                {!loadingMessages && messages.length === 0 && (
-                    <div className={ui.emptyState}>
-                        <div>No messages yet.</div>
-                        <div className={ui.emptyStateSub}>
-                            Ask the agent about the current volume.
-                        </div>
-                    </div>
-                )}
-                {messages.map((message) => {
-                    const isUser = message.role === "user";
-                    return (
-                        <div
-                            key={message.id}
-                            className={`flex ${
-                                isUser ? "justify-end" : "justify-start"
-                            }`}
+            {pinnedActivity.length > 0 && (
+                <div className="rounded-md border border-slate-800/80 bg-slate-950/50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className={ui.mutedTextMicro}>Agent Activity</div>
+                        <Button
+                            type="button"
+                            variant="ghostSmall"
+                            className="px-1.5 py-0 text-[10px]"
+                            onClick={() => setActivityExpanded((prev) => !prev)}
                         >
-                            <div
-                                className={`max-w-[85%] rounded-md border px-3 py-2 text-xs ${
-                                    isUser
-                                        ? "border-slate-700 bg-slate-800 text-slate-100"
-                                        : "border-slate-800 bg-slate-900/80 text-slate-200"
-                                }`}
-                            >
-                                <div className={ui.mutedTextMicro}>
-                                    {isUser ? "You" : "Agent"}
-                                </div>
-                                <div className="whitespace-pre-wrap">
-                                    {message.content}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-                {replying && (
-                    <div className="flex justify-start">
-                        <div className="max-w-[85%] rounded-md border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs text-slate-200">
-                            <div className={ui.mutedTextMicro}>Agent</div>
-                            <div className="whitespace-pre-wrap">
-                                {streamingText || "Thinking..."}
-                            </div>
-                        </div>
+                            {activityExpanded ? "Collapse" : "Expand"}
+                        </Button>
                     </div>
-                )}
-                <div ref={endRef} />
-            </div>
+                    <div className="mt-1">
+                        {activityExpanded ? (
+                            <ChatStreamActivity entries={pinnedActivity} />
+                        ) : latestInfoActivity ? (
+                            <div className="text-[10px] text-slate-400">
+                                <span className="uppercase tracking-wide text-slate-500">
+                                    info
+                                </span>{" "}
+                                {latestInfoActivity.text}
+                            </div>
+                        ) : (
+                            <div className="text-[10px] text-slate-500">
+                                No info entries.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <ChatMessageList
+                loadingMessages={loadingMessages}
+                messages={messages}
+                replying={replying}
+                streamingText={streamingText}
+                endRef={endRef}
+            />
 
             <div className="space-y-2">
                 {activeSession && (

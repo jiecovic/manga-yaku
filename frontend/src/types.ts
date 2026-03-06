@@ -49,6 +49,7 @@ export interface Box {
     // Editable optional fields
     text?: string;         // OCR result (text boxes only)
     translation?: string;  // Translation (text boxes only)
+    note?: string;         // Agent/editor note (text boxes only)
 }
 
 export interface BoxDetectionProfile {

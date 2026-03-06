@@ -5,6 +5,7 @@ import {
     loadPageState,
     savePageState,
     createBoxDetectionJob,
+    createMissingBoxDetectionJob,
     patchBoxText,
 } from "../api/boxes";
 import { usePage } from "../context/usePage";
@@ -27,6 +28,7 @@ export interface UsePageBoxesResult {
     handleClearTextField: (field: "text" | "translation") => void;
 
     handleAutoDetectBoxes: (profileId?: string, task?: string) => Promise<void>;
+    handleDetectMissingBoxes: () => Promise<void>;
     handleRefreshPageState: () => Promise<void>;
 }
 
@@ -344,6 +346,19 @@ export function usePageBoxes(): UsePageBoxesResult {
         }
     };
 
+    const handleDetectMissingBoxes = async () => {
+        if (!volumeId || !filename || !pageKey) return;
+
+        try {
+            await createMissingBoxDetectionJob({
+                volumeId,
+                filename,
+            });
+        } catch (err) {
+            console.error("Detect missing boxes failed:", err);
+        }
+    };
+
     // NEW: full refresh from backend (boxes)
     const handleRefreshPageState = async () => {
         if (!volumeId || !filename || !pageKey) return;
@@ -372,6 +387,7 @@ export function usePageBoxes(): UsePageBoxesResult {
         handleUpdateBoxText,
         handleClearTextField,
         handleAutoDetectBoxes,
+        handleDetectMissingBoxes,
         handleRefreshPageState,
     };
 }

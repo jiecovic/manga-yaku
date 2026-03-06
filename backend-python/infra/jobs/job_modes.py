@@ -11,6 +11,7 @@ OCR_PAGE_WORKFLOW_TYPE: Final[str] = "ocr_page"
 OCR_BOX_WORKFLOW_TYPE: Final[str] = "ocr_box"
 TRANSLATE_BOX_WORKFLOW_TYPE: Final[str] = "translate_box"
 BOX_DETECTION_JOB_TYPE: Final[str] = "box_detection"
+MISSING_BOX_DETECTION_JOB_TYPE: Final[str] = "detect_missing_boxes"
 PREPARE_DATASET_JOB_TYPE: Final[str] = "prepare_dataset"
 TRAIN_MODEL_JOB_TYPE: Final[str] = "train_model"
 
@@ -39,6 +40,7 @@ PERSISTED_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
 MEMORY_ONLY_JOB_TYPES: Final[frozenset[str]] = frozenset(
     {
         BOX_DETECTION_JOB_TYPE,
+        MISSING_BOX_DETECTION_JOB_TYPE,
         PREPARE_DATASET_JOB_TYPE,
         TRAIN_MODEL_JOB_TYPE,
     }

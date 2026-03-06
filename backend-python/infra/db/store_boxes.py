@@ -115,6 +115,7 @@ def replace_boxes_for_type(
                 row.text_content = TextBoxContent(
                     ocr_text=str(det.get("text") or ""),
                     translation=str(det.get("translation") or ""),
+                    note=str(det.get("note") or ""),
                 )
             session.add(row)
             session.flush()
@@ -148,6 +149,7 @@ def _upsert_text_content(
     box: Box,
     ocr_text: str | None = None,
     translation: str | None = None,
+    note: str | None = None,
 ) -> None:
     content = session.execute(
         select(TextBoxContent).where(TextBoxContent.box_id == box.id)
@@ -157,6 +159,7 @@ def _upsert_text_content(
             box_id=box.id,
             ocr_text="",
             translation="",
+            note="",
         )
         session.add(content)
 
@@ -164,6 +167,8 @@ def _upsert_text_content(
         content.ocr_text = ocr_text
     if translation is not None:
         content.translation = translation
+    if note is not None:
+        content.note = note
 
     content.updated_at = utc_now()
 
@@ -194,6 +199,20 @@ def set_box_ocr_text_by_id(
         if box is None or box.type != "text":
             return
         _upsert_text_content(session, box=box, ocr_text=ocr_text)
+
+
+def set_box_note_by_id(
+    volume_id: str,
+    filename: str,
+    *,
+    box_id: int,
+    note: str,
+) -> None:
+    with get_session() as session:
+        box = _find_box_by_box_id(session, volume_id, filename, box_id)
+        if box is None or box.type != "text":
+            return
+        _upsert_text_content(session, box=box, note=note)
 
 
 def update_box_geometry_by_id(

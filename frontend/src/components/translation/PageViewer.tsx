@@ -9,6 +9,7 @@ interface PageViewerProps {
     loadingPages: boolean;
     error: string | null;
     boxesByType: Record<BoxType, Box[]>;
+    runtimeProbeBoxes: Box[];
     visibleBoxTypes: BoxType[];
     activeBoxType: BoxType;
     onChangeBoxesForType: (type: BoxType, next: Box[]) => void;
@@ -32,6 +33,7 @@ export function PageViewer({
     loadingPages,
     error,
     boxesByType,
+    runtimeProbeBoxes,
     visibleBoxTypes,
     activeBoxType,
     onChangeBoxesForType,
@@ -65,6 +67,7 @@ export function PageViewer({
                     <PageCanvas
                         imageUrl={imageUrl}
                         boxesByType={boxesByType}
+                        runtimeProbeBoxes={runtimeProbeBoxes}
                         visibleBoxTypes={visibleBoxTypes}
                         activeBoxType={activeBoxType}
                         editableBoxTypes={EDITABLE_BOX_TYPES}

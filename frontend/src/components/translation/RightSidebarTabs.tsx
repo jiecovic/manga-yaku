@@ -82,7 +82,9 @@ interface RightSidebarTabsProps {
     onClearOcrText: () => void;
     onClearTranslationText: () => void;
     onAutoDetectBoxes: () => void;
+    onDetectMissingBoxes: () => void;
     onRefreshPageState: () => void;
+    onAgentPageSwitch: (filename: string) => void;
     onOpenMemory: () => void;
     canOpenMemory: boolean;
 }
@@ -135,7 +137,9 @@ export function RightSidebarTabs({
     onClearOcrText,
     onClearTranslationText,
     onAutoDetectBoxes,
+    onDetectMissingBoxes,
     onRefreshPageState,
+    onAgentPageSwitch,
     onOpenMemory,
     canOpenMemory,
 }: RightSidebarTabsProps) {
@@ -243,6 +247,7 @@ export function RightSidebarTabs({
                             onClearOcrText={onClearOcrText}
                             onClearTranslationText={onClearTranslationText}
                             onAutoDetectBoxes={onAutoDetectBoxes}
+                            onDetectMissingBoxes={onDetectMissingBoxes}
                             onRefreshPageState={onRefreshPageState}
                             onOpenMemory={onOpenMemory}
                             canOpenMemory={canOpenMemory}
@@ -252,7 +257,12 @@ export function RightSidebarTabs({
 
                 {activeTab === "chat" && (
                     <div className="h-full overflow-hidden">
-                        <RightSidebarChatSection volumeId={selectedVolumeId} />
+                        <RightSidebarChatSection
+                            volumeId={selectedVolumeId}
+                            currentFilename={currentPageFilename}
+                            onPageMutated={onRefreshPageState}
+                            onRequestPageChange={onAgentPageSwitch}
+                        />
                     </div>
                 )}
             </div>

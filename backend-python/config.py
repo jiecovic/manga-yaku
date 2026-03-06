@@ -40,11 +40,16 @@ DATABASE_URL = settings.database_url
 AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-5.2")
 AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
 AGENT_MAX_OUTPUT_TOKENS = int(os.getenv("AGENT_MAX_OUTPUT_TOKENS", "512"))
+AGENT_MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "18"))
 AGENT_TRANSLATE_MAX_OUTPUT_TOKENS = int(
     os.getenv("AGENT_TRANSLATE_MAX_OUTPUT_TOKENS", "2048")
 )
 AGENT_MAX_MESSAGE_CHARS = int(os.getenv("AGENT_MAX_MESSAGE_CHARS", "2000"))
 AGENT_REASONING_EFFORT = os.getenv("AGENT_REASONING_EFFORT", "medium").strip().lower()
+AGENT_GROUNDING_MODE = os.getenv("AGENT_GROUNDING_MODE", "lazy").strip().lower()
+AGENT_MCP_SERVER_URL = os.getenv(
+    "AGENT_MCP_SERVER_URL", "http://127.0.0.1:8101/api/mcp/"
+).strip()
 AGENT_TRANSLATE_REASONING_EFFORT = os.getenv(
     "AGENT_TRANSLATE_REASONING_EFFORT", "low"
 ).strip().lower()

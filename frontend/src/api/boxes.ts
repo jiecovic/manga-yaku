@@ -57,7 +57,7 @@ export async function patchBoxText(
     volumeId: string,
     filename: string,
     boxId: number,
-    payload: { text?: string | null; translation?: string | null },
+    payload: { text?: string | null; translation?: string | null; note?: string | null },
     options?: { keepalive?: boolean },
 ): Promise<void> {
     await apiFetch(
@@ -113,6 +113,33 @@ export async function createBoxDetectionJob(
     payload: CreateBoxDetectionJobRequest,
 ): Promise<CreateJobResponse> {
     const res = await apiFetch(`${API_BASE}/api/jobs/box_detection`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    return res.json() as Promise<CreateJobResponse>;
+}
+
+export interface CreateMissingBoxDetectionJobRequest {
+    volumeId: string;
+    filename: string;
+    modelId?: string;
+    maxCandidates?: number;
+    maxAttemptsPerCandidate?: number;
+    minConfidence?: number;
+    overlapIouThreshold?: number;
+    maxImageSide?: number;
+    cropPaddingPx?: number;
+}
+
+export async function createMissingBoxDetectionJob(
+    payload: CreateMissingBoxDetectionJobRequest,
+): Promise<CreateJobResponse> {
+    const res = await apiFetch(`${API_BASE}/api/jobs/detect_missing_boxes`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

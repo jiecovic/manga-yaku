@@ -24,6 +24,7 @@ export function JobsPanel() {
     const { jobs, jobsError, jobsLoading, clearFinished, cancelJob, deleteJob } =
         useJobs();
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
+    const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
 
     const sortedJobs = useMemo(
         () => jobs.slice().sort((a, b) => b.created_at - a.created_at),
@@ -47,7 +48,26 @@ export function JobsPanel() {
         return () => window.clearInterval(timerId);
     }, [hasActiveJobs]);
 
+    useEffect(() => {
+        if (!copiedJobId) {
+            return undefined;
+        }
+        const timerId = window.setTimeout(() => {
+            setCopiedJobId(null);
+        }, 1200);
+        return () => window.clearTimeout(timerId);
+    }, [copiedJobId]);
+
     const { expandedJobs, setExpandedJobs, jobTasks } = useJobTasks(sortedJobs);
+
+    async function handleCopyJobId(jobId: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(jobId);
+            setCopiedJobId(jobId);
+        } catch {
+            setCopiedJobId(null);
+        }
+    }
 
     return (
         <aside className={ui.jobsPanel}>
@@ -282,6 +302,20 @@ export function JobsPanel() {
                                     ) : (
                                         detail && <div className={ui.jobsDetail}>{detail}</div>
                                     )}
+
+                                    <div className={`mt-1 flex items-center gap-2 ${ui.jobsMeta}`}>
+                                        <span className="font-mono break-all" title={job.id}>
+                                            Job ID: {job.id}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={ui.jobsButtonTiny}
+                                            onClick={() => void handleCopyJobId(job.id)}
+                                            title="Copy full job ID"
+                                        >
+                                            {copiedJobId === job.id ? "copied" : "copy"}
+                                        </button>
+                                    </div>
 
                                     {modelMeta &&
                                         (job.type === "ocr_box" ||
