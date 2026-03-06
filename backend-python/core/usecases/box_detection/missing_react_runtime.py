@@ -3,29 +3,36 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from .missing_react_config import (
     MissingBoxDetectionConfig,
     RuntimeEventCallback,
     _emit_runtime_event,
-    _safe_float,
 )
 from .missing_react_geometry import (
     _box_area,
     _box_iou,
     _encode_box_overlay_data_url,
     _encode_crop_data_url,
-    _hint_looks_like_literal_text,
-    _is_useful_observed_text,
     _normalize_candidate_bbox,
-    _observed_matches_hint,
     _retry_candidate_box,
     _to_original_box,
     _to_resized_box,
 )
 from .missing_react_llm import _adjust_candidate_box, _verify_candidate_crop
+from .missing_react_runtime_events import (
+    emit_retryable_runtime_event,
+    emit_retrying_event,
+    record_attempt,
+)
+from .missing_react_runtime_support import (
+    build_adjust_error_reason,
+    interpret_verification,
+    run_verification_step,
+    split_error_reason,
+    try_encode_crop_data_url,
+)
 
 
 def _normalize_candidates(
@@ -181,8 +188,8 @@ def _evaluate_candidate(
                         return {"box": normalized}
                 adjust_error_reason = "adjust_invalid_geometry: model returned invalid box geometry"
             except Exception as exc:
-                adjust_error_reason = _build_adjust_error_reason(exc)
-            adjust_error_kind, adjust_error_detail = _split_error_reason(adjust_error_reason)
+                adjust_error_reason = build_adjust_error_reason(exc)
+            adjust_error_kind, adjust_error_detail = split_error_reason(adjust_error_reason)
             return {
                 "box": _retry_candidate_box(
                     initial_candidate_box,
@@ -287,7 +294,7 @@ def _evaluate_candidate(
         )
         if any(_box_iou(attempt_box, occupied) >= cfg.overlap_iou_threshold for occupied in occupancy_boxes):
             failure_reason = "overlaps_existing_coverage"
-            _emit_retryable_runtime_event(
+            emit_retryable_runtime_event(
                 on_runtime_event=on_runtime_event,
                 verify_progress=verify_progress,
                 candidate_index=candidate_index,
@@ -300,10 +307,11 @@ def _evaluate_candidate(
                 latest_trial=latest_trial,
             )
             if attempt_idx < cfg.max_attempts_per_candidate:
-                overlap_crop_data_url = _try_encode_crop_data_url(
+                overlap_crop_data_url = try_encode_crop_data_url(
                     source_image=source_image,
                     attempt_box=attempt_box,
                     crop_padding_px=cfg.crop_padding_px,
+                    encode_crop_data_url_fn=_encode_crop_data_url,
                 )
                 choose_result = _choose_next_box(
                     current_box=attempt_box,
@@ -320,7 +328,7 @@ def _evaluate_candidate(
                     attempt_idx=attempt_idx,
                     verification_reason=failure_reason,
                 )
-                _record_attempt(
+                record_attempt(
                     attempt_history,
                     attempt_idx,
                     attempt_box,
@@ -329,7 +337,7 @@ def _evaluate_candidate(
                     adjust_error_kind=adjust_error_kind,
                     adjust_error_detail=adjust_error_detail,
                 )
-                _emit_retrying_event(
+                emit_retrying_event(
                     on_runtime_event=on_runtime_event,
                     verify_progress=verify_progress,
                     candidate_index=candidate_index,
@@ -344,7 +352,7 @@ def _evaluate_candidate(
                 continue
             break
 
-        crop_data_url, verification, failure_reason = _run_verification_step(
+        crop_data_url, verification, failure_reason = run_verification_step(
             client=client,
             cfg=cfg,
             volume_id=volume_id,
@@ -352,12 +360,14 @@ def _evaluate_candidate(
             source_image=source_image,
             attempt_box=attempt_box,
             attempt_idx=attempt_idx,
+            encode_crop_data_url_fn=_encode_crop_data_url,
+            verify_candidate_crop_fn=_verify_candidate_crop,
         )
         error_kind = None
         error_detail = None
         if verification is None:
-            error_kind, error_detail = _split_error_reason(failure_reason)
-            _emit_retryable_runtime_event(
+            error_kind, error_detail = split_error_reason(failure_reason)
+            emit_retryable_runtime_event(
                 on_runtime_event=on_runtime_event,
                 verify_progress=verify_progress,
                 candidate_index=candidate_index,
@@ -387,7 +397,7 @@ def _evaluate_candidate(
                     attempt_idx=attempt_idx,
                     verification_reason=failure_reason,
                 )
-                _record_attempt(
+                record_attempt(
                     attempt_history,
                     attempt_idx,
                     attempt_box,
@@ -398,7 +408,7 @@ def _evaluate_candidate(
                     adjust_error_kind=adjust_error_kind,
                     adjust_error_detail=adjust_error_detail,
                 )
-                _emit_retrying_event(
+                emit_retrying_event(
                     on_runtime_event=on_runtime_event,
                     verify_progress=verify_progress,
                     candidate_index=candidate_index,
@@ -415,7 +425,7 @@ def _evaluate_candidate(
                 continue
             break
 
-        verdict = _interpret_verification(
+        verdict = interpret_verification(
             cfg=cfg,
             hint_text=hint_text,
             verification=verification,
@@ -478,7 +488,7 @@ def _evaluate_candidate(
                     attempt_idx=attempt_idx,
                     verification_reason="try_smaller_box_keep_text_inside",
                 )
-                _emit_retrying_event(
+                emit_retrying_event(
                     on_runtime_event=on_runtime_event,
                     verify_progress=verify_progress,
                     candidate_index=candidate_index,
@@ -493,7 +503,7 @@ def _evaluate_candidate(
                     verify_confidence=verdict["confidence"],
                     verified_text=observed_text,
                 )
-                _record_attempt(
+                record_attempt(
                     attempt_history,
                     attempt_idx,
                     attempt_box,
@@ -535,7 +545,7 @@ def _evaluate_candidate(
                 attempt_idx=attempt_idx,
                 verification_reason=failure_reason,
             )
-            _emit_retrying_event(
+            emit_retrying_event(
                 on_runtime_event=on_runtime_event,
                 verify_progress=verify_progress,
                 candidate_index=candidate_index,
@@ -550,7 +560,7 @@ def _evaluate_candidate(
                 verify_confidence=verdict["confidence"],
                 verified_text=observed_text,
             )
-            _record_attempt(
+            record_attempt(
                 attempt_history,
                 attempt_idx,
                 attempt_box,
@@ -654,261 +664,3 @@ def _evaluate_candidate(
         "attempt_step_index": attempt_step_index,
         "progress": verify_progress,
     }
-
-
-def _try_encode_crop_data_url(
-    *,
-    source_image: Any,
-    attempt_box: dict[str, float],
-    crop_padding_px: int,
-) -> str | None:
-    try:
-        return _encode_crop_data_url(
-            image=source_image,
-            box=attempt_box,
-            padding_px=crop_padding_px,
-        )
-    except Exception:
-        return None
-
-
-def _run_verification_step(
-    *,
-    client: Any,
-    cfg: MissingBoxDetectionConfig,
-    volume_id: str,
-    filename: str,
-    source_image: Any,
-    attempt_box: dict[str, float],
-    attempt_idx: int,
-) -> tuple[str | None, dict[str, Any] | None, str]:
-    crop_data_url: str | None = None
-    try:
-        crop_data_url = _encode_crop_data_url(
-            image=source_image,
-            box=attempt_box,
-            padding_px=cfg.crop_padding_px,
-        )
-        verification = _verify_candidate_crop(
-            client=client,
-            cfg=cfg,
-            volume_id=volume_id,
-            filename=filename,
-            attempt_index=attempt_idx,
-            crop_data_url=crop_data_url,
-        )
-        return crop_data_url, verification, ""
-    except Exception as exc:
-        failure_reason = _build_verification_error_reason(exc)
-        return crop_data_url, None, failure_reason
-
-
-def _build_verification_error_reason(exc: Exception) -> str:
-    error_kind = _classify_model_step_error(exc)
-    detail = str(exc).strip() or exc.__class__.__name__
-    detail = " ".join(detail.split())
-    if len(detail) > 180:
-        detail = detail[:177] + "..."
-    return f"{error_kind}: {detail}"
-
-
-def _build_adjust_error_reason(exc: Exception) -> str:
-    error_kind = _classify_model_step_error(exc)
-    detail = str(exc).strip() or exc.__class__.__name__
-    detail = " ".join(detail.split())
-    if len(detail) > 180:
-        detail = detail[:177] + "..."
-    return f"{error_kind}: {detail}"
-
-
-def _split_error_reason(reason: str) -> tuple[str | None, str | None]:
-    text = str(reason or "").strip()
-    if not text:
-        return None, None
-    if ": " not in text:
-        return text, None
-    error_kind, error_detail = text.split(": ", 1)
-    return error_kind.strip() or None, error_detail.strip() or None
-
-
-def _classify_model_step_error(exc: Exception) -> str:
-    text = str(exc).strip().lower()
-    type_name = exc.__class__.__name__.lower()
-    module_name = exc.__class__.__module__.lower()
-
-    if isinstance(exc, json.JSONDecodeError):
-        return "schema_parse_error"
-    if text.startswith("model refusal:") or "refusal" in text:
-        return "model_refusal"
-    if "invalid crop bounds" in text:
-        return "crop_bounds_error"
-    if (
-        "no json object found" in text
-        or "model response json" in text
-        or "empty model response" in text
-        or "expecting value" in text
-        or "expecting ',' delimiter" in text
-    ):
-        return "schema_parse_error"
-    if "openai" in module_name or type_name.endswith("error"):
-        if "timeout" in text or "timed out" in text:
-            return "provider_timeout"
-        return "provider_error"
-    return "verification_runtime_error"
-
-
-def _interpret_verification(
-    *,
-    cfg: MissingBoxDetectionConfig,
-    hint_text: str,
-    verification: dict[str, Any],
-    latest_trial: dict[str, Any],
-) -> dict[str, Any]:
-    contains_text = bool(verification.get("contains_text"))
-    fully_inside_box = bool(verification.get("fully_inside_box"))
-    text_cut_off = bool(verification.get("text_cut_off"))
-    if not text_cut_off and contains_text and not fully_inside_box:
-        text_cut_off = True
-    confidence = _safe_float(verification.get("confidence"), 0.0, min_value=0.0, max_value=1.0)
-    observed_text = str(verification.get("observed_text") or "").strip()
-    failure_reason = str(verification.get("reason") or "").strip() or "rejected_by_verifier"
-
-    latest_trial["fully_inside_box"] = fully_inside_box
-    latest_trial["text_cut_off"] = text_cut_off
-    latest_trial["verify_confidence"] = confidence
-    latest_trial["verified_text"] = observed_text
-    latest_trial["reason"] = failure_reason
-
-    observed_text_ok = _is_useful_observed_text(observed_text)
-    hint_match_required = _hint_looks_like_literal_text(hint_text)
-    hint_match_ok = (not hint_match_required) or _observed_matches_hint(hint_text, observed_text)
-    if not observed_text_ok:
-        failure_reason = "observed_text_too_weak"
-        latest_trial["reason"] = failure_reason
-    if hint_match_required and not hint_match_ok:
-        failure_reason = "hint_mismatch"
-        latest_trial["reason"] = failure_reason
-
-    likely_valid = (
-        contains_text
-        and fully_inside_box
-        and not text_cut_off
-        and confidence >= cfg.min_confidence
-        and observed_text_ok
-    )
-    return {
-        "contains_text": contains_text,
-        "fully_inside_box": fully_inside_box,
-        "text_cut_off": text_cut_off,
-        "confidence": confidence,
-        "observed_text": observed_text,
-        "failure_reason": failure_reason,
-        "likely_valid": likely_valid,
-        "hint_match_ok": hint_match_ok,
-    }
-
-
-def _record_attempt(
-    attempt_history: list[dict[str, Any]],
-    attempt_idx: int,
-    attempt_box: dict[str, float],
-    **details: Any,
-) -> None:
-    attempt_history.append(
-        {
-            "attempt_index": attempt_idx,
-            "x": float(attempt_box["x"]),
-            "y": float(attempt_box["y"]),
-            "width": float(attempt_box["width"]),
-            "height": float(attempt_box["height"]),
-            **details,
-        }
-    )
-
-
-def _emit_retryable_runtime_event(
-    *,
-    on_runtime_event: RuntimeEventCallback | None,
-    verify_progress: int,
-    candidate_index: int,
-    candidates_total: int,
-    attempt_idx: int,
-    attempts_per_candidate: int,
-    hint_text: str,
-    status: str,
-    reason: str,
-    latest_trial: dict[str, Any],
-    error_kind: str | None = None,
-    error_detail: str | None = None,
-) -> None:
-    latest_trial["status"] = status
-    latest_trial["reason"] = reason
-    if error_kind is not None:
-        latest_trial["error_kind"] = error_kind
-    if error_detail is not None:
-        latest_trial["error_detail"] = error_detail
-    _emit_runtime_event(
-        on_runtime_event,
-        {
-            "phase": "verify",
-            "status": status,
-            "progress": verify_progress,
-            "candidate_index": candidate_index,
-            "candidates_total": candidates_total,
-            "attempt_index": attempt_idx,
-            "attempts_per_candidate": attempts_per_candidate,
-            "hint_text": hint_text,
-            "reason": reason,
-            "error_kind": error_kind,
-            "error_detail": error_detail,
-            "latest_trial": latest_trial,
-        },
-    )
-
-
-def _emit_retrying_event(
-    *,
-    on_runtime_event: RuntimeEventCallback | None,
-    verify_progress: int,
-    candidate_index: int,
-    candidates_total: int,
-    attempt_idx: int,
-    attempts_per_candidate: int,
-    hint_text: str,
-    reason: str,
-    latest_trial: dict[str, Any],
-    error_kind: str | None = None,
-    error_detail: str | None = None,
-    fully_inside_box: bool | None = None,
-    text_cut_off: bool | None = None,
-    verify_confidence: float | None = None,
-    verified_text: str | None = None,
-) -> None:
-    latest_trial["status"] = "retrying"
-    if error_kind is not None:
-        latest_trial["error_kind"] = error_kind
-    if error_detail is not None:
-        latest_trial["error_detail"] = error_detail
-    payload: dict[str, Any] = {
-        "phase": "verify",
-        "status": "retrying",
-        "progress": verify_progress,
-        "candidate_index": candidate_index,
-        "candidates_total": candidates_total,
-        "attempt_index": attempt_idx,
-        "attempts_per_candidate": attempts_per_candidate,
-        "hint_text": hint_text,
-        "reason": reason,
-        "error_kind": error_kind,
-        "error_detail": error_detail,
-        "latest_trial": latest_trial,
-    }
-    if fully_inside_box is not None:
-        payload["fully_inside_box"] = fully_inside_box
-    if text_cut_off is not None:
-        payload["text_cut_off"] = text_cut_off
-    if verify_confidence is not None:
-        payload["verify_confidence"] = verify_confidence
-    if verified_text is not None:
-        payload["verified_text"] = verified_text
-    _emit_runtime_event(on_runtime_event, payload)
