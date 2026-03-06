@@ -13,6 +13,7 @@ type Props = {
     agentModelOptions: string[];
     agentReasoningOptions: string[];
     onUpdateAgentDraft: (key: keyof AgentDraft, value: string) => void;
+    agentChatMaxTurns: string;
     agentDetectionProfileId: string;
     translateSingleBoxUseContext: boolean;
     includePriorContextSummary: boolean;
@@ -30,6 +31,7 @@ export function TranslationAgentCard({
     agentModelOptions,
     agentReasoningOptions,
     onUpdateAgentDraft,
+    agentChatMaxTurns,
     agentDetectionProfileId,
     translateSingleBoxUseContext,
     includePriorContextSummary,
@@ -108,6 +110,23 @@ export function TranslationAgentCard({
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
                     Reasoning level for Agent Translate runs (GPT-5 models only).
+                </div>
+
+                <Field label="Chat max turns" layout="row" labelClassName={ui.label}>
+                    <input
+                        className={ui.trainingInput}
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={agentChatMaxTurns}
+                        onChange={(e) =>
+                            onUpdateDraft("agent.chat.max_turns", e.target.value)
+                        }
+                    />
+                </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Turn budget for one chat-agent run before the SDK stops with
+                    MaxTurnsExceeded.
                 </div>
 
                 <Field

@@ -57,6 +57,12 @@ AGENT_TRANSLATE_TIMEOUT_SECONDS = int(
     os.getenv("AGENT_TRANSLATE_TIMEOUT_SECONDS", "300")
 )
 AGENT_PROMPT_FILE = os.getenv("AGENT_PROMPT_FILE", "agent_default.yml")
+TRANSLATION_SOURCE_LANGUAGE = (
+    os.getenv("TRANSLATION_SOURCE_LANGUAGE", "Japanese").strip() or "Japanese"
+)
+TRANSLATION_TARGET_LANGUAGE = (
+    os.getenv("TRANSLATION_TARGET_LANGUAGE", "English").strip() or "English"
+)
 AGENT_MODELS = [
     item.strip()
     for item in os.getenv(

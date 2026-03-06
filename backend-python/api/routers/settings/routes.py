@@ -56,6 +56,7 @@ def _build_options() -> dict[str, Any]:
         "agent.translate.merge.reasoning_effort": {
             "choices": ["low", "medium", "high"]
         },
+        "agent.chat.max_turns": {"min": 1, "max": 200},
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},

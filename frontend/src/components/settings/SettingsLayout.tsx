@@ -43,6 +43,7 @@ export function SettingsLayout() {
         includePriorCharacters,
         includePriorOpenThreads,
         includePriorGlossary,
+        agentChatMaxTurns,
         mergeMaxOutputTokens,
         mergeReasoningEffort,
         agentDetectionLoading,
@@ -152,6 +153,7 @@ export function SettingsLayout() {
                                     agentModelOptions={agentModelOptions}
                                     agentReasoningOptions={agentReasoningOptions}
                                     onUpdateAgentDraft={updateAgentDraft}
+                                    agentChatMaxTurns={agentChatMaxTurns}
                                     agentDetectionProfileId={agentDetectionProfileId}
                                     translateSingleBoxUseContext={translateSingleBoxUseContext}
                                     includePriorContextSummary={includePriorContextSummary}

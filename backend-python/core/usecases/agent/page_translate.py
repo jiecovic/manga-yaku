@@ -7,7 +7,7 @@ from collections.abc import Callable
 from threading import Event
 from typing import Any
 
-from config import DEBUG_PROMPTS
+from config import DEBUG_PROMPTS, TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
 from infra.logging.artifacts import (
@@ -182,8 +182,8 @@ def run_agent_translate_page(
     prior_characters: list[dict[str, Any]] | None = None,
     prior_open_threads: list[str] | None = None,
     prior_glossary: list[dict[str, Any]] | None = None,
-    source_language: str = "Japanese",
-    target_language: str = "English",
+    source_language: str = TRANSLATION_SOURCE_LANGUAGE,
+    target_language: str = TRANSLATION_TARGET_LANGUAGE,
     model_id: str | None = None,
     debug_id: str | None = None,
     max_output_tokens: int | None = None,

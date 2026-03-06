@@ -92,6 +92,7 @@ export function useSettingsLayoutState() {
                     value.temperature === null || value.temperature === undefined
                         ? ""
                         : String(value.temperature),
+                max_turns: "",
             });
             setAgentDirty(false);
         }
@@ -187,6 +188,10 @@ export function useSettingsLayoutState() {
     );
     const mergeMaxOutputTokens = useMemo(
         () => draftString(draft, "agent.translate.merge.max_output_tokens"),
+        [draft],
+    );
+    const agentChatMaxTurns = useMemo(
+        () => draftString(draft, "agent.chat.max_turns"),
         [draft],
     );
     const mergeReasoningEffort = useMemo(() => {
@@ -292,6 +297,7 @@ export function useSettingsLayoutState() {
             ),
             "agent.translate.merge.reasoning_effort":
                 mergeReasoningEffort || mergeDefaults.reasoningEffort,
+            "agent.chat.max_turns": toIntWithFallback(agentChatMaxTurns, 18),
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -324,6 +330,7 @@ export function useSettingsLayoutState() {
             includePriorOpenThreads,
             includePriorGlossary,
             mergeMaxOutputTokens,
+            agentChatMaxTurns,
             mergeReasoningEffort,
             mergeDefaults,
             ocrParallelismLocal,
@@ -725,6 +732,7 @@ export function useSettingsLayoutState() {
         includePriorOpenThreads,
         includePriorGlossary,
         mergeMaxOutputTokens,
+        agentChatMaxTurns,
         mergeReasoningEffort,
         agentDetectionLoading,
         agentDetectionOptions,

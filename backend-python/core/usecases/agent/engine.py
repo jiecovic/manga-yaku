@@ -19,6 +19,8 @@ from config import (
     AGENT_REASONING_EFFORT,
     AGENT_TEMPERATURE,
     DATA_DIR,
+    TRANSLATION_SOURCE_LANGUAGE,
+    TRANSLATION_TARGET_LANGUAGE,
 )
 from core.usecases.agent.grounding_context import (
     build_grounding_message,
@@ -43,6 +45,7 @@ from core.usecases.agent.turn_state import (
     get_active_page_revision,
     get_active_page_text_box_count,
 )
+from core.usecases.settings.service import get_setting_value
 from infra.llm import (
     build_response_params,
     create_openai_client,
@@ -73,6 +76,9 @@ except Exception as exc:  # pragma: no cover - optional dependency path
 
 logger = logging.getLogger(__name__)
 
+_AGENT_CHAT_MAX_TURNS_MIN = 1
+_AGENT_CHAT_MAX_TURNS_MAX = 200
+
 
 @dataclass(frozen=True)
 class AgentToolContext:
@@ -80,11 +86,36 @@ class AgentToolContext:
     current_filename: str | None
 
 
+def _resolve_agent_chat_max_turns() -> int:
+    default_value = max(
+        _AGENT_CHAT_MAX_TURNS_MIN,
+        min(_AGENT_CHAT_MAX_TURNS_MAX, int(AGENT_MAX_TURNS)),
+    )
+    try:
+        raw_value = get_setting_value("agent.chat.max_turns")
+    except Exception:
+        raw_value = None
+    if raw_value in (None, ""):
+        return default_value
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return default_value
+    if parsed < _AGENT_CHAT_MAX_TURNS_MIN:
+        return _AGENT_CHAT_MAX_TURNS_MIN
+    if parsed > _AGENT_CHAT_MAX_TURNS_MAX:
+        return _AGENT_CHAT_MAX_TURNS_MAX
+    return parsed
+
+
 def _load_system_prompt() -> str:
     bundle = load_prompt_bundle(AGENT_PROMPT_FILE)
     rendered = render_prompt_bundle(
         bundle,
-        system_context={},
+        system_context={
+            "SOURCE_LANG": TRANSLATION_SOURCE_LANGUAGE,
+            "TARGET_LANG": TRANSLATION_TARGET_LANGUAGE,
+        },
         user_context={},
     )
     return rendered["system"]
@@ -313,6 +344,7 @@ def _run_agent_chat_sdk(
                 )
             )
 
+        max_turns = _resolve_agent_chat_max_turns()
         agent = _build_sdk_agent(resolved_model, mcp_servers=connected_servers)
         try:
             result = await Runner.run(
@@ -320,7 +352,7 @@ def _run_agent_chat_sdk(
                 input=sdk_input,
                 context=run_context,
                 session=session,
-                max_turns=max(1, int(AGENT_MAX_TURNS)),
+                max_turns=max_turns,
             )
             return extract_sdk_result_text(result).strip()
         finally:
@@ -433,6 +465,7 @@ def _run_agent_chat_stream_sdk(
     )
     runtime_event = "Agents SDK runtime active (MCP tools)"
     grounding_event: str | None = None
+    max_turns = _resolve_agent_chat_max_turns()
     if volume_value and active_filename:
         include_images = should_use_visual_grounding(
             messages,
@@ -472,7 +505,7 @@ def _run_agent_chat_stream_sdk(
         session=session,
         mcp_servers=mcp_servers,
         stop_event=stop_event,
-        max_turns=max(1, int(AGENT_MAX_TURNS)),
+        max_turns=max_turns,
         correlation={
             "component": "agent.chat.stream.sdk",
             "session_id": session_id,

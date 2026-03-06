@@ -406,6 +406,10 @@ function TranslateInner({
                     imageUrl={isDraftPage ? null : currentPageImageUrl}
                     loadingPages={loadingPages}
                     error={error}
+                    pageIndex={pageIndex}
+                    pageCount={pageCount}
+                    currentPageFilename={currentPageFilename}
+                    isDraftPage={isDraftPage}
                     boxesByType={boxesByType}
                     runtimeProbeBoxes={runtimeProbeBoxes}
                     visibleBoxTypes={visibleBoxTypes}

@@ -74,6 +74,12 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         value_type=str,
         choices=("low", "medium", "high"),
     ),
+    "agent.chat.max_turns": SettingSpec(
+        default=18,
+        value_type=int,
+        min_value=1,
+        max_value=200,
+    ),
     "ocr.parallelism.local": SettingSpec(
         default=4,
         value_type=int,

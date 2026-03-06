@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
+
 
 class WorkflowState(str, Enum):
     queued = "queued"
@@ -64,8 +66,8 @@ class AgentTranslatePageRequest:
             volume_id=volume_id,
             filename=filename,
             detection_profile_id=detection_profile_id,
-            source_language=str(payload.get("sourceLanguage") or "Japanese"),
-            target_language=str(payload.get("targetLanguage") or "English"),
+            source_language=str(payload.get("sourceLanguage") or TRANSLATION_SOURCE_LANGUAGE),
+            target_language=str(payload.get("targetLanguage") or TRANSLATION_TARGET_LANGUAGE),
             model_id=model_id,
         )
 
