@@ -16,7 +16,13 @@ import asyncio
 import contextlib
 import json
 import unittest
+from unittest.mock import patch
 
+from core.workflows.agent_translate_page.types import (
+    AgentTranslateWorkflowSnapshot,
+    WorkflowState,
+)
+from infra.jobs.handlers.agent import AgentTranslatePageJobHandler
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.jobs.worker import job_worker
 
@@ -74,6 +80,74 @@ class JobStoreTests(unittest.TestCase):
         self.assertIsNone(parsed["items"][0])
         self.assertEqual(parsed["items"][1], 1.0)
         self.assertIsNone(parsed["nested"]["neg_inf"])
+
+    def test_update_job_does_not_resurrect_removed_job(self) -> None:
+        store = JobStore()
+        now = store.now()
+        job = Job(
+            id="deleted-job",
+            type="box_detection",
+            status=JobStatus.canceled,
+            created_at=now,
+            updated_at=now,
+            payload={},
+        )
+        store.add_job(job)
+        self.assertTrue(store.remove_job(job.id, tombstone=True))
+
+        store.update_job(job, progress=90, message="Should stay gone")
+
+        self.assertIsNone(store.get_job(job.id))
+
+
+class AgentJobHandlerTests(unittest.TestCase):
+    def test_canceled_agent_job_ignores_late_progress(self) -> None:
+        async def _run() -> None:
+            store = JobStore()
+            now = store.now()
+            job = Job(
+                id="agent-job",
+                type="agent_translate_page",
+                status=JobStatus.running,
+                created_at=now,
+                updated_at=now,
+                payload={"volumeId": "vol", "filename": "001.jpg"},
+                progress=10,
+                message="Running",
+            )
+            store.add_job(job)
+
+            async def _fake_workflow(*, on_progress, **_: object) -> dict[str, object]:
+                store.update_job(job, status=JobStatus.canceled, progress=100, message="Canceled")
+                on_progress(
+                    AgentTranslateWorkflowSnapshot(
+                        state=WorkflowState.ocr_running,
+                        stage="ocr_running",
+                        progress=55,
+                        message="Late progress",
+                        detection_profile_id=None,
+                        detected_boxes=3,
+                        workflow_run_id="wf-1",
+                    )
+                )
+                return {"state": "canceled", "message": "Canceled"}
+
+            handler = AgentTranslatePageJobHandler()
+            with patch(
+                "infra.jobs.handlers.agent.run_agent_translate_page_workflow",
+                side_effect=_fake_workflow,
+            ):
+                await handler.run(job, store)
+
+            stored = store.get_job(job.id)
+            if stored is None:
+                raise AssertionError("Expected canceled job to remain in store")
+            self.assertEqual(stored.status, JobStatus.canceled)
+            self.assertEqual(stored.progress, 100)
+            self.assertEqual(stored.message, "Canceled")
+            self.assertNotIn("workflowRunId", stored.payload)
+
+        asyncio.run(_run())
 
 
 class JobWorkerTests(unittest.TestCase):

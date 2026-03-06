@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+
 from infra.db.workflow_store import (
     cancel_workflow_run,
     delete_terminal_workflow_runs,
@@ -143,13 +144,11 @@ def clear_finished_jobs(*, store: JobStore) -> int:
     ]
 
     for job_id in to_delete:
-        del store.jobs[job_id]
-        store.logs.pop(job_id, None)
+        store.remove_job(job_id, tombstone=True)
 
     db_deleted = 0
     for workflow_type in PERSISTED_WORKFLOW_TYPES:
         db_deleted += delete_terminal_workflow_runs(workflow_type=workflow_type)
-    store.broadcast_snapshot()
     return len(to_delete) + db_deleted
 
 
@@ -163,10 +162,15 @@ def delete_job(*, job_id: str, store: JobStore) -> int:
                 detail="Cannot delete a running job. Cancel it first.",
             )
 
-        del store.jobs[job_id]
-        store.logs.pop(job_id, None)
-        store.broadcast_snapshot()
-        return 1
+        deleted = 0
+        if store.remove_job(job_id, tombstone=True):
+            deleted += 1
+
+        workflow_run_id = extract_workflow_run_id(job)
+        if workflow_run_id and job.type in PERSISTED_WORKFLOW_TYPES:
+            if delete_workflow_run(workflow_run_id):
+                deleted += 1
+        return deleted or 1
 
     if delete_workflow_run(job_id):
         return 1

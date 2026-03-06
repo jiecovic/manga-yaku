@@ -26,6 +26,9 @@ class AgentTranslatePageJobHandler(JobHandler):
             }
 
         def on_progress(snapshot: AgentTranslateWorkflowSnapshot) -> None:
+            current = store.get_job(job.id)
+            if current is None or current.status == JobStatus.canceled:
+                return
             payload = dict(job.payload)
             if snapshot.workflow_run_id:
                 payload["workflowRunId"] = snapshot.workflow_run_id

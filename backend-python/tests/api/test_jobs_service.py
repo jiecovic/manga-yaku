@@ -13,6 +13,9 @@ How it is tested:
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
+
+from fastapi import HTTPException
 
 from api.services.jobs_service import (
     cancel_job,
@@ -21,7 +24,6 @@ from api.services.jobs_service import (
     get_job_tasks_payload,
     get_resume_agent_payload,
 )
-from fastapi import HTTPException
 from infra.jobs.store import Job, JobStatus, JobStore
 
 
@@ -126,3 +128,27 @@ class JobsServiceTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as raised:
             delete_job(job_id="job-5", store=self.store)
         self.assertEqual(raised.exception.status_code, 409)
+
+    def test_delete_job_removes_associated_persisted_workflow_for_memory_job(self) -> None:
+        now = self.store.now()
+        self.store.add_job(
+            Job(
+                id="job-6",
+                type="agent_translate_page",
+                status=JobStatus.canceled,
+                created_at=now,
+                updated_at=now,
+                payload={
+                    "volumeId": "vol",
+                    "filename": "005.jpg",
+                    "workflowRunId": "wf-6",
+                },
+            )
+        )
+
+        with patch("api.services.jobs_service.delete_workflow_run", return_value=True) as delete_run:
+            deleted = delete_job(job_id="job-6", store=self.store)
+
+        self.assertEqual(deleted, 2)
+        self.assertIsNone(self.store.get_job("job-6"))
+        delete_run.assert_called_once_with("wf-6")

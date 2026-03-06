@@ -77,6 +77,7 @@ def _sanitize_json_value(value: Any) -> Any:
 class JobStore:
     def __init__(self) -> None:
         self.jobs: dict[str, Job] = {}
+        self.deleted_jobs: set[str] = set()
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self.subscribers: set[asyncio.Queue[str]] = set()
         self.logs: dict[str, Path] = {}
@@ -87,16 +88,31 @@ class JobStore:
         return time.time()
 
     def add_job(self, job: Job) -> None:
+        self.deleted_jobs.discard(job.id)
         self.jobs[job.id] = job
         self.broadcast_snapshot()
 
     def update_job(self, job: Job, **updates: Any) -> Job:
+        if job.id not in self.jobs:
+            return job
         for key, value in updates.items():
             setattr(job, key, value)
         job.updated_at = self.now()
         self.jobs[job.id] = job
         self.broadcast_snapshot()
         return job
+
+    def remove_job(self, job_id: str, *, tombstone: bool = False) -> bool:
+        existed = job_id in self.jobs or job_id in self.logs
+        self.jobs.pop(job_id, None)
+        self.logs.pop(job_id, None)
+        if tombstone:
+            self.deleted_jobs.add(job_id)
+        elif job_id in self.deleted_jobs:
+            self.deleted_jobs.discard(job_id)
+        if existed:
+            self.broadcast_snapshot()
+        return existed
 
     def get_job(self, job_id: str) -> Job | None:
         return self.jobs.get(job_id)
