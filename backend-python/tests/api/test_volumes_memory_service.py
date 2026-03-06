@@ -15,13 +15,14 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
 from api.services.volumes_memory_service import (
     clear_page_memory,
     clear_volume_derived_state_payload,
     get_page_memory_payload,
     get_volume_memory_payload,
 )
-from fastapi import HTTPException
 
 
 class VolumesMemoryServiceTests(unittest.TestCase):
@@ -50,17 +51,38 @@ class VolumesMemoryServiceTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 404)
         self.assertIn("page not found", str(raised.exception.detail).lower())
 
-    def test_clear_page_memory_clears_snapshot_and_text_context(self) -> None:
+    def test_get_page_memory_includes_manual_notes(self) -> None:
+        with (
+            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+            patch(
+                "api.services.volumes_memory_service.get_page_context_snapshot",
+                return_value={
+                    "manual_notes": "notes",
+                    "page_summary": "summary",
+                    "image_summary": "image",
+                    "characters_snapshot": [],
+                    "open_threads_snapshot": [],
+                    "glossary_snapshot": [],
+                    "created_at": None,
+                    "updated_at": None,
+                },
+            ),
+        ):
+            payload = get_page_memory_payload("vol-a", "001.jpg")
+
+        self.assertEqual(payload["manualNotes"], "notes")
+        self.assertEqual(payload["pageSummary"], "summary")
+
+    def test_clear_page_memory_clears_snapshot_only(self) -> None:
         with (
             patch("api.services.volumes_memory_service.get_volume", return_value=object()),
             patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
             patch("api.services.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
-            patch("api.services.volumes_memory_service.set_page_context") as set_context_mock,
         ):
             clear_page_memory("vol-a", "001.jpg")
 
         clear_snapshot_mock.assert_called_once_with("vol-a", "001.jpg")
-        set_context_mock.assert_called_once_with("vol-a", "001.jpg", "")
 
     def test_clear_volume_derived_state_maps_runtime_error_to_409(self) -> None:
         with (

@@ -14,7 +14,6 @@ from .db import Box, BoxDetectionRun, TextBoxContent
 def default_page() -> dict[str, Any]:
     return {
         "boxes": [],
-        "pageContext": "",
     }
 
 

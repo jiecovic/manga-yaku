@@ -12,7 +12,6 @@ from config import DEBUG_PROMPTS, OPENAI_API_KEY
 from core.domain.pages import set_box_translation_by_id
 from infra.db.db_store import (
     get_box_text_by_id,
-    get_page_context,
     get_page_context_snapshot,
     get_volume_context,
     load_page,
@@ -207,14 +206,13 @@ def _build_page_context(
     target_box_id: int,
 ) -> str:
     parts: list[str] = []
-    page_context = get_page_context(volume_id, filename)
-    if page_context.strip():
-        parts.append(f"page notes: {_clip_context(page_context, max_chars=900)}")
-
     page_snapshot = get_page_context_snapshot(volume_id, filename)
     if page_snapshot:
+        manual_notes = str(page_snapshot.get("manual_notes") or "").strip()
         page_summary = str(page_snapshot.get("page_summary") or "").strip()
         image_summary = str(page_snapshot.get("image_summary") or "").strip()
+        if manual_notes:
+            parts.append(f"page notes: {_clip_context(manual_notes, max_chars=900)}")
         if page_summary:
             parts.append(f"page summary: {_clip_context(page_summary, max_chars=900)}")
         if image_summary:

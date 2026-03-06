@@ -30,14 +30,13 @@ def get_page_context_snapshot(volume_id: str, filename: str) -> dict[str, Any] |
         return {
             "page_summary": context.page_summary or "",
             "image_summary": context.image_summary or "",
+            "manual_notes": context.manual_notes or "",
             "characters_snapshot": context.characters_snapshot or [],
             "open_threads_snapshot": context.open_threads_snapshot or [],
             "glossary_snapshot": context.glossary_snapshot or [],
             "created_at": context.created_at,
             "updated_at": context.updated_at,
         }
-
-
 def get_volume_context(volume_id: str) -> dict[str, Any] | None:
     with get_session() as session:
         context = session.execute(
@@ -90,8 +89,9 @@ def upsert_page_context(
     volume_id: str,
     filename: str,
     *,
-    page_summary: str,
-    image_summary: str,
+    page_summary: str | None,
+    image_summary: str | None,
+    manual_notes: str | None = None,
     characters_snapshot: list[dict[str, Any]] | None,
     open_threads_snapshot: list[str] | None,
     glossary_snapshot: list[dict[str, Any]] | None,
@@ -106,20 +106,26 @@ def upsert_page_context(
             context = PageContext(
                 page_id=page.id,
                 volume_id=volume_id,
-                page_summary=page_summary or "",
-                image_summary=image_summary or "",
+                page_summary=str(page_summary or ""),
+                image_summary=str(image_summary or ""),
+                manual_notes=str(manual_notes or ""),
                 created_at=now,
                 updated_at=now,
             )
             session.add(context)
-        context.page_summary = page_summary or ""
-        context.image_summary = image_summary or ""
-        context.characters_snapshot = normalize_json_blob(characters_snapshot)
-        context.open_threads_snapshot = normalize_json_blob(open_threads_snapshot)
-        context.glossary_snapshot = normalize_json_blob(glossary_snapshot)
+        if page_summary is not None:
+            context.page_summary = str(page_summary or "")
+        if image_summary is not None:
+            context.image_summary = str(image_summary or "")
+        if manual_notes is not None:
+            context.manual_notes = str(manual_notes or "")
+        if characters_snapshot is not None:
+            context.characters_snapshot = normalize_json_blob(characters_snapshot)
+        if open_threads_snapshot is not None:
+            context.open_threads_snapshot = normalize_json_blob(open_threads_snapshot)
+        if glossary_snapshot is not None:
+            context.glossary_snapshot = normalize_json_blob(glossary_snapshot)
         context.updated_at = now
-
-
 def clear_volume_context(volume_id: str) -> bool:
     with get_session() as session:
         deleted = session.execute(

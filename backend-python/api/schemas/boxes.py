@@ -30,12 +30,9 @@ class Box(BaseModel):
 
 
 class BoxPage(BaseModel):
-    """Page payload containing boxes and optional page-level context text."""
+    """Page payload containing editable page boxes."""
 
     boxes: list[Box]
-    # None = field omitted -> keep existing context on save
-    # ""   = explicitly clear context
-    pageContext: str | None = None
 
 
 class BoxTextPatch(BaseModel):

@@ -26,12 +26,6 @@ class PageInfo(BaseModel):
     missing: bool | None = None
 
 
-class PageContextPayload(BaseModel):
-    """Page-level freeform context string payload."""
-
-    context: str
-
-
 class CharacterInfo(BaseModel):
     """Character summary row used in memory/context responses."""
 
@@ -62,6 +56,7 @@ class VolumeMemoryResponse(BaseModel):
 class PageMemoryResponse(BaseModel):
     """Derived page-level memory/context snapshot payload."""
 
+    manualNotes: str
     pageSummary: str
     imageSummary: str
     characters: list[CharacterInfo]
@@ -132,4 +127,3 @@ class PruneMissingPagesRequest(BaseModel):
     """Request to prune missing page records from DB."""
 
     pages: list[MissingPage]
-

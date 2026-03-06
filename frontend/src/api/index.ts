@@ -2,7 +2,6 @@
 export * from "./boxes";
 export * from "./agent";
 export * from "./agentSettings";
-export * from "./context";
 export * from "./jobs";
 export * from "./library";
 export * from "./logs";

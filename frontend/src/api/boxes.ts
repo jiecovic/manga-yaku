@@ -5,7 +5,6 @@ import { API_BASE, apiFetch, emitApiError, getJson, readApiErrorDetail } from ".
 
 const BASE = API_BASE;
 
-// Only boxes live here. pageContext is handled via other endpoints.
 export async function loadPageState(
     volumeId: string,
     filename: string,

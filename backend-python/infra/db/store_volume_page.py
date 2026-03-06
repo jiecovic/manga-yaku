@@ -115,10 +115,9 @@ def delete_page(volume_id: str, filename: str) -> None:
         session.execute(delete(Page).where(Page.id == page.id))
 
 
-def page_to_dict(page: Page, boxes: list[dict[str, Any]]) -> dict[str, Any]:
+def page_to_dict(boxes: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "boxes": boxes,
-        "pageContext": page.context or "",
     }
 
 
@@ -146,7 +145,6 @@ def get_or_create_page(
         page = Page(
             volume_id=volume_id,
             filename=filename,
-            context="",
             page_index=page_index,
         )
         session.add(page)
@@ -182,15 +180,12 @@ def load_page(volume_id: str, filename: str) -> dict[str, Any]:
             for box, text_content, run in rows
         ]
 
-        return page_to_dict(page, boxes)
+        return page_to_dict(boxes)
 
 
 def save_page(volume_id: str, filename: str, data: dict[str, Any]) -> None:
     with get_session() as session:
         page = get_or_create_page(session, volume_id, filename)
-
-        if "pageContext" in data and data["pageContext"] is not None:
-            page.context = str(data["pageContext"] or "")
 
         if "boxes" in data and isinstance(data["boxes"], list):
             session.execute(delete(Box).where(Box.page_id == page.id))
@@ -254,20 +249,3 @@ def get_max_page_index(volume_id: str) -> float | None:
             select(func.max(Page.page_index))
             .where(Page.volume_id == volume_id)
         ).scalar_one_or_none()
-
-
-def get_page_context(volume_id: str, filename: str) -> str:
-    with get_session() as session:
-        page = session.execute(
-            select(Page).where(
-                Page.volume_id == volume_id,
-                Page.filename == filename,
-            )
-        ).scalar_one_or_none()
-        return (page.context or "") if page else ""
-
-
-def set_page_context(volume_id: str, filename: str, context: str) -> None:
-    with get_session() as session:
-        page = get_or_create_page(session, volume_id, filename)
-        page.context = context or ""

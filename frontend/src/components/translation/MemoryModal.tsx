@@ -38,6 +38,7 @@ const emptyVolumeMemory: VolumeMemory = {
 };
 
 const emptyPageMemory: PageMemory = {
+    manualNotes: "",
     pageSummary: "",
     imageSummary: "",
     characters: [],
@@ -540,6 +541,22 @@ export function MemoryModal({
                                         ) : (
                                             <div className={ui.mutedTextTiny}>
                                                 No page summary yet.
+                                            </div>
+                                        )}
+                                    </MemorySection>
+
+                                    <MemorySection title="Manual notes">
+                                        {pageLoading ? (
+                                            <div className={ui.mutedTextTiny}>
+                                                Loading...
+                                            </div>
+                                        ) : pageMemory.manualNotes ? (
+                                            <div className="text-xs text-slate-200 whitespace-pre-wrap">
+                                                {pageMemory.manualNotes}
+                                            </div>
+                                        ) : (
+                                            <div className={ui.mutedTextTiny}>
+                                                No page notes yet.
                                             </div>
                                         )}
                                     </MemorySection>

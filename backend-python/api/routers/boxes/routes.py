@@ -30,26 +30,18 @@ def get_boxes(volume_id: str, page_filename: str):
 
     raw_boxes = data.get("boxes", [])
     boxes = [Box(**b) for b in raw_boxes]
-    page_ctx = data.get("pageContext") or ""
-
-    return BoxPage(boxes=boxes, pageContext=page_ctx)
+    return BoxPage(boxes=boxes)
 
 
 # -----------------------------
-# POST (save) boxes + pageContext for a page
+# POST save boxes for a page
 # -----------------------------
 @router.post("/boxes/{volume_id}/{page_filename}")
 def save_boxes(volume_id: str, page_filename: str, payload: BoxPage):
     """Handle save boxes."""
     try:
-        page_ctx = payload.pageContext
-        if page_ctx is None:
-            existing = load_page(volume_id, page_filename)
-            page_ctx = existing.get("pageContext") or ""
-
         data = {
             "boxes": [b.model_dump() for b in payload.boxes],
-            "pageContext": page_ctx,
         }
         save_page(volume_id, page_filename, data)
         return {"status": "ok", "saved": len(payload.boxes)}

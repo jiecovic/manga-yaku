@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 
 from infra.logging.artifacts import agent_debug_dir
 
@@ -170,11 +170,15 @@ def clear_volume_derived_data(volume_id: str) -> dict[str, int]:
                 ).rowcount
                 or 0
             )
-            # Keep page records/images, but clear manual page context text.
             stats["page_notes_cleared"] = int(
                 session.execute(
-                    update(Page).where(Page.id.in_(page_ids)).values(context="")
-                ).rowcount
+                    select(func.count())
+                    .select_from(PageContext)
+                    .where(
+                        PageContext.page_id.in_(page_ids),
+                        PageContext.manual_notes != "",
+                    )
+                ).scalar_one()
                 or 0
             )
 

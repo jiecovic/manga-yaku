@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
+from fastapi import APIRouter
+
 from api.schemas.volumes import (
     ClearMemoryResponse,
     ClearVolumeDerivedDataResponse,
-    PageContextPayload,
     PageMemoryResponse,
     VolumeMemoryResponse,
 )
@@ -21,48 +22,8 @@ from api.services.volumes_memory_service import (
 from api.services.volumes_memory_service import (
     clear_volume_memory as clear_volume_memory_data,
 )
-from fastapi import APIRouter, HTTPException
-from infra.db.db_store import (
-    get_page_context as load_page_context,
-)
-from infra.db.db_store import (
-    set_page_context as save_page_context,
-)
 
 router = APIRouter(tags=["library"])
-
-
-@router.get(
-    "/volumes/{volume_id}/pages/{filename}/context",
-    response_model=PageContextPayload,
-)
-async def get_page_context(
-    volume_id: str,
-    filename: str,
-) -> PageContextPayload:
-    """Return page context."""
-    try:
-        ctx = load_page_context(volume_id, filename)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return PageContextPayload(context=ctx or "")
-
-
-@router.put(
-    "/volumes/{volume_id}/pages/{filename}/context",
-    response_model=PageContextPayload,
-)
-async def set_page_context(
-    volume_id: str,
-    filename: str,
-    payload: PageContextPayload,
-) -> PageContextPayload:
-    """Handle set page context."""
-    try:
-        save_page_context(volume_id, filename, payload.context)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return payload
 
 
 @router.get(

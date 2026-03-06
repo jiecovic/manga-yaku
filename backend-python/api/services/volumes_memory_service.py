@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException
+
 from infra.db.db_store import (
     clear_page_context_snapshot,
     clear_volume_context,
@@ -14,7 +15,6 @@ from infra.db.db_store import (
     get_volume,
     get_volume_context,
     list_page_filenames,
-    set_page_context,
 )
 
 
@@ -57,6 +57,7 @@ def get_page_memory_payload(volume_id: str, filename: str) -> dict:
     context = get_page_context_snapshot(volume_id, filename)
     if context is None:
         return {
+            "manualNotes": "",
             "pageSummary": "",
             "imageSummary": "",
             "characters": [],
@@ -66,6 +67,7 @@ def get_page_memory_payload(volume_id: str, filename: str) -> dict:
             "updatedAt": None,
         }
     return {
+        "manualNotes": str(context.get("manual_notes") or ""),
         "pageSummary": str(context.get("page_summary") or ""),
         "imageSummary": str(context.get("image_summary") or ""),
         "characters": context.get("characters_snapshot") or [],
@@ -90,9 +92,7 @@ def clear_page_memory(volume_id: str, filename: str) -> None:
     if filename not in set(list_page_filenames(volume_id)):
         raise HTTPException(status_code=404, detail="Page not found")
 
-    # Keep both page memory stores in sync when clearing.
     clear_page_context_snapshot(volume_id, filename)
-    set_page_context(volume_id, filename, "")
 
 
 def clear_volume_derived_state_payload(volume_id: str) -> dict:

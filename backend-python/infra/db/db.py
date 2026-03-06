@@ -71,7 +71,6 @@ class Page(Base):
         index=True,
     )
     filename = Column(String, nullable=False)
-    context = Column(Text, default="", nullable=False)
     page_index = Column(Float, nullable=False)
 
     volume = relationship("Volume", back_populates="pages")
@@ -132,6 +131,7 @@ class PageContext(Base):
     )
     page_summary = Column(Text, default="", nullable=False)
     image_summary = Column(Text, default="", nullable=False)
+    manual_notes = Column(Text, default="", nullable=False)
     characters_snapshot = Column(JSONB, nullable=True)
     open_threads_snapshot = Column(JSONB, nullable=True)
     glossary_snapshot = Column(JSONB, nullable=True)
@@ -566,10 +566,6 @@ def init_db() -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
-    with engine.begin() as conn:
-        conn.execute(
-            text("ALTER TABLE text_box_contents ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''")
-        )
 
 
 def check_db() -> tuple[bool, str | None]:

@@ -23,6 +23,7 @@ export interface VolumeMemory {
 }
 
 export interface PageMemory {
+    manualNotes: string;
     pageSummary: string;
     imageSummary: string;
     characters: CharacterMemory[];
