@@ -20,6 +20,7 @@ from infra.llm import (
     openai_chat_completions_create,
     openai_responses_create,
 )
+from infra.logging.correlation import append_correlation
 from infra.prompts import PromptBundle, load_prompt_bundle
 
 from .profiles import (
@@ -48,9 +49,19 @@ _has_openai_sdk = has_openai_sdk()
 _has_llm_ocr = _has_openai_sdk and bool(OPENAI_API_KEY)
 
 if _has_openai_sdk and not OPENAI_API_KEY:
-    logger.warning("OPENAI_API_KEY not set; OpenAI OCR profiles disabled.")
+    logger.warning(
+        append_correlation(
+            "OPENAI_API_KEY not set; OpenAI OCR profiles disabled",
+            {"component": "ocr.runtime"},
+        )
+    )
 elif not _has_openai_sdk:
-    logger.warning("OpenAI SDK not available; OpenAI OCR profiles disabled.")
+    logger.warning(
+        append_correlation(
+            "OpenAI SDK not available; OpenAI OCR profiles disabled",
+            {"component": "ocr.runtime"},
+        )
+    )
 
 mark_ocr_availability(
     has_manga_ocr=_manga_ocr is not None,
@@ -235,8 +246,15 @@ def _run_llm_ocr_box(
     except Exception as exc:
         if cfg.get("base_url"):
             logger.warning(
-                "LLM OCR responses API failed for local endpoint; falling back to chat API: %s",
-                exc,
+                append_correlation(
+                    f"LLM OCR responses API failed for local endpoint; falling back to chat API: {exc}",
+                    {
+                        "component": "ocr.single_box",
+                        "volume_id": volume_id,
+                        "filename": filename,
+                    },
+                    profile_id=str(profile.get("id") or ""),
+                )
             )
             return _run_llm_ocr_box_chat_fallback(
                 client,

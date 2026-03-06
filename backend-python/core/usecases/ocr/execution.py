@@ -7,6 +7,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from infra.logging.correlation import append_correlation
+
 from .profiles import get_ocr_profile
 from .task_runner import OcrTaskOutcome, run_ocr_task_with_retries
 
@@ -76,7 +78,18 @@ async def run_ocr_task_async(
         try:
             on_attempt(event)
         except Exception:
-            logger.exception("OCR attempt callback failed for profile=%s", profile_id)
+            logger.exception(
+                append_correlation(
+                    "OCR attempt callback failed",
+                    {
+                        "component": "ocr.execution.attempt_callback",
+                        "volume_id": volume_id,
+                        "filename": filename,
+                    },
+                    profile_id=profile_id,
+                    box_id=box_id,
+                )
+            )
 
     task = asyncio.to_thread(
         run_ocr_task_with_retries,

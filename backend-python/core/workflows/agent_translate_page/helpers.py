@@ -18,6 +18,7 @@ from infra.db.db_store import (
     set_box_order_for_type,
     set_box_translation_by_id,
 )
+from infra.logging.correlation import append_correlation
 
 from .types import (
     AgentTranslateWorkflowSnapshot,
@@ -298,7 +299,16 @@ def apply_translation_payload(
             "Stage-1 omitted indices "
             f"{sorted(missing_indices)}; preserving unmatched boxes"
         )
-        logger.warning(coverage_warning)
+        logger.warning(
+            append_correlation(
+                coverage_warning,
+                {
+                    "component": "agent.translate_page.coverage",
+                    "volume_id": volume_id,
+                    "filename": filename,
+                },
+            )
+        )
 
     updated = 0
     merged_ids: list[int] = []

@@ -18,6 +18,7 @@ from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.jobs.worker import job_worker
 from infra.jobs.workflow_repo import mark_running_workflows_interrupted
+from infra.logging.correlation import append_correlation, normalize_correlation
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -33,6 +34,7 @@ _runtime_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def _run_ocr_db_worker_supervisor(shutdown_event: Event) -> None:
+    base_corr = {"component": "jobs.runtime.ocr_supervisor"}
     backoff_seconds = 1.0
     max_backoff_seconds = 10.0
     while not shutdown_event.is_set():
@@ -43,14 +45,18 @@ async def _run_ocr_db_worker_supervisor(shutdown_event: Event) -> None:
             raise
         except Exception:
             logger.exception(
-                "OCR DB worker crashed; restarting in %.1fs",
-                backoff_seconds,
+                append_correlation(
+                    "OCR DB worker crashed; restarting",
+                    base_corr,
+                    backoff_seconds=round(backoff_seconds, 1),
+                )
             )
             await asyncio.sleep(backoff_seconds)
             backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
 
 
 async def _run_translate_db_worker_supervisor(shutdown_event: Event) -> None:
+    base_corr = {"component": "jobs.runtime.translate_supervisor"}
     backoff_seconds = 1.0
     max_backoff_seconds = 10.0
     while not shutdown_event.is_set():
@@ -61,8 +67,11 @@ async def _run_translate_db_worker_supervisor(shutdown_event: Event) -> None:
             raise
         except Exception:
             logger.exception(
-                "Translate DB worker crashed; restarting in %.1fs",
-                backoff_seconds,
+                append_correlation(
+                    "Translate DB worker crashed; restarting",
+                    base_corr,
+                    backoff_seconds=round(backoff_seconds, 1),
+                )
             )
             await asyncio.sleep(backoff_seconds)
             backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
@@ -90,7 +99,20 @@ async def start_jobs_runtime() -> None:
                 message="Interrupted by backend restart",
             )
         except Exception:
-            logger.exception("Failed to mark running workflows interrupted at startup")
+            logger.exception(
+                append_correlation(
+                    "Failed to mark running workflows interrupted at startup",
+                    {"component": "jobs.runtime.startup"},
+                    workflow_type=AGENT_WORKFLOW_TYPE,
+                )
+            )
+
+        logger.info(
+            append_correlation(
+                "Jobs runtime started",
+                normalize_correlation({"component": "jobs.runtime"}),
+            )
+        )
 
         _worker_task = asyncio.create_task(job_worker(STORE), name="jobs-worker")
         _db_ocr_worker_task = asyncio.create_task(
@@ -127,6 +149,12 @@ async def stop_jobs_runtime() -> None:
         _db_translate_worker_task = None
         _runtime_loop = None
         _cancel_running_memory_jobs()
+        logger.info(
+            append_correlation(
+                "Jobs runtime stopped",
+                normalize_correlation({"component": "jobs.runtime"}),
+            )
+        )
 
 
 def is_jobs_runtime_started() -> bool:

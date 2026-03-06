@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Any
@@ -31,6 +31,7 @@ from infra.llm import (
     has_openai_sdk,
     openai_responses_stream_events,
 )
+from infra.logging.correlation import append_correlation, normalize_correlation
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,7 @@ def run_legacy_stream_events(
     model_id: str | None,
     stop_event: Event | None,
     build_input: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    correlation: Mapping[str, Any] | None = None,
 ):
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
@@ -139,7 +141,7 @@ def run_legacy_stream_events(
         client,
         params,
         component="agent.chat.stream",
-        context={"model_id": str(resolved_model)},
+        context=normalize_correlation(correlation, model_id=str(resolved_model)),
     ):
         if stop_event is not None and stop_event.is_set():
             break
@@ -171,6 +173,7 @@ def run_sdk_stream_events(
     mcp_servers: list[Any],
     stop_event: Event | None,
     max_turns: int,
+    correlation: Mapping[str, Any] | None = None,
 ):
     emitted_events: Queue[Any] = Queue()
     producer_done = object()
@@ -180,6 +183,7 @@ def run_sdk_stream_events(
         had_delta = False
         call_tool_name_by_id: dict[str, str] = {}
         connected_mcp_servers: list[Any] = []
+        base_correlation = normalize_correlation(correlation)
         try:
             if stop_event is not None and stop_event.is_set():
                 return
@@ -194,7 +198,12 @@ def run_sdk_stream_events(
                     }
                 )
             for server_name, exc in failed_mcp_servers:
-                logger.warning("mcp server unavailable during stream run %s: %s", server_name, exc)
+                logger.warning(
+                    append_correlation(
+                        f"mcp server unavailable during stream run: {server_name}: {exc}",
+                        base_correlation,
+                    )
+                )
                 emitted_events.put(
                     {
                         "type": "activity",
@@ -314,11 +323,18 @@ def run_sdk_stream_events(
             producer_error = exc
             if _is_provider_server_error(exc):
                 logger.warning(
-                    "agent sdk stream producer provider error: %s",
-                    format_exception_details(exc),
+                    append_correlation(
+                        f"agent sdk stream producer provider error: {format_exception_details(exc)}",
+                        normalize_correlation(correlation),
+                    )
                 )
             else:
-                logger.error("agent sdk stream producer failed: %s", format_exception_details(exc))
+                logger.error(
+                    append_correlation(
+                        f"agent sdk stream producer failed: {format_exception_details(exc)}",
+                        normalize_correlation(correlation),
+                    )
+                )
         finally:
             emitted_events.put(producer_done)
 

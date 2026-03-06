@@ -38,6 +38,7 @@ from infra.db.agent_store import (
     update_agent_session,
 )
 from infra.http import cors_headers_for_stream
+from infra.logging.correlation import append_correlation, normalize_correlation
 
 router = APIRouter(tags=["agent"])
 logger = logging.getLogger(__name__)
@@ -297,12 +298,19 @@ async def stream_agent_reply(
             volume_id=session.volume_id,
             current_filename=runtime_active_filename,
         )
-        logger.info(
-            "agent stream start session_id=%s model_id=%s max_messages=%s",
-            session_id,
-            model_id,
-            limit,
-        )
+        def _corr(**extras: object) -> dict[str, object]:
+            return normalize_correlation(
+                {
+                    "component": "agent.reply.stream",
+                    "session_id": session_id,
+                    "volume_id": session.volume_id,
+                    "filename": runtime_active_filename,
+                    "model_id": model_id,
+                },
+                **extras,
+            )
+
+        logger.info(append_correlation("agent stream start", _corr(), max_messages=limit))
         try:
             for stream_event in run_agent_chat_stream(
                 payload,
@@ -318,9 +326,11 @@ async def stream_agent_reply(
                     if delta:
                         text_chunks.append(delta)
                         logger.debug(
-                            "agent stream delta session_id=%s chars=%s",
-                            session_id,
-                            len(delta),
+                            append_correlation(
+                                "agent stream delta",
+                                _corr(),
+                                chars=len(delta),
+                            )
                         )
                 elif event_type in {"activity", "tool_called", "tool_output", "page_switch"}:
                     if event_type == "tool_called" and text_chunks:
@@ -355,9 +365,11 @@ async def stream_agent_reply(
                         action_events = action_events[-40:]
                 elif event_type:
                     logger.info(
-                        "agent stream event session_id=%s type=%s",
-                        session_id,
-                        event_type,
+                        append_correlation(
+                            "agent stream event",
+                            _corr(),
+                            event_type=event_type,
+                        )
                     )
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
@@ -368,14 +380,15 @@ async def stream_agent_reply(
                     queue.put_nowait,
                     {"type": "canceled"},
                 )
-                logger.info("agent stream canceled session_id=%s", session_id)
+                logger.info(append_correlation("agent stream canceled", _corr()))
                 return
             response_text = "".join(text_chunks).strip()
             if not response_text:
                 logger.warning(
-                    "agent stream empty output session_id=%s model_id=%s; retrying sync once",
-                    session_id,
-                    model_id,
+                    append_correlation(
+                        "agent stream empty output; retrying sync once",
+                        _corr(),
+                    )
                 )
                 try:
                     retry_text = run_agent_chat(
@@ -407,14 +420,17 @@ async def stream_agent_reply(
                             }
                         )
                         logger.warning(
-                            "agent stream empty-output sync retry provider error session_id=%s request_id=%s",
-                            session_id,
-                            retry_request_id or "unknown",
+                            append_correlation(
+                                "agent stream empty-output sync retry provider error",
+                                _corr(request_id=retry_request_id),
+                            )
                         )
                     else:
                         logger.exception(
-                            "agent stream empty-output sync retry failed session_id=%s",
-                            session_id,
+                            append_correlation(
+                                "agent stream empty-output sync retry failed",
+                                _corr(),
+                            )
                         )
                 else:
                     if retry_text:
@@ -491,9 +507,11 @@ async def stream_agent_reply(
                 {"type": "done", "message": message},
             )
             logger.info(
-                "agent stream done session_id=%s response_chars=%s",
-                session_id,
-                len(response_text),
+                append_correlation(
+                    "agent stream done",
+                    _corr(),
+                    response_chars=len(response_text),
+                )
             )
         except Exception as exc:
             error_text = str(exc).strip()
@@ -504,26 +522,19 @@ async def stream_agent_reply(
             provider_server_error = _is_provider_server_error(exc=exc, text=error_text)
             if provider_server_error:
                 logger.warning(
-                    "agent stream provider server error session_id=%s model_id=%s; attempting sync fallback",
-                    session_id,
-                    model_id,
+                    append_correlation(
+                        "agent stream provider server error; attempting sync fallback",
+                        _corr(request_id=request_id),
+                    )
                 )
             else:
-                logger.exception("agent stream failed session_id=%s", session_id)
+                logger.exception(append_correlation("agent stream failed", _corr(request_id=request_id)))
             if request_id:
                 log_fn = logger.warning if provider_server_error else logger.error
-                log_fn(
-                    "agent stream provider error session_id=%s request_id=%s",
-                    session_id,
-                    request_id,
-                )
+                log_fn(append_correlation("agent stream provider error", _corr(request_id=request_id)))
             if not stop_event.is_set():
                 try:
-                    logger.info(
-                        "agent stream fallback sync session_id=%s model_id=%s",
-                        session_id,
-                        model_id,
-                    )
+                    logger.info(append_correlation("agent stream fallback sync", _corr()))
                     fallback_text = ""
                     for attempt in range(2):
                         try:
@@ -547,8 +558,10 @@ async def stream_agent_reply(
                                 text=fallback_attempt_text,
                             ):
                                 logger.warning(
-                                    "agent stream fallback sync provider error session_id=%s; retrying once",
-                                    session_id,
+                                    append_correlation(
+                                        "agent stream fallback sync provider error; retrying once",
+                                        _corr(request_id=fallback_attempt_request_id, attempt=attempt + 1),
+                                    )
                                 )
                                 continue
                             raise
@@ -556,8 +569,10 @@ async def stream_agent_reply(
                             break
                         if attempt == 0:
                             logger.warning(
-                                "agent stream fallback attempt empty session_id=%s; retrying once",
-                                session_id,
+                                append_correlation(
+                                    "agent stream fallback attempt empty; retrying once",
+                                    _corr(attempt=attempt + 1),
+                                )
                             )
                     fallback_text_box_count = get_active_page_text_box_count(
                         volume_id=session.volume_id,
@@ -632,9 +647,11 @@ async def stream_agent_reply(
                         {"type": "done", "message": fallback_message},
                     )
                     logger.info(
-                        "agent stream fallback done session_id=%s response_chars=%s",
-                        session_id,
-                        len(fallback_text),
+                        append_correlation(
+                            "agent stream fallback done",
+                            _corr(request_id=request_id),
+                            response_chars=len(fallback_text),
+                        )
                     )
                     return
                 except Exception as fallback_exc:
@@ -674,15 +691,13 @@ async def stream_agent_reply(
                             {"type": "done", "message": fallback_message},
                         )
                         logger.warning(
-                            "agent stream fallback provider error session_id=%s request_id=%s; returned deterministic provider fallback",
-                            session_id,
-                            final_request_id or "unknown",
+                            append_correlation(
+                                "agent stream fallback provider error; returned deterministic provider fallback",
+                                _corr(request_id=final_request_id),
+                            )
                         )
                         return
-                    logger.exception(
-                        "agent stream fallback failed session_id=%s",
-                        session_id,
-                    )
+                    logger.exception(append_correlation("agent stream fallback failed", _corr(request_id=fallback_request_id)))
             loop.call_soon_threadsafe(
                 queue.put_nowait,
                 {"type": "error", "message": error_text},

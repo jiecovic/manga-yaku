@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
 from infra.llm import call_logger
 
@@ -21,6 +22,16 @@ from infra.llm import call_logger
 class _FakeResponse:
     def __init__(self, output_text: str) -> None:
         self.output_text = output_text
+
+
+class _FakeResponsesApi:
+    def create(self, **_: object) -> _FakeResponse:
+        return _FakeResponse('{"ok":true}')
+
+
+class _FakeClient:
+    def __init__(self) -> None:
+        self.responses = _FakeResponsesApi()
 
 
 class CallLoggerValidationTests(unittest.TestCase):
@@ -41,3 +52,27 @@ class CallLoggerValidationTests(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertIsNone(detail)
+
+    def test_openai_responses_create_preserves_box_and_profile_context(self) -> None:
+        client = _FakeClient()
+        with patch.object(call_logger, "create_llm_call_log") as create_log:
+            call_logger.openai_responses_create(
+                client,
+                {"model": "gpt-5-mini", "input": []},
+                component="ocr.single_box",
+                context={
+                    "volume_id": "Akuhamu",
+                    "filename": "001.jpg",
+                    "box_id": 12,
+                    "profile_id": "manga-ocr",
+                    "request_id": "req_123",
+                },
+            )
+
+        kwargs = create_log.call_args.kwargs
+        self.assertEqual(kwargs["params_snapshot"]["box_id"], 12)
+        self.assertEqual(kwargs["params_snapshot"]["profile_id"], "manga-ocr")
+        self.assertEqual(kwargs["params_snapshot"]["request_id"], "req_123")
+        self.assertEqual(kwargs["payload"]["context"]["box_id"], 12)
+        self.assertEqual(kwargs["payload"]["context"]["profile_id"], "manga-ocr")
+        self.assertEqual(kwargs["payload"]["context"]["request_id"], "req_123")

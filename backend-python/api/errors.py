@@ -28,6 +28,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
+from infra.logging.correlation import append_correlation
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,15 +76,32 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request,
         exc: Exception,
     ) -> JSONResponse:
+        request_corr = {
+            "component": "api.errors",
+            "method": request.method,
+            "path": request.url.path,
+        }
         if isinstance(exc, OperationalError):
-            logger.exception("Database unavailable", exc_info=exc)
+            logger.exception(
+                append_correlation(
+                    "Database unavailable",
+                    request_corr,
+                ),
+                exc_info=exc,
+            )
             payload = _error_payload(
                 code="db_unavailable",
                 message="Database unavailable",
                 detail="Database unavailable. Check DATABASE_URL and that Postgres is running.",
             )
             return JSONResponse(status_code=503, content=payload)
-        logger.exception("Unhandled exception", exc_info=exc)
+        logger.exception(
+            append_correlation(
+                "Unhandled exception",
+                request_corr,
+            ),
+            exc_info=exc,
+        )
         payload = _error_payload(
             code="internal_error",
             message="Internal server error",

@@ -8,10 +8,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
 from config import PROJECT_ROOT, VOLUMES_ROOT, safe_join
 from core.usecases.settings.service import resolve_detection_settings
 from infra.db.db_store import create_detection_run, replace_boxes_for_type
-from PIL import Image
+from infra.logging.correlation import append_correlation
 
 from .postprocess import filter_contained_boxes, resolve_containment_threshold
 from .profiles import (
@@ -86,7 +88,13 @@ def _get_yolo_model(profile: BoxDetectionProfile):
     if not model_path.is_absolute():
         model_path = PROJECT_ROOT / model_path
 
-    logger.debug("Model path resolved: %s", model_path)
+    logger.debug(
+        append_correlation(
+            f"Model path resolved: {model_path}",
+            {"component": "box_detection.model_load"},
+            profile_id=str(profile.get("id") or ""),
+        )
+    )
 
     if not model_path.is_file():
         raise FileNotFoundError(

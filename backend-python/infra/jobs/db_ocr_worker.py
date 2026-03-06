@@ -22,6 +22,7 @@ from infra.jobs.workflow_repo import (
     update_task_run,
     update_workflow_run,
 )
+from infra.logging.correlation import append_correlation, normalize_correlation
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,29 @@ _DEFAULT_LEASE_SECONDS = 180
 _DEFAULT_TASK_TIMEOUT_SECONDS = 180
 _DEFAULT_IDLE_SLEEP_SECONDS = 0.4
 _DEFAULT_ERROR_SLEEP_SECONDS = 1.0
+
+
+def _ocr_correlation(
+    *,
+    component: str,
+    task_id: str | None = None,
+    workflow_id: str | None = None,
+    volume_id: str | None = None,
+    filename: str | None = None,
+    box_id: int | None = None,
+    profile_id: str | None = None,
+) -> dict[str, Any]:
+    return normalize_correlation(
+        {
+            "component": component,
+            "task_run_id": task_id,
+            "workflow_run_id": workflow_id,
+            "volume_id": volume_id,
+            "filename": filename,
+        },
+        box_id=box_id,
+        profile_id=profile_id,
+    )
 
 
 def _to_int(value: Any, *, default: int) -> int:
@@ -387,7 +411,20 @@ async def _run_claimed_task(
             try:
                 persist_attempt_event(event)
             except Exception:
-                logger.exception("Failed to persist OCR attempt event for task %s", task_id)
+                logger.exception(
+                    append_correlation(
+                        "Failed to persist OCR attempt event",
+                        _ocr_correlation(
+                            component="jobs.db_ocr.attempt",
+                            task_id=task_id,
+                            workflow_id=workflow_id,
+                            volume_id=str(claimed.get("volume_id") or ""),
+                            filename=str(claimed.get("filename") or ""),
+                            box_id=int(claimed.get("box_id") or 0),
+                            profile_id=profile_id,
+                        ),
+                    )
+                )
 
         outcome = await run_ocr_task_async(
             profile_id=profile_id,
@@ -436,10 +473,21 @@ async def run_ocr_db_worker(stop_event: Event) -> None:
     try:
         stale = await asyncio.to_thread(_requeue_stale_running_tasks, lease_seconds=lease_seconds)
     except Exception:
-        logger.exception("Failed to requeue stale OCR tasks on startup")
+        logger.exception(
+            append_correlation(
+                "Failed to requeue stale OCR tasks on startup",
+                {"component": "jobs.db_ocr.startup"},
+            )
+        )
         stale = 0
     if stale > 0:
-        logger.info("Requeued %s stale OCR tasks", stale)
+        logger.info(
+            append_correlation(
+                "Requeued stale OCR tasks",
+                {"component": "jobs.db_ocr.startup"},
+                stale=stale,
+            )
+        )
 
     async def worker_loop(worker_idx: int) -> None:
         idle_sleep = float(_DEFAULT_IDLE_SLEEP_SECONDS)
@@ -448,7 +496,13 @@ async def run_ocr_db_worker(stop_event: Event) -> None:
             try:
                 claimed = await asyncio.to_thread(_claim_next_task, lease_seconds=lease_seconds)
             except Exception:
-                logger.exception("OCR DB worker #%s failed to claim task", worker_idx)
+                logger.exception(
+                    append_correlation(
+                        "OCR DB worker failed to claim task",
+                        {"component": "jobs.db_ocr.claim"},
+                        worker_idx=worker_idx,
+                    )
+                )
                 await asyncio.sleep(error_sleep)
                 continue
             if not claimed:
@@ -462,7 +516,21 @@ async def run_ocr_db_worker(stop_event: Event) -> None:
                     task_timeout_seconds=task_timeout_seconds,
                 )
             except Exception:
-                logger.exception("OCR DB worker #%s failed claimed task", worker_idx)
+                logger.exception(
+                    append_correlation(
+                        "OCR DB worker failed claimed task",
+                        _ocr_correlation(
+                            component="jobs.db_ocr.task",
+                            task_id=str(claimed.get("task_id") or ""),
+                            workflow_id=str(claimed.get("workflow_id") or ""),
+                            volume_id=str(claimed.get("volume_id") or ""),
+                            filename=str(claimed.get("filename") or ""),
+                            box_id=int(claimed.get("box_id") or 0),
+                            profile_id=str(claimed.get("profile_id") or ""),
+                        ),
+                        worker_idx=worker_idx,
+                    )
+                )
                 task_id = str(claimed.get("task_id") or "")
                 workflow_id = str(claimed.get("workflow_id") or "")
                 if task_id:
@@ -475,14 +543,39 @@ async def run_ocr_db_worker(stop_event: Event) -> None:
                             error_detail="Unhandled worker failure",
                         )
                     except Exception:
-                        logger.exception("OCR DB worker #%s failed to mark task as failed", worker_idx)
+                        logger.exception(
+                            append_correlation(
+                                "OCR DB worker failed to mark task as failed",
+                                _ocr_correlation(
+                                    component="jobs.db_ocr.task_mark_failed",
+                                    task_id=task_id,
+                                    workflow_id=workflow_id,
+                                    volume_id=str(claimed.get("volume_id") or ""),
+                                    filename=str(claimed.get("filename") or ""),
+                                    box_id=int(claimed.get("box_id") or 0),
+                                    profile_id=str(claimed.get("profile_id") or ""),
+                                ),
+                                worker_idx=worker_idx,
+                            )
+                        )
                 if workflow_id:
                     try:
                         await asyncio.to_thread(_update_workflow_progress_after_task, workflow_id)
                     except Exception:
                         logger.exception(
-                            "OCR DB worker #%s failed to update workflow progress after worker error",
-                            worker_idx,
+                            append_correlation(
+                                "OCR DB worker failed to update workflow progress after worker error",
+                                _ocr_correlation(
+                                    component="jobs.db_ocr.workflow_progress",
+                                    task_id=task_id,
+                                    workflow_id=workflow_id,
+                                    volume_id=str(claimed.get("volume_id") or ""),
+                                    filename=str(claimed.get("filename") or ""),
+                                    box_id=int(claimed.get("box_id") or 0),
+                                    profile_id=str(claimed.get("profile_id") or ""),
+                                ),
+                                worker_idx=worker_idx,
+                            )
                         )
                 await asyncio.sleep(error_sleep)
 

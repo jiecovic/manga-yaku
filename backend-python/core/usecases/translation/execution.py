@@ -7,6 +7,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from infra.logging.correlation import append_correlation
+
 from .profiles import get_translation_profile
 from .task_runner import TranslationTaskOutcome, run_translation_task_with_retries
 
@@ -74,8 +76,16 @@ async def run_translation_task_async(
             on_attempt(event)
         except Exception:
             logger.exception(
-                "Translation attempt callback failed for profile=%s",
-                profile_id,
+                append_correlation(
+                    "Translation attempt callback failed",
+                    {
+                        "component": "translation.execution.attempt_callback",
+                        "volume_id": volume_id,
+                        "filename": filename,
+                    },
+                    profile_id=profile_id,
+                    box_id=box_id,
+                )
             )
 
     task = asyncio.to_thread(

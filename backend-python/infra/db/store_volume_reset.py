@@ -7,8 +7,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from config import AGENT_DEBUG_DIR
 from sqlalchemy import delete, func, select, update
+
+from infra.logging.artifacts import agent_debug_dir
 
 from .db import (
     AgentSession,
@@ -51,7 +52,7 @@ def _delete_paths(paths: list[str]) -> int:
 
 
 def _delete_agent_debug_files_for_volume(volume_id: str) -> int:
-    target_dir = AGENT_DEBUG_DIR / "translate_page"
+    target_dir = agent_debug_dir("translate_page", create=False)
     if not target_dir.is_dir():
         return 0
 

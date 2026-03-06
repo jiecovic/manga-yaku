@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Callable
-from datetime import datetime, timezone
 from threading import Event
 from typing import Any
 
-from config import AGENT_DEBUG_DIR, DEBUG_PROMPTS
+from config import DEBUG_PROMPTS
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
+from infra.logging.artifacts import (
+    agent_debug_dir,
+    timestamped_artifact_name,
+    write_json_artifact,
+)
+from infra.logging.correlation import append_correlation, with_correlation
 
 from .page_translate_call import build_model_cfg, run_structured_call
 from .page_translate_prompts import (
@@ -136,7 +140,14 @@ def _emit_stage_event(
     try:
         callback(stage, status, payload)
     except Exception as exc:
-        logger.warning("Stage event callback failed (%s/%s): %s", stage, status, exc)
+        logger.warning(
+            append_correlation(
+                f"Stage event callback failed ({stage}/{status}): {exc}",
+                payload.get("correlation") if isinstance(payload, dict) else None,
+                component_name=stage,
+                status_name=status,
+            )
+        )
 
 
 def _write_debug_snapshot(
@@ -147,17 +158,18 @@ def _write_debug_snapshot(
     if not DEBUG_PROMPTS:
         return
     try:
-        target_dir = AGENT_DEBUG_DIR / "translate_page"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        name = f"{debug_id or 'agent'}_{stamp}.json"
-        path = target_dir / name
-        path.write_text(
-            json.dumps(payload, ensure_ascii=True, indent=2, default=str),
-            encoding="utf-8",
+        write_json_artifact(
+            directory=agent_debug_dir("translate_page"),
+            filename=timestamped_artifact_name(prefix=debug_id or "agent"),
+            payload=with_correlation(payload, payload.get("correlation")),
         )
     except Exception as exc:
-        logger.warning("Failed to write agent debug snapshot: %s", exc)
+        logger.warning(
+            append_correlation(
+                f"Failed to write agent debug snapshot: {exc}",
+                payload.get("correlation") if isinstance(payload, dict) else None,
+            )
+        )
 
 
 def run_agent_translate_page(
@@ -387,7 +399,17 @@ def run_agent_translate_page(
         )
     except Exception as exc:
         stage2_error = str(exc).strip() or repr(exc)
-        logger.warning("State merge call failed, using fallback context: %s", stage2_error)
+        logger.warning(
+            append_correlation(
+                f"State merge call failed, using fallback context: {stage2_error}",
+                {
+                    "component": "agent.translate_page.merge",
+                    "job_id": debug_id,
+                    "volume_id": volume_id,
+                    "filename": filename,
+                },
+            )
+        )
         stage2_event = _build_stage_event_payload(
             stage="merge_state",
             status="completed",
@@ -434,6 +456,12 @@ def run_agent_translate_page(
         "job_id": debug_id,
         "volume_id": volume_id,
         "filename": filename,
+        "correlation": {
+            "component": "agent.translate_page",
+            "job_id": debug_id,
+            "volume_id": volume_id,
+            "filename": filename,
+        },
         "image": image_debug,
         "ocr_profiles": ocr_profiles,
         "boxes": boxes,

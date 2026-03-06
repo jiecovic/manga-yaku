@@ -45,6 +45,12 @@ class LlmCallLogItem(BaseModel):
     job_id: str | None = None
     workflow_run_id: str | None = None
     task_run_id: str | None = None
+    session_id: str | None = None
+    volume_id: str | None = None
+    filename: str | None = None
+    request_id: str | None = None
+    box_id: int | None = None
+    profile_id: str | None = None
     attempt: int | None = None
     latency_ms: int | None = None
     finish_reason: str | None = None

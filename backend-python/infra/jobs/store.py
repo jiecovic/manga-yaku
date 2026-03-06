@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Request
+from pydantic import BaseModel
+
 from infra.http import cors_headers_for_stream as build_cors_headers
 from infra.logging.ansi import strip_ansi
-from pydantic import BaseModel
+from infra.logging.correlation import append_correlation
 
 
 class JobStatus(str, Enum):
@@ -123,7 +125,12 @@ class JobStore:
         try:
             return json.dumps(payload, allow_nan=False)
         except (TypeError, ValueError) as exc:
-            logger.warning("Failed to serialize job payload: %s", exc)
+            logger.warning(
+                append_correlation(
+                    f"Failed to serialize job payload: {exc}",
+                    {"component": "jobs.store.serialize"},
+                )
+            )
             sanitized = _sanitize_json_value(payload)
             return json.dumps(sanitized, allow_nan=False, default=str)
 

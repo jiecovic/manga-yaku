@@ -9,6 +9,8 @@ import logging
 from typing import Any, TypedDict
 from uuid import uuid4
 
+from fastapi import HTTPException
+
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateOcrBoxJobRequest,
@@ -17,7 +19,6 @@ from api.schemas.jobs import (
 )
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
-from fastapi import HTTPException
 from infra.db.db_store import load_page
 from infra.db.idempotency_store import (
     claim_idempotency_key,
@@ -32,6 +33,7 @@ from infra.jobs.job_modes import (
     OCR_PAGE_WORKFLOW_TYPE,
 )
 from infra.jobs.store import Job, JobStatus, JobStore
+from infra.logging.correlation import append_correlation
 
 from .jobs_workflow_helpers import (
     create_ocr_workflow_with_tasks,
@@ -126,9 +128,14 @@ def _find_active_persisted_agent_run_id(
         )
     except Exception:
         logger.exception(
-            "Failed to inspect active persisted agent workflow for %s/%s",
-            volume_id,
-            filename,
+            append_correlation(
+                "Failed to inspect active persisted agent workflow",
+                {
+                    "component": "jobs.creation.agent_translate_page",
+                    "volume_id": volume_id,
+                    "filename": filename,
+                },
+            )
         )
         return None
     if not isinstance(run, dict):

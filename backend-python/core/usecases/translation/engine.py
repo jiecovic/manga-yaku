@@ -27,6 +27,7 @@ from infra.llm import (
     openai_chat_completions_create,
     openai_responses_create,
 )
+from infra.logging.correlation import append_correlation
 from infra.prompts import (
     PromptBundle,
     load_prompt_bundle,
@@ -355,8 +356,10 @@ def _run_openai_translate(
         if not base_url:
             raise
         logger.warning(
-            "Responses API failed for local translation endpoint; falling back to chat API: %s",
-            exc,
+            append_correlation(
+                f"Responses API failed for local translation endpoint; falling back to chat API: {exc}",
+                log_context,
+            )
         )
         chat_params = build_chat_params(cfg, messages)
         chat_resp = openai_chat_completions_create(
@@ -517,20 +520,19 @@ def _prepare_translate_box_request(
     user_content = rendered["user_template"]
 
     if DEBUG_PROMPTS:
-        logger.debug("================ TRANSLATION PROMPT DEBUG ================")
-        logger.debug("Volume: %s | Page: %s | Box: %s", volume_id, filename, box_id)
-        logger.debug("Use page context: %s", use_page_context)
-        logger.debug("----- SOURCE TEXT -----")
-        logger.debug("%s", source_text)
-        logger.debug("----- SYSTEM PROMPT -----")
         logger.debug(
-            "%s",
-            system_prompt.encode("utf-8", errors="replace").decode("utf-8", errors="replace"),
+            append_correlation(
+                "Translation prompt debug prepared",
+                {
+                    "component": "translation.prompt_debug",
+                    "volume_id": volume_id,
+                    "filename": filename,
+                },
+                box_id=box_id,
+                use_page_context=use_page_context,
+                source_chars=len(source_text),
+                system_prompt_chars=len(system_prompt),
+                user_content_chars=len(user_content),
+            )
         )
-        logger.debug("----- USER CONTENT -----")
-        logger.debug(
-            "%s",
-            user_content.encode("utf-8", errors="replace").decode("utf-8", errors="replace"),
-        )
-        logger.debug("===========================================================")
     return source_text, profile, system_prompt, user_content

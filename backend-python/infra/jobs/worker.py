@@ -8,12 +8,25 @@ from typing import Any
 
 from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE, PERSISTED_WORKFLOW_TYPES
 from infra.jobs.workflow_repo import update_workflow_run
+from infra.logging.correlation import append_correlation, normalize_correlation
 from infra.training.job_runner import TrainingCanceled
 
 from .handlers.registry import HANDLERS
 from .store import Job, JobStatus, JobStore
 
 logger = logging.getLogger(__name__)
+
+
+def _job_correlation(job: Job, *, workflow_run_id: str | None = None) -> dict[str, Any]:
+    return normalize_correlation(
+        {
+            "component": "jobs.worker",
+            "job_id": job.id,
+            "workflow_run_id": workflow_run_id or _extract_workflow_run_id(job),
+            "volume_id": job.payload.get("volumeId") or job.payload.get("volume_id"),
+            "filename": job.payload.get("filename"),
+        }
+    )
 
 
 def _extract_workflow_run_id(job: Job, result: dict[str, Any] | None = None) -> str | None:
@@ -62,7 +75,18 @@ def _sync_terminal_workflow_status(
             error_message=error_message,
         )
     except Exception:
-        logger.exception("Failed to sync workflow terminal status for %s", workflow_run_id)
+        logger.exception(
+            append_correlation(
+                "Failed to sync workflow terminal status",
+                normalize_correlation(
+                    {
+                        "component": "jobs.worker.workflow_sync",
+                        "workflow_run_id": workflow_run_id,
+                        "job_id": job.id,
+                    }
+                ),
+            )
+        )
 
 
 async def job_worker(store: JobStore) -> None:
@@ -82,6 +106,13 @@ async def job_worker(store: JobStore) -> None:
 
         try:
             store.update_job(job, status=JobStatus.running)
+            logger.info(
+                append_correlation(
+                    "Job started",
+                    _job_correlation(job),
+                    job_type=job.type,
+                )
+            )
 
             handler = HANDLERS.get(job.type)
             if handler is None:
@@ -91,6 +122,13 @@ async def job_worker(store: JobStore) -> None:
 
             if job.status != JobStatus.canceled:
                 store.update_job(job, status=JobStatus.finished, result=result)
+                logger.info(
+                    append_correlation(
+                        "Job finished",
+                        _job_correlation(job, workflow_run_id=_extract_workflow_run_id(job, result)),
+                        job_type=job.type,
+                    )
+                )
                 _sync_terminal_workflow_status(
                     job=job,
                     terminal_status="completed",
@@ -107,6 +145,13 @@ async def job_worker(store: JobStore) -> None:
         except TrainingCanceled as exc:
             if job.status != JobStatus.canceled:
                 store.update_job(job, status=JobStatus.canceled, message=str(exc) or "Canceled")
+            logger.warning(
+                append_correlation(
+                    "Job canceled",
+                    _job_correlation(job),
+                    job_type=job.type,
+                )
+            )
             _sync_terminal_workflow_status(
                 job=job,
                 terminal_status="canceled",
@@ -114,7 +159,13 @@ async def job_worker(store: JobStore) -> None:
             )
         except Exception as exc:
             error_text = str(exc).strip() or repr(exc)
-            logger.exception("Job failed: %s", error_text)
+            logger.exception(
+                append_correlation(
+                    f"Job failed: {error_text}",
+                    _job_correlation(job),
+                    job_type=job.type,
+                )
+            )
             if job.status != JobStatus.canceled:
                 store.update_job(
                     job,

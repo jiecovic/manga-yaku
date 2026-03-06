@@ -38,6 +38,27 @@ function formatJson(value: unknown): string {
     }
 }
 
+function compactCorrelation(log: LlmCallLogItem): string {
+    const parts: string[] = [];
+    if (log.volume_id || log.filename) {
+        parts.push(
+            [log.volume_id, log.filename].filter((value) => Boolean(value)).join(" / "),
+        );
+    }
+    if (log.box_id !== null && log.box_id !== undefined) {
+        parts.push(`box ${log.box_id}`);
+    }
+    if (log.profile_id) {
+        parts.push(log.profile_id);
+    }
+    if (log.session_id) {
+        parts.push(`session ${log.session_id}`);
+    } else if (log.job_id) {
+        parts.push(`job ${log.job_id}`);
+    }
+    return parts.join(" · ");
+}
+
 export function LogsLayout() {
     const [logs, setLogs] = useState<LlmCallLogItem[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -130,6 +151,21 @@ export function LogsLayout() {
         () => formatJson(detail?.response_excerpt ?? ""),
         [detail],
     );
+    const correlationText = useMemo(() => {
+        if (!detail) return "";
+        const correlation = {
+            job_id: detail.log.job_id ?? undefined,
+            workflow_run_id: detail.log.workflow_run_id ?? undefined,
+            task_run_id: detail.log.task_run_id ?? undefined,
+            session_id: detail.log.session_id ?? undefined,
+            volume_id: detail.log.volume_id ?? undefined,
+            filename: detail.log.filename ?? undefined,
+            box_id: detail.log.box_id ?? undefined,
+            profile_id: detail.log.profile_id ?? undefined,
+            request_id: detail.log.request_id ?? undefined,
+        };
+        return formatJson(correlation);
+    }, [detail]);
 
     const handleCopy = async (label: string, value: string) => {
         if (!value.trim()) {
@@ -271,6 +307,11 @@ export function LogsLayout() {
                                             <div className={ui.trainingMetaSmall}>
                                                 {formatTimestamp(log.created_at)}
                                             </div>
+                                            {compactCorrelation(log) && (
+                                                <div className={ui.trainingMetaSmall}>
+                                                    {compactCorrelation(log)}
+                                                </div>
+                                            )}
                                         </button>
                                     );
                                 })}
@@ -349,6 +390,16 @@ export function LogsLayout() {
 
                                     {!showPayload && (
                                         <div className="space-y-3">
+                                            <div>
+                                                <div className={ui.trainingLabelSmall}>
+                                                    Correlation
+                                                </div>
+                                                <pre
+                                                    className={`${ui.trainingLogBox} mt-2 p-3 whitespace-pre-wrap break-words`}
+                                                >
+                                                    {correlationText || "-"}
+                                                </pre>
+                                            </div>
                                             <div>
                                                 <div className="flex items-center justify-between">
                                                     <div className={ui.trainingLabelSmall}>

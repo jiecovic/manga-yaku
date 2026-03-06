@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from config import AGENT_MCP_SERVER_URL
+from infra.logging.correlation import append_correlation
 from mcp_server.context import (
     MCP_HEADER_AGENT_RUN_ID,
     clear_runtime_active_filename,
@@ -88,6 +89,14 @@ async def cleanup_mcp_servers(servers: list[Any]) -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # pragma: no cover - cleanup path
-            logger.warning("failed to cleanup mcp server %s: %s", name, exc)
+            logger.warning(
+                append_correlation(
+                    f"Failed to cleanup MCP server: {name}: {exc}",
+                    {
+                        "component": "agent.mcp.cleanup",
+                    },
+                    agent_run_id=run_id,
+                )
+            )
         finally:
             clear_runtime_active_filename(run_id)

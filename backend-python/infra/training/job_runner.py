@@ -18,6 +18,7 @@ from config import (
     configure_ultralytics_settings,
 )
 from infra.logging.ansi import strip_ansi
+from infra.logging.correlation import append_correlation
 from infra.training.catalog import resolve_prepared_dataset
 
 
@@ -115,6 +116,25 @@ def run_training_job(
 
     run_name = run_id if not dry_run else "dry-run"
     project_arg = project_dir
+
+    def training_log(
+        message: str,
+        *,
+        component: str = "training.run",
+        **extras: object,
+    ) -> str:
+        return append_correlation(
+            message,
+            {
+                "component": component,
+                "job_id": str(getattr(job, "id", "") or ""),
+            },
+            dataset_id=dataset_id,
+            run_id=run_id,
+            model_id=model_id,
+            dry_run=dry_run,
+            **extras,
+        )
 
     data_yaml_used = data_yaml
     try:
@@ -331,14 +351,14 @@ def run_training_job(
             schedule_update(status=status_canceled, message="Canceled")
         if not state["canceled_logged"]:
             state["canceled_logged"] = True
-            yolo_logger.info("Canceled by user.")
+            yolo_logger.info(training_log("Canceled by user"))
         raise TrainingCanceled("Canceled")
 
     def on_train_start(trainer: Any) -> None:
         state["batches"] = len(trainer.train_loader) if trainer.train_loader is not None else 0
         schedule_update(progress=0, message=f"Training {model_id} on {dataset_id}")
         schedule_update(metrics=build_metrics(trainer))
-        yolo_logger.info(f"Training started: {model_id} on {dataset_id}")
+        yolo_logger.info(training_log("Training started"))
 
     def on_train_epoch_start(trainer: Any) -> None:
         state["epoch"] = trainer.epoch + 1
@@ -356,17 +376,23 @@ def run_training_job(
 
     def on_train_epoch_end(trainer: Any) -> None:
         check_canceled(trainer)
-        yolo_logger.info(f"Epoch {trainer.epoch + 1}/{trainer.epochs} complete")
+        yolo_logger.info(
+            training_log(
+                "Training epoch complete",
+                epoch=trainer.epoch + 1,
+                total_epochs=trainer.epochs,
+            )
+        )
         schedule_update(metrics=build_metrics(trainer))
 
     def on_train_end(trainer: Any) -> None:
         state["done"] = True
         if job.status == status_canceled:
             schedule_update(message="Canceled")
-            yolo_logger.info("Training canceled")
+            yolo_logger.info(training_log("Training canceled"))
             return
         schedule_update(progress=100, message="Training complete")
-        yolo_logger.info("Training complete")
+        yolo_logger.info(training_log("Training complete"))
 
     try:
         from ultralytics import YOLO
@@ -402,7 +428,12 @@ def run_training_job(
     except TrainingCanceled:
         raise
     except Exception as exc:
-        yolo_logger.exception("Training failed: %s", exc)
+        yolo_logger.exception(
+            training_log(
+                f"Training failed: {exc}",
+                component="training.run.error",
+            )
+        )
         raise
     finally:
         yolo_logger.removeHandler(log_handler)

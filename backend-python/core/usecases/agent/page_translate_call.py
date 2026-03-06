@@ -21,6 +21,7 @@ from infra.llm import (
     extract_response_text,
     openai_responses_create,
 )
+from infra.logging.correlation import append_correlation
 
 from . import page_translate_schema as _schema
 
@@ -202,7 +203,13 @@ def run_structured_call(
     try:
         result = parser(extract_json(raw_text))
     except Exception as exc:
-        logger.warning("Failed to parse %s JSON, retrying repair: %s", component, exc)
+        logger.warning(
+            append_correlation(
+                f"Failed to parse {component} JSON, retrying repair: {exc}",
+                log_context,
+                component_name=component,
+            )
+        )
         _raise_if_stopped()
         repair_started = time.perf_counter()
         repaired_text = repair_with_llm(

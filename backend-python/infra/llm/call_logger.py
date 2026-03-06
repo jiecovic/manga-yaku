@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from infra.db.llm_call_log_store import create_llm_call_log
+from infra.logging.correlation import append_correlation, normalize_correlation
 
 from .openai_client import extract_response_text
 
@@ -221,7 +222,17 @@ def _build_params_snapshot(params: dict[str, Any], context: dict[str, Any]) -> d
         if isinstance(messages, list):
             snapshot["chat_messages"] = len(messages)
 
-    for key in ("volume_id", "filename", "box_id", "profile_id"):
+    for key in (
+        "job_id",
+        "workflow_run_id",
+        "task_run_id",
+        "session_id",
+        "volume_id",
+        "filename",
+        "request_id",
+        "box_id",
+        "profile_id",
+    ):
         if key in context:
             snapshot[key] = context[key]
     return _redact_value(snapshot)
@@ -249,6 +260,12 @@ def _safe_write_log(
 ) -> None:
     if not _should_log(status):
         return
+    normalized_context = normalize_correlation(context)
+    for passthrough_key in ("box_id", "profile_id"):
+        if passthrough_key in context and passthrough_key not in normalized_context:
+            value = context.get(passthrough_key)
+            if value not in (None, ""):
+                normalized_context[passthrough_key] = value
     try:
         redacted_params = _redact_value(params)
         serialized_response = _redact_value(_serialize_response(response))
@@ -265,7 +282,7 @@ def _safe_write_log(
             "api": api,
             "component": component,
             "status": status,
-            "context": context,
+            "context": normalized_context,
             "request": redacted_params,
             "response": serialized_response,
             "response_text": response_excerpt,
@@ -278,12 +295,12 @@ def _safe_write_log(
             component=component,
             status=status,
             model_id=str(params.get("model") or "") or None,
-            job_id=str(context.get("job_id") or "") or None,
-            workflow_run_id=str(context.get("workflow_run_id") or "") or None,
-            task_run_id=str(context.get("task_run_id") or "") or None,
+            job_id=str(normalized_context.get("job_id") or "") or None,
+            workflow_run_id=str(normalized_context.get("workflow_run_id") or "") or None,
+            task_run_id=str(normalized_context.get("task_run_id") or "") or None,
             attempt=(
-                int(context.get("attempt"))
-                if context.get("attempt") not in (None, "")
+                int(normalized_context.get("attempt"))
+                if normalized_context.get("attempt") not in (None, "")
                 else None
             ),
             latency_ms=latency_ms,
@@ -292,13 +309,19 @@ def _safe_write_log(
             output_tokens=output_tokens,
             total_tokens=total_tokens,
             error_detail=error_detail,
-            params_snapshot=_build_params_snapshot(redacted_params, context),
+            params_snapshot=_build_params_snapshot(redacted_params, normalized_context),
             request_excerpt=_extract_request_excerpt(redacted_params),
             response_excerpt=response_excerpt,
             payload=payload,
         )
     except Exception as exc:
-        logger.warning("Failed to persist LLM call log: %s", exc)
+        logger.warning(
+            append_correlation(
+                f"Failed to persist LLM call log: {exc}",
+                normalized_context,
+                api=api,
+            )
+        )
 
 
 def _validate_response(

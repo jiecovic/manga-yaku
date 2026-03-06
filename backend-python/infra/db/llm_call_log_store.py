@@ -9,12 +9,11 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from config import DEBUG_LOGS_DIR
 from sqlalchemy import desc
 
-from .db import LlmCallLog, get_session
+from infra.logging.artifacts import llm_calls_dir, write_json_artifact
 
-LLM_CALLS_DIR = DEBUG_LOGS_DIR / "llm_calls"
+from .db import LlmCallLog, get_session
 
 
 def _utc_now() -> datetime:
@@ -23,11 +22,6 @@ def _utc_now() -> datetime:
 
 def _parse_uuid(value: str) -> UUID:
     return UUID(str(value).strip())
-
-
-def _ensure_log_dir() -> Path:
-    LLM_CALLS_DIR.mkdir(parents=True, exist_ok=True)
-    return LLM_CALLS_DIR
 
 
 def _safe_excerpt(value: Any, *, limit: int = 8000) -> str:
@@ -46,9 +40,19 @@ def _safe_excerpt(value: Any, *, limit: int = 8000) -> str:
     return text[: limit - 3] + "..."
 
 
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _row_to_dict(row: LlmCallLog) -> dict[str, Any]:
     created_at = row.created_at
     created_unix = int(created_at.timestamp()) if created_at else 0
+    params_snapshot = row.params_snapshot if isinstance(row.params_snapshot, dict) else {}
     return {
         "id": str(row.id),
         "provider": row.provider,
@@ -71,6 +75,32 @@ def _row_to_dict(row: LlmCallLog) -> dict[str, Any]:
         "response_excerpt": row.response_excerpt,
         "payload_path": row.payload_path,
         "has_payload": bool(row.payload_path),
+        "session_id": (
+            str(params_snapshot.get("session_id"))
+            if params_snapshot.get("session_id")
+            else None
+        ),
+        "volume_id": (
+            str(params_snapshot.get("volume_id"))
+            if params_snapshot.get("volume_id")
+            else None
+        ),
+        "filename": (
+            str(params_snapshot.get("filename"))
+            if params_snapshot.get("filename")
+            else None
+        ),
+        "request_id": (
+            str(params_snapshot.get("request_id"))
+            if params_snapshot.get("request_id")
+            else None
+        ),
+        "box_id": _optional_int(params_snapshot.get("box_id")),
+        "profile_id": (
+            str(params_snapshot.get("profile_id"))
+            if params_snapshot.get("profile_id")
+            else None
+        ),
         "created_at": created_unix,
     }
 
@@ -127,10 +157,10 @@ def create_llm_call_log(
         log_id = str(row.id)
 
         if payload is not None:
-            path = _ensure_log_dir() / f"{log_id}.json"
-            path.write_text(
-                json.dumps(payload, ensure_ascii=True, indent=2, default=str),
-                encoding="utf-8",
+            path = write_json_artifact(
+                directory=llm_calls_dir(),
+                filename=f"{log_id}.json",
+                payload=payload,
             )
             payload_path = str(path)
             row.payload_path = payload_path

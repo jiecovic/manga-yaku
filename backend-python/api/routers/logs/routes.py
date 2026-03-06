@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from fastapi import APIRouter, HTTPException
+
 from api.schemas.logs import (
     LlmCallLogDetailResponse,
     LlmCallLogItem,
@@ -14,20 +16,20 @@ from api.schemas.logs import (
     LogFileInfo,
     LogListResponse,
 )
-from config import AGENT_DEBUG_DIR, safe_join
-from fastapi import APIRouter, HTTPException
+from config import safe_join
 from infra.db.llm_call_log_store import (
     clear_llm_call_logs,
     delete_llm_call_log,
     get_llm_call_log,
     list_llm_call_logs,
 )
+from infra.logging.artifacts import agent_debug_dir
 
 router = APIRouter(tags=["logs"])
 
 
 def _log_dir() -> Path:
-    return AGENT_DEBUG_DIR / "translate_page"
+    return agent_debug_dir("translate_page", create=False)
 
 
 def _resolve_log_path(filename: str) -> Path:
@@ -37,6 +39,15 @@ def _resolve_log_path(filename: str) -> Path:
         return safe_join(_log_dir(), filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid filename") from exc
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _to_llm_log_item(raw: dict) -> LlmCallLogItem:
@@ -52,6 +63,12 @@ def _to_llm_log_item(raw: dict) -> LlmCallLogItem:
             str(raw.get("workflow_run_id")) if raw.get("workflow_run_id") else None
         ),
         task_run_id=str(raw.get("task_run_id")) if raw.get("task_run_id") else None,
+        session_id=str(raw.get("session_id")) if raw.get("session_id") else None,
+        volume_id=str(raw.get("volume_id")) if raw.get("volume_id") else None,
+        filename=str(raw.get("filename")) if raw.get("filename") else None,
+        request_id=str(raw.get("request_id")) if raw.get("request_id") else None,
+        box_id=_optional_int(raw.get("box_id")),
+        profile_id=str(raw.get("profile_id")) if raw.get("profile_id") else None,
         attempt=int(raw["attempt"]) if raw.get("attempt") is not None else None,
         latency_ms=(
             int(raw["latency_ms"]) if raw.get("latency_ms") is not None else None

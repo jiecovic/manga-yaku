@@ -8,6 +8,8 @@ import os
 import time
 from typing import Any
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
 from api.schemas.settings import (
     AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
@@ -34,7 +36,7 @@ from core.usecases.translation.profile_settings import (
     list_translation_profiles_with_settings,
     update_translation_profile_settings,
 )
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from infra.logging.correlation import append_correlation
 
 router = APIRouter(tags=["settings"])
 logger = logging.getLogger(__name__)
@@ -80,10 +82,13 @@ def _restart_exit_code() -> int:
 
 def _exit_process_later(delay_seconds: float = 0.25) -> None:
     logger.info(
-        "Backend restart requested: exiting process in %.2fs (pid=%s, exit_code=%s)",
-        max(0.0, delay_seconds),
-        os.getpid(),
-        _restart_exit_code(),
+        append_correlation(
+            "Backend restart requested: exiting process",
+            {"component": "settings.backend_restart"},
+            delay_seconds=f"{max(0.0, delay_seconds):.2f}",
+            pid=os.getpid(),
+            exit_code=_restart_exit_code(),
+        )
     )
     time.sleep(max(0.0, delay_seconds))
     os._exit(_restart_exit_code())
@@ -122,10 +127,13 @@ async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Handle restart backend."""
     enabled = _is_restart_enabled()
     logger.info(
-        "Restart endpoint called (pid=%s, enabled=%s, exit_code=%s)",
-        os.getpid(),
-        enabled,
-        _restart_exit_code(),
+        append_correlation(
+            "Restart endpoint called",
+            {"component": "settings.backend_restart"},
+            pid=os.getpid(),
+            enabled=enabled,
+            exit_code=_restart_exit_code(),
+        )
     )
     if not enabled:
         raise HTTPException(

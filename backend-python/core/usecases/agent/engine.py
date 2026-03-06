@@ -50,6 +50,7 @@ from infra.llm import (
     has_openai_sdk,
     openai_responses_create,
 )
+from infra.logging.correlation import append_correlation, normalize_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 # Optional Agents SDK imports.
@@ -184,7 +185,14 @@ def _build_sdk_session(session_id: str | None) -> Any:
     return SQLiteSession(session_id=session_key, db_path=str(db_path))
 
 
-def _run_agent_chat_legacy(messages: list[dict[str, Any]], *, model_id: str | None = None) -> str:
+def _run_agent_chat_legacy(
+    messages: list[dict[str, Any]],
+    *,
+    model_id: str | None = None,
+    volume_id: str | None = None,
+    current_filename: str | None = None,
+    session_id: str | None = None,
+) -> str:
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
 
@@ -208,7 +216,15 @@ def _run_agent_chat_legacy(messages: list[dict[str, Any]], *, model_id: str | No
         client,
         params,
         component="agent.chat",
-        context={"model_id": str(resolved_model)},
+        context=normalize_correlation(
+            {
+                "component": "agent.chat",
+                "model_id": str(resolved_model),
+                "session_id": session_id,
+                "volume_id": volume_id,
+                "filename": current_filename,
+            }
+        ),
     )
     return extract_response_text(resp).strip()
 
@@ -284,7 +300,18 @@ def _run_agent_chat_sdk(
         if not connected_servers:
             raise RuntimeError("No MCP tool servers are available for this agent run")
         for server_name, exc in failed_servers:
-            logger.warning("mcp server unavailable during sync run %s: %s", server_name, exc)
+            logger.warning(
+                append_correlation(
+                    f"mcp server unavailable during sync run: {server_name}: {exc}",
+                    {
+                        "component": "agent.chat.sdk",
+                        "session_id": session_id,
+                        "volume_id": volume_value,
+                        "filename": active_filename,
+                        "model_id": resolved_model,
+                    },
+                )
+            )
 
         agent = _build_sdk_agent(resolved_model, mcp_servers=connected_servers)
         try:
@@ -318,13 +345,22 @@ def run_agent_chat(
             current_filename=current_filename,
             session_id=session_id,
         )
-    return _run_agent_chat_legacy(messages, model_id=model_id)
+    return _run_agent_chat_legacy(
+        messages,
+        model_id=model_id,
+        volume_id=volume_id,
+        current_filename=current_filename,
+        session_id=session_id,
+    )
 
 
 def _run_agent_chat_stream_legacy(
     messages: list[dict[str, Any]],
     *,
     model_id: str | None = None,
+    volume_id: str | None = None,
+    current_filename: str | None = None,
+    session_id: str | None = None,
     stop_event: Event | None = None,
 ):
     yield from run_legacy_stream_events(
@@ -332,6 +368,13 @@ def _run_agent_chat_stream_legacy(
         model_id=model_id,
         stop_event=stop_event,
         build_input=_build_legacy_input,
+        correlation={
+            "component": "agent.chat.stream",
+            "session_id": session_id,
+            "volume_id": volume_id,
+            "filename": current_filename,
+            "model_id": model_id or AGENT_MODEL,
+        },
     )
 
 
@@ -430,6 +473,13 @@ def _run_agent_chat_stream_sdk(
         mcp_servers=mcp_servers,
         stop_event=stop_event,
         max_turns=max(1, int(AGENT_MAX_TURNS)),
+        correlation={
+            "component": "agent.chat.stream.sdk",
+            "session_id": session_id,
+            "volume_id": volume_value,
+            "filename": active_filename,
+            "model_id": resolved_model,
+        },
     )
 
 
@@ -446,6 +496,9 @@ def run_agent_chat_stream(
         yield from _run_agent_chat_stream_legacy(
             messages,
             model_id=model_id,
+            volume_id=volume_id,
+            current_filename=current_filename,
+            session_id=session_id,
             stop_event=stop_event,
         )
         return
