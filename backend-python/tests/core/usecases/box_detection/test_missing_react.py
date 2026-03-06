@@ -138,6 +138,101 @@ class MissingReactTests(unittest.TestCase):
         self.assertEqual(error_events[0].get("error_kind"), "schema_parse_error")
         self.assertIn("No JSON object found", str(error_events[0].get("error_detail") or ""))
 
+    def test_adjust_error_emits_runtime_event_before_fallback(self) -> None:
+        source_image = Image.new("RGB", (100, 100), color="white")
+        runtime_events: list[dict[str, Any]] = []
+
+        def _on_event(event: dict[str, Any]) -> None:
+            runtime_events.append(dict(event))
+
+        with (
+            patch(
+                "core.usecases.box_detection.missing_react.has_openai_sdk",
+                return_value=True,
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.create_openai_client",
+                return_value=object(),
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.load_page",
+                return_value={"boxes": []},
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.load_volume_image",
+                return_value=source_image,
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.resize_for_llm",
+                side_effect=lambda image, **_: image,
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.encode_image_data_url",
+                return_value="data:image/jpeg;base64,stub",
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react._propose_missing_candidates",
+                return_value=[
+                    {
+                        "hint_text": "target",
+                        "reason": "missing text",
+                        "x": 10.0,
+                        "y": 10.0,
+                        "width": 30.0,
+                        "height": 20.0,
+                    }
+                ],
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react._verify_candidate_crop",
+                side_effect=[
+                    {
+                        "contains_text": False,
+                        "fully_inside_box": False,
+                        "text_cut_off": True,
+                        "confidence": 0.2,
+                        "observed_text": "",
+                        "reason": "missed",
+                    },
+                    {
+                        "contains_text": True,
+                        "fully_inside_box": True,
+                        "text_cut_off": False,
+                        "confidence": 0.95,
+                        "observed_text": "target",
+                        "reason": "accepted",
+                    },
+                ],
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react._adjust_candidate_box",
+                side_effect=RuntimeError("OpenAI adjust step failed"),
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.create_detection_run",
+                return_value="run-1",
+            ),
+            patch(
+                "core.usecases.box_detection.missing_react.replace_boxes_for_type",
+                return_value=[],
+            ),
+        ):
+            result = detect_missing_text_boxes_react(
+                volume_id="vol-a",
+                filename="001.jpg",
+                max_candidates=1,
+                max_attempts_per_candidate=2,
+                on_runtime_event=_on_event,
+            )
+
+        self.assertEqual(result["status"], "ok")
+        adjust_events = [
+            event for event in runtime_events if str(event.get("status") or "") == "adjust_error"
+        ]
+        self.assertEqual(len(adjust_events), 1)
+        self.assertEqual(adjust_events[0].get("error_kind"), "provider_error")
+        self.assertIn("OpenAI adjust step failed", str(adjust_events[0].get("error_detail") or ""))
+
     def test_overlap_skip_retries_and_persists_only_accepted(self) -> None:
         source_image = Image.new("RGB", (100, 100), color="white")
         verify_attempts: list[int] = []

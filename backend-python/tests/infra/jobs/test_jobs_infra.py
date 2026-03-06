@@ -93,7 +93,7 @@ class JobStoreTests(unittest.TestCase):
             payload={},
         )
         store.add_job(job)
-        self.assertTrue(store.remove_job(job.id, tombstone=True))
+        self.assertTrue(store.remove_job(job.id))
 
         store.update_job(job, progress=90, message="Should stay gone")
 

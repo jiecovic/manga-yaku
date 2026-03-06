@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.workflow_creation import OCR_TASK_STAGE
 from infra.db.workflow_store import (
     create_task_runs,
     create_workflow_run,
@@ -19,7 +19,6 @@ from infra.jobs.job_modes import (
 )
 from infra.jobs.store import Job, JobPublic, JobStatus, JobStore
 
-OCR_TASK_STAGE = "ocr"
 TRANSLATE_TASK_STAGE = "translate_box"
 
 
@@ -197,146 +196,6 @@ def cancel_pending_tasks(workflow_run_id: str) -> None:
             error_code="cancel_requested",
             error_detail="Canceled",
         )
-
-
-def normalize_profile_ids(
-    *,
-    raw_profile_ids: list[str] | None,
-    fallback_profile_id: str | None = None,
-) -> list[str]:
-    """Normalize profile ids."""
-    out: list[str] = []
-    seen: set[str] = set()
-
-    for raw in raw_profile_ids or []:
-        profile_id = str(raw).strip()
-        if not profile_id or profile_id in seen:
-            continue
-        seen.add(profile_id)
-        out.append(profile_id)
-
-    fallback = str(fallback_profile_id or "").strip()
-    if fallback and fallback not in seen:
-        out.append(fallback)
-    return out
-
-
-def resolve_enabled_ocr_profiles(profile_ids: list[str]) -> list[str]:
-    """Resolve enabled ocr profiles."""
-    valid_profiles: list[str] = []
-    for profile_id in profile_ids:
-        try:
-            profile = get_ocr_profile(profile_id)
-        except Exception:
-            continue
-        if not profile.get("enabled", True):
-            continue
-        valid_profiles.append(profile_id)
-    return valid_profiles
-
-
-def create_ocr_workflow_with_tasks(
-    *,
-    workflow_type: str,
-    volume_id: str,
-    filename: str,
-    request_payload: dict,
-    total_boxes: int,
-    skipped: int,
-    processable_boxes: int,
-    queued_tasks: list[dict],
-) -> str:
-    """Create ocr workflow with tasks."""
-    workflow_run_id = create_workflow_run(
-        workflow_type=workflow_type,
-        volume_id=volume_id,
-        filename=filename,
-        state="queued",
-        status="queued",
-    )
-
-    base_result: dict = {
-        "request": request_payload,
-        "progress": 0,
-        "message": "Queued",
-        "total_boxes": total_boxes,
-        "skipped": skipped,
-        "processable_boxes": processable_boxes,
-    }
-
-    if total_boxes <= 0:
-        result_json = dict(base_result)
-        result_json.update(
-            {
-                "progress": 100,
-                "message": "No text boxes to OCR",
-                "processed": 0,
-                "total": 0,
-                "updated": 0,
-                "failures": 0,
-                "skipped": 0,
-            }
-        )
-        update_workflow_run(
-            workflow_run_id,
-            state="completed",
-            status="completed",
-            result_json=result_json,
-        )
-        return workflow_run_id
-
-    if processable_boxes <= 0:
-        result_json = dict(base_result)
-        result_json.update(
-            {
-                "progress": 100,
-                "message": "All text boxes already have OCR",
-                "processed": total_boxes,
-                "total": total_boxes,
-                "updated": 0,
-                "failures": 0,
-            }
-        )
-        update_workflow_run(
-            workflow_run_id,
-            state="completed",
-            status="completed",
-            result_json=result_json,
-        )
-        return workflow_run_id
-
-    update_workflow_run(
-        workflow_run_id,
-        state="queued",
-        status="queued",
-        result_json=base_result,
-    )
-
-    created_tasks = create_task_runs(
-        workflow_id=workflow_run_id,
-        stage=OCR_TASK_STAGE,
-        tasks=queued_tasks,
-    )
-    if created_tasks == 0:
-        result_json = dict(base_result)
-        result_json.update(
-            {
-                "progress": 100,
-                "message": "No valid OCR tasks",
-                "processed": total_boxes,
-                "total": total_boxes,
-                "updated": 0,
-                "failures": 0,
-            }
-        )
-        update_workflow_run(
-            workflow_run_id,
-            state="completed",
-            status="completed",
-            result_json=result_json,
-        )
-
-    return workflow_run_id
 
 
 def create_translate_workflow_with_task(

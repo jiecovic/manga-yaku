@@ -204,9 +204,12 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             only_translated=only_translated,
         )
 
-    @mcp.tool(name="list_text_boxes", description="List text boxes for a page")
+    @mcp.tool(
+        name="list_text_boxes",
+        description="List text boxes for the active page, or another page when filename is provided",
+    )
     async def list_text_boxes(
-        filename: str,
+        filename: str | None = None,
         limit: int = 300,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
@@ -214,14 +217,18 @@ def register_tools(mcp: FastMCP[Any]) -> None:
         return await _run_in_thread(
             list_text_boxes_tool,
             volume_id=resolved.volume_id,
+            active_filename=resolved.active_filename,
             filename=filename,
             limit=limit,
         )
 
-    @mcp.tool(name="get_text_box_detail", description="Get one text box by numeric ID")
+    @mcp.tool(
+        name="get_text_box_detail",
+        description="Get one text box by numeric ID on the active page, or another page when filename is provided",
+    )
     async def get_text_box_detail(
         box_id: int,
-        filename: str,
+        filename: str | None = None,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
         resolved = _resolve_tool_context(ctx)
@@ -229,13 +236,17 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             get_text_box_detail_tool,
             volume_id=resolved.volume_id,
             box_id=box_id,
+            active_filename=resolved.active_filename,
             filename=filename,
         )
 
-    @mcp.tool(name="update_text_box_fields", description="Update OCR text and/or translation for one box")
+    @mcp.tool(
+        name="update_text_box_fields",
+        description="Update OCR text and/or translation for one box on the active page",
+    )
     async def update_text_box_fields(
         box_id: int,
-        filename: str,
+        filename: str | None = None,
         text: str | None = None,
         translation: str | None = None,
         note: str | None = None,
@@ -253,11 +264,11 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             note=note,
         )
 
-    @mcp.tool(name="set_text_box_note", description="Set or replace note for one text box")
+    @mcp.tool(name="set_text_box_note", description="Set or replace note for one text box on the active page")
     async def set_text_box_note(
         box_id: int,
-        filename: str,
         note: str,
+        filename: str | None = None,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
         resolved = _resolve_tool_context(ctx)
@@ -278,7 +289,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     )
     async def view_text_box(
         box_id: int,
-        filename: str,
+        filename: str | None = None,
         padding_px: int = 8,
         max_side: int = 1024,
         ctx: Context | None = None,
@@ -288,6 +299,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             get_text_box_detail_tool,
             volume_id=resolved.volume_id,
             box_id=box_id,
+            active_filename=resolved.active_filename,
             filename=filename,
         )
         if "error" in detail:
@@ -301,7 +313,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             jpeg_bytes = await _run_in_thread(
                 _build_text_box_crop_jpeg_bytes,
                 volume_id=resolved.volume_id,
-                filename=str(detail.get("filename") or filename),
+                filename=str(detail.get("filename") or resolved.active_filename or filename),
                 box=box,
                 padding_px=padding_px,
                 max_side=max_side,
@@ -310,7 +322,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             return {
                 "error": str(exc).strip() or "Failed to prepare text box image crop",
                 "volume_id": resolved.volume_id,
-                "filename": str(detail.get("filename") or filename),
+                "filename": str(detail.get("filename") or resolved.active_filename or filename),
                 "box_id": int(box_id),
             }
 
@@ -318,7 +330,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             {
                 "status": "ok",
                 "volume_id": resolved.volume_id,
-                "filename": str(detail.get("filename") or filename),
+                "filename": str(detail.get("filename") or resolved.active_filename or filename),
                 "box_id": int(box_id),
                 "bbox": {
                     "x": float(box.get("x") or 0.0),
@@ -356,7 +368,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     @mcp.tool(name="ocr_text_box", description="Run OCR for one text box on the active page")
     async def ocr_text_box(
         box_id: int,
-        filename: str,
+        filename: str | None = None,
         profile_id: str | None = None,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
@@ -372,7 +384,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
 
     @mcp.tool(name="detect_text_boxes", description="Run text box detection on the active page")
     async def detect_text_boxes(
-        filename: str,
+        filename: str | None = None,
         profile_id: str | None = None,
         replace_existing: bool = True,
         ctx: Context | None = None,

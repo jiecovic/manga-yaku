@@ -144,7 +144,7 @@ def clear_finished_jobs(*, store: JobStore) -> int:
     ]
 
     for job_id in to_delete:
-        store.remove_job(job_id, tombstone=True)
+        store.remove_job(job_id)
 
     db_deleted = 0
     for workflow_type in PERSISTED_WORKFLOW_TYPES:
@@ -163,7 +163,7 @@ def delete_job(*, job_id: str, store: JobStore) -> int:
             )
 
         deleted = 0
-        if store.remove_job(job_id, tombstone=True):
+        if store.remove_job(job_id):
             deleted += 1
 
         workflow_run_id = extract_workflow_run_id(job)

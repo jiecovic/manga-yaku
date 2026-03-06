@@ -123,7 +123,7 @@ def _evaluate_candidate(
         verification_summary: dict[str, Any],
         previous_box: dict[str, float] | None,
         movement_delta: dict[str, float] | None,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         if crop_data_url:
             try:
                 current_box_resized = _to_resized_box(current_box, scale_x=scale_x, scale_y=scale_y)
@@ -178,15 +178,65 @@ def _evaluate_candidate(
                         image_h=source_image.height,
                     )
                     if normalized is not None:
-                        return normalized
-            except Exception:
-                pass
-        return _retry_candidate_box(
-            initial_candidate_box,
-            attempt_index=next_attempt_index,
-            image_w=source_image.width,
-            image_h=source_image.height,
+                        return {"box": normalized}
+                adjust_error_reason = "adjust_invalid_geometry: model returned invalid box geometry"
+            except Exception as exc:
+                adjust_error_reason = _build_adjust_error_reason(exc)
+            adjust_error_kind, adjust_error_detail = _split_error_reason(adjust_error_reason)
+            return {
+                "box": _retry_candidate_box(
+                    initial_candidate_box,
+                    attempt_index=next_attempt_index,
+                    image_w=source_image.width,
+                    image_h=source_image.height,
+                ),
+                "adjust_error_reason": adjust_error_reason,
+                "adjust_error_kind": adjust_error_kind,
+                "adjust_error_detail": adjust_error_detail,
+            }
+        return {
+            "box": _retry_candidate_box(
+                initial_candidate_box,
+                attempt_index=next_attempt_index,
+                image_w=source_image.width,
+                image_h=source_image.height,
+            )
+        }
+
+    def _emit_adjust_error(
+        *,
+        choose_result: dict[str, Any],
+        latest_trial: dict[str, Any],
+        attempt_idx: int,
+        verification_reason: str,
+    ) -> tuple[str | None, str | None]:
+        adjust_error_kind = str(choose_result.get("adjust_error_kind") or "").strip() or None
+        adjust_error_detail = str(choose_result.get("adjust_error_detail") or "").strip() or None
+        if adjust_error_kind is None:
+            return None, None
+        latest_trial["adjust_error_kind"] = adjust_error_kind
+        if adjust_error_detail is not None:
+            latest_trial["adjust_error_detail"] = adjust_error_detail
+        _emit_runtime_event(
+            on_runtime_event,
+            {
+                "phase": "adjust",
+                "status": "adjust_error",
+                "progress": verify_progress,
+                "candidate_index": candidate_index,
+                "candidates_total": candidates_total,
+                "attempt_index": attempt_idx,
+                "next_attempt_index": min(attempt_idx + 1, cfg.max_attempts_per_candidate),
+                "attempts_per_candidate": cfg.max_attempts_per_candidate,
+                "hint_text": hint_text,
+                "reason": verification_reason,
+                "error_kind": adjust_error_kind,
+                "error_detail": adjust_error_detail,
+                "fallback_strategy": "heuristic_retry_candidate_box",
+                "latest_trial": dict(latest_trial),
+            },
         )
+        return adjust_error_kind, adjust_error_detail
 
     for attempt_idx in range(1, cfg.max_attempts_per_candidate + 1):
         if next_override_box is not None:
@@ -255,7 +305,7 @@ def _evaluate_candidate(
                     attempt_box=attempt_box,
                     crop_padding_px=cfg.crop_padding_px,
                 )
-                next_override_box = _choose_next_box(
+                choose_result = _choose_next_box(
                     current_box=attempt_box,
                     crop_data_url=overlap_crop_data_url,
                     next_attempt_index=attempt_idx + 1,
@@ -263,12 +313,21 @@ def _evaluate_candidate(
                     previous_box=previous_attempt_box,
                     movement_delta=movement_delta,
                 )
+                next_override_box = dict(choose_result["box"])
+                adjust_error_kind, adjust_error_detail = _emit_adjust_error(
+                    choose_result=choose_result,
+                    latest_trial=latest_trial,
+                    attempt_idx=attempt_idx,
+                    verification_reason=failure_reason,
+                )
                 _record_attempt(
                     attempt_history,
                     attempt_idx,
                     attempt_box,
                     status="overlap_skip",
                     reason=failure_reason,
+                    adjust_error_kind=adjust_error_kind,
+                    adjust_error_detail=adjust_error_detail,
                 )
                 _emit_retrying_event(
                     on_runtime_event=on_runtime_event,
@@ -313,13 +372,20 @@ def _evaluate_candidate(
                 error_detail=error_detail,
             )
             if attempt_idx < cfg.max_attempts_per_candidate:
-                next_override_box = _choose_next_box(
+                choose_result = _choose_next_box(
                     current_box=attempt_box,
                     crop_data_url=crop_data_url,
                     next_attempt_index=attempt_idx + 1,
                     verification_summary={"status": "verification_error", "reason": failure_reason},
                     previous_box=previous_attempt_box,
                     movement_delta=movement_delta,
+                )
+                next_override_box = dict(choose_result["box"])
+                adjust_error_kind, adjust_error_detail = _emit_adjust_error(
+                    choose_result=choose_result,
+                    latest_trial=latest_trial,
+                    attempt_idx=attempt_idx,
+                    verification_reason=failure_reason,
                 )
                 _record_attempt(
                     attempt_history,
@@ -329,6 +395,8 @@ def _evaluate_candidate(
                     reason=failure_reason,
                     error_kind=error_kind,
                     error_detail=error_detail,
+                    adjust_error_kind=adjust_error_kind,
+                    adjust_error_detail=adjust_error_detail,
                 )
                 _emit_retrying_event(
                     on_runtime_event=on_runtime_event,
@@ -388,7 +456,7 @@ def _evaluate_candidate(
                 },
             )
             if attempt_idx < cfg.max_attempts_per_candidate:
-                next_override_box = _choose_next_box(
+                choose_result = _choose_next_box(
                     current_box=attempt_box,
                     crop_data_url=crop_data_url,
                     next_attempt_index=attempt_idx + 1,
@@ -402,6 +470,13 @@ def _evaluate_candidate(
                     },
                     previous_box=previous_attempt_box,
                     movement_delta=movement_delta,
+                )
+                next_override_box = dict(choose_result["box"])
+                adjust_error_kind, adjust_error_detail = _emit_adjust_error(
+                    choose_result=choose_result,
+                    latest_trial=latest_trial,
+                    attempt_idx=attempt_idx,
+                    verification_reason="try_smaller_box_keep_text_inside",
                 )
                 _emit_retrying_event(
                     on_runtime_event=on_runtime_event,
@@ -418,25 +493,27 @@ def _evaluate_candidate(
                     verify_confidence=verdict["confidence"],
                     verified_text=observed_text,
                 )
-            _record_attempt(
-                attempt_history,
-                attempt_idx,
-                attempt_box,
-                status="candidate_valid",
+                _record_attempt(
+                    attempt_history,
+                    attempt_idx,
+                    attempt_box,
+                    status="candidate_valid",
                 fully_inside_box=verdict["fully_inside_box"],
                 text_cut_off=verdict["text_cut_off"],
-                verify_confidence=verdict["confidence"],
-                verified_text=observed_text,
-                validated_area=round(candidate_area, 3),
-            )
-            previous_attempt_box = dict(attempt_box)
-            continue
+                    verify_confidence=verdict["confidence"],
+                    verified_text=observed_text,
+                    validated_area=round(candidate_area, 3),
+                    adjust_error_kind=adjust_error_kind,
+                    adjust_error_detail=adjust_error_detail,
+                )
+                previous_attempt_box = dict(attempt_box)
+                continue
 
         if best_box is not None:
             break
 
         if attempt_idx < cfg.max_attempts_per_candidate:
-            next_override_box = _choose_next_box(
+            choose_result = _choose_next_box(
                 current_box=attempt_box,
                 crop_data_url=crop_data_url,
                 next_attempt_index=attempt_idx + 1,
@@ -450,6 +527,13 @@ def _evaluate_candidate(
                 },
                 previous_box=previous_attempt_box,
                 movement_delta=movement_delta,
+            )
+            next_override_box = dict(choose_result["box"])
+            adjust_error_kind, adjust_error_detail = _emit_adjust_error(
+                choose_result=choose_result,
+                latest_trial=latest_trial,
+                attempt_idx=attempt_idx,
+                verification_reason=failure_reason,
             )
             _emit_retrying_event(
                 on_runtime_event=on_runtime_event,
@@ -476,6 +560,8 @@ def _evaluate_candidate(
                 text_cut_off=verdict["text_cut_off"],
                 verify_confidence=verdict["confidence"],
                 verified_text=observed_text,
+                adjust_error_kind=adjust_error_kind,
+                adjust_error_detail=adjust_error_detail,
             )
             previous_attempt_box = dict(attempt_box)
 
@@ -618,7 +704,16 @@ def _run_verification_step(
 
 
 def _build_verification_error_reason(exc: Exception) -> str:
-    error_kind = _classify_verification_error(exc)
+    error_kind = _classify_model_step_error(exc)
+    detail = str(exc).strip() or exc.__class__.__name__
+    detail = " ".join(detail.split())
+    if len(detail) > 180:
+        detail = detail[:177] + "..."
+    return f"{error_kind}: {detail}"
+
+
+def _build_adjust_error_reason(exc: Exception) -> str:
+    error_kind = _classify_model_step_error(exc)
     detail = str(exc).strip() or exc.__class__.__name__
     detail = " ".join(detail.split())
     if len(detail) > 180:
@@ -636,7 +731,7 @@ def _split_error_reason(reason: str) -> tuple[str | None, str | None]:
     return error_kind.strip() or None, error_detail.strip() or None
 
 
-def _classify_verification_error(exc: Exception) -> str:
+def _classify_model_step_error(exc: Exception) -> str:
     text = str(exc).strip().lower()
     type_name = exc.__class__.__name__.lower()
     module_name = exc.__class__.__module__.lower()

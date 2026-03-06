@@ -17,29 +17,32 @@ from api.schemas.jobs import (
     CreateOcrPageJobRequest,
     CreateTranslateBoxJobRequest,
 )
+from core.usecases.ocr.workflow_creation import (
+    OcrBoxWorkflowInput,
+    OcrPageWorkflowInput,
+)
+from core.usecases.ocr.workflow_creation import (
+    create_ocr_box_workflow as create_persisted_ocr_box_workflow,
+)
+from core.usecases.ocr.workflow_creation import (
+    create_ocr_page_workflow as create_persisted_ocr_page_workflow,
+)
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
-from infra.db.db_store import load_page
 from infra.db.idempotency_store import (
     claim_idempotency_key,
     finalize_idempotency_key,
     release_idempotency_claim,
 )
 from infra.db.workflow_store import find_latest_active_workflow_run
-from infra.jobs.handlers.utils import list_text_boxes
 from infra.jobs.job_modes import (
     AGENT_WORKFLOW_TYPE,
-    OCR_BOX_WORKFLOW_TYPE,
-    OCR_PAGE_WORKFLOW_TYPE,
 )
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.logging.correlation import append_correlation
 
 from .jobs_workflow_helpers import (
-    create_ocr_workflow_with_tasks,
     create_translate_workflow_with_task,
-    normalize_profile_ids,
-    resolve_enabled_ocr_profiles,
 )
 
 _ACTIVE_MEMORY_STATUSES = {JobStatus.queued, JobStatus.running}
@@ -275,60 +278,22 @@ def enqueue_memory_job(
 
 def create_ocr_box_workflow(req: CreateOcrBoxJobRequest) -> str:
     """Create ocr box workflow."""
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    box_id = int(req.boxId or 0)
-    if box_id <= 0:
-        raise HTTPException(status_code=400, detail="boxId is required for OCR box workflow")
-
-    profile_ids = normalize_profile_ids(
-        raw_profile_ids=[str(req.profileId or "").strip()],
-    )
-    valid_profiles = resolve_enabled_ocr_profiles(profile_ids)
-    if not valid_profiles:
-        raise HTTPException(status_code=400, detail="No enabled OCR profile selected")
-
-    profile_id = valid_profiles[0]
-    request_payload = {
-        "profileId": profile_id,
-        "profileIds": [profile_id],
-        "volumeId": volume_id,
-        "filename": filename,
-        "x": float(req.x),
-        "y": float(req.y),
-        "width": float(req.width),
-        "height": float(req.height),
-        "boxId": box_id,
-        "boxOrder": req.boxOrder,
-    }
-    queued_tasks = [
-        {
-            "status": "queued",
-            "box_id": box_id,
-            "profile_id": profile_id,
-            "input_json": {
-                "volume_id": volume_id,
-                "filename": filename,
-                "box_id": box_id,
-                "profile_id": profile_id,
-                "x": float(req.x),
-                "y": float(req.y),
-                "width": float(req.width),
-                "height": float(req.height),
-            },
-        }
-    ]
-
-    return create_ocr_workflow_with_tasks(
-        workflow_type=OCR_BOX_WORKFLOW_TYPE,
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        total_boxes=1,
-        skipped=0,
-        processable_boxes=1,
-        queued_tasks=queued_tasks,
-    )
+    try:
+        return create_persisted_ocr_box_workflow(
+            OcrBoxWorkflowInput(
+                profile_id=str(req.profileId or "").strip(),
+                volume_id=str(req.volumeId or "").strip(),
+                filename=str(req.filename or "").strip(),
+                x=float(req.x),
+                y=float(req.y),
+                width=float(req.width),
+                height=float(req.height),
+                box_id=int(req.boxId or 0),
+                box_order=req.boxOrder,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def create_ocr_page_workflow(req: CreateOcrPageJobRequest) -> str:
@@ -337,71 +302,17 @@ def create_ocr_page_workflow(req: CreateOcrPageJobRequest) -> str:
     selected_profile_id = str(req.profileId or "").strip()
     if not selected_profile_id and raw_profile_ids:
         selected_profile_id = str(raw_profile_ids[0] or "").strip()
-    profile_ids = normalize_profile_ids(
-        raw_profile_ids=[selected_profile_id] if selected_profile_id else None,
-        fallback_profile_id="manga_ocr_default",
-    )
-    valid_profiles = resolve_enabled_ocr_profiles(profile_ids)
-    if not valid_profiles:
-        raise HTTPException(status_code=400, detail="No enabled OCR profiles selected")
-
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    skip_existing = bool(req.skipExisting)
-
-    page = load_page(volume_id, filename)
-    text_boxes = list_text_boxes(page)
-    total_boxes = len(text_boxes)
-    processable_boxes: list[dict] = []
-    skipped = 0
-    for box in text_boxes:
-        # Keep page OCR idempotent when skip-existing is enabled.
-        if skip_existing and str(box.get("text") or "").strip():
-            skipped += 1
-            continue
-        processable_boxes.append(box)
-
-    request_payload = {
-        "profileId": valid_profiles[0],
-        "profileIds": valid_profiles,
-        "volumeId": volume_id,
-        "filename": filename,
-        "skipExisting": skip_existing,
-    }
-    queued_tasks: list[dict] = []
-    for box in processable_boxes:
-        box_id = int(box.get("id") or 0)
-        if box_id <= 0:
-            continue
-        for profile_id in valid_profiles:
-            queued_tasks.append(
-                {
-                    "status": "queued",
-                    "box_id": box_id,
-                    "profile_id": profile_id,
-                    "input_json": {
-                        "volume_id": volume_id,
-                        "filename": filename,
-                        "box_id": box_id,
-                        "profile_id": profile_id,
-                        "x": float(box.get("x") or 0.0),
-                        "y": float(box.get("y") or 0.0),
-                        "width": float(box.get("width") or 0.0),
-                        "height": float(box.get("height") or 0.0),
-                    },
-                }
+    try:
+        return create_persisted_ocr_page_workflow(
+            OcrPageWorkflowInput(
+                profile_ids=[selected_profile_id] if selected_profile_id else list(raw_profile_ids),
+                volume_id=str(req.volumeId or "").strip(),
+                filename=str(req.filename or "").strip(),
+                skip_existing=bool(req.skipExisting),
             )
-
-    return create_ocr_workflow_with_tasks(
-        workflow_type=OCR_PAGE_WORKFLOW_TYPE,
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        total_boxes=total_boxes,
-        skipped=skipped,
-        processable_boxes=len(processable_boxes),
-        queued_tasks=queued_tasks,
-    )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def create_translate_box_workflow(req: CreateTranslateBoxJobRequest) -> str:
