@@ -20,8 +20,8 @@ def test_active_page_query_blocks_other_page_reference() -> None:
         active_filename="009.jpg",
         active_text_box_count=7,
     )
-    assert reason == "stale_context"
-    assert "Active page is 009.jpg" in response
+    assert reason == "stale_context_warning"
+    assert response == "On 003.jpg there are 12 text boxes."
 
 
 def test_navigation_query_blocks_wrong_page_reference() -> None:
@@ -31,5 +31,5 @@ def test_navigation_query_blocks_wrong_page_reference() -> None:
         active_filename="001.jpg",
         active_text_box_count=6,
     )
-    assert reason == "stale_context"
-    assert "Active page is 001.jpg" in response
+    assert reason == "stale_context_warning"
+    assert response == "You are now on 000.jpg."

@@ -62,4 +62,4 @@ def test_resolve_agent_chat_max_output_tokens_clamps_invalid_values() -> None:
         "core.usecases.agent.chat_runtime_settings.get_setting_value",
         return_value=99999,
     ):
-        assert _resolve_agent_chat_max_output_tokens() == 4096
+        assert _resolve_agent_chat_max_output_tokens() == 64000

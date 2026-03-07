@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import io
-import json
 from typing import Any
 
 from mcp.server.fastmcp import Context, FastMCP
@@ -33,19 +32,6 @@ from core.usecases.box_detection.profiles import list_box_detection_profiles_for
 from infra.images.image_ops import load_volume_image, resize_for_llm
 
 from .context import get_tool_context_from_request, set_runtime_active_filename
-
-
-def _parse_json_array_of_objects(raw: str | None, *, field_name: str) -> list[dict[str, Any]] | None:
-    text = str(raw or "").strip()
-    if not text:
-        return None
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        raise ValueError(f"{field_name} must be valid JSON array") from None
-    if not isinstance(parsed, list):
-        raise ValueError(f"{field_name} must be valid JSON array")
-    return [item for item in parsed if isinstance(item, dict)]
 
 
 def _build_text_box_crop_jpeg_bytes(
@@ -177,23 +163,11 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     )
     async def update_volume_context(
         rolling_summary: str | None = None,
-        active_characters_json: str | None = None,
+        active_characters: list[dict[str, Any]] | None = None,
         open_threads: list[str] | None = None,
-        glossary_json: str | None = None,
+        glossary: list[dict[str, Any]] | None = None,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
-        try:
-            active_characters = _parse_json_array_of_objects(
-                active_characters_json,
-                field_name="active_characters_json",
-            )
-            glossary = _parse_json_array_of_objects(
-                glossary_json,
-                field_name="glossary_json",
-            )
-        except ValueError as exc:
-            return {"error": str(exc)}
-
         resolved = _resolve_tool_context(ctx)
         return await _run_in_thread(
             update_volume_context_tool,
@@ -213,23 +187,11 @@ def register_tools(mcp: FastMCP[Any]) -> None:
         manual_notes: str | None = None,
         page_summary: str | None = None,
         image_summary: str | None = None,
-        characters_json: str | None = None,
+        characters: list[dict[str, Any]] | None = None,
         open_threads: list[str] | None = None,
-        glossary_json: str | None = None,
+        glossary: list[dict[str, Any]] | None = None,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
-        try:
-            characters = _parse_json_array_of_objects(
-                characters_json,
-                field_name="characters_json",
-            )
-            glossary = _parse_json_array_of_objects(
-                glossary_json,
-                field_name="glossary_json",
-            )
-        except ValueError as exc:
-            return {"error": str(exc)}
-
         resolved = _resolve_tool_context(ctx)
         return await _run_in_thread(
             update_page_memory_tool,

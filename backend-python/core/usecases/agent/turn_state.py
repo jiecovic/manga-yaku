@@ -211,6 +211,23 @@ def no_text_boxes_reply(filename: str) -> str:
     )
 
 
+def stale_context_warning_message(
+    *,
+    active_filename: str | None,
+    active_text_box_count: int | None,
+) -> str:
+    resolved_filename = _coerce_filename(active_filename) or "unknown"
+    count_text = (
+        f"{int(active_text_box_count)} detected text boxes"
+        if active_text_box_count is not None
+        else "an unknown text-box count"
+    )
+    return (
+        "Warning: the reply may mention stale page facts; "
+        f"current active page is {resolved_filename} with {count_text}."
+    )
+
+
 def should_force_no_text_reply(
     *,
     messages: list[dict[str, Any]],
@@ -319,17 +336,6 @@ def sanitize_agent_reply_text(
                 break
 
     if enforce_active_page_consistency and (page_refs or box_count_mismatch):
-        count_text = (
-            f" It currently has {int(active_text_box_count)} detected text boxes."
-            if active_text_box_count is not None
-            else ""
-        )
-        if active_text_box_count == 0:
-            count_text += " No text boxes are available on this page right now."
-        return (
-            f"I may have mixed stale page context. Active page is {resolved_filename}.{count_text}"
-            " I can re-check this page with current grounding/tools if you want.",
-            "stale_context",
-        )
+        return text, "stale_context_warning"
 
     return text, None

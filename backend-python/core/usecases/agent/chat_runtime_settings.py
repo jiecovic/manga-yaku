@@ -9,7 +9,7 @@ from core.usecases.settings.service import get_setting_value
 _AGENT_CHAT_MAX_TURNS_MIN = 1
 _AGENT_CHAT_MAX_TURNS_MAX = 200
 _AGENT_CHAT_MAX_OUTPUT_TOKENS_MIN = 128
-_AGENT_CHAT_MAX_OUTPUT_TOKENS_MAX = 4096
+_AGENT_CHAT_MAX_OUTPUT_TOKENS_MAX = 64000
 
 
 def resolve_agent_chat_max_turns() -> int:

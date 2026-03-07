@@ -84,7 +84,7 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default=2048,
         value_type=int,
         min_value=128,
-        max_value=4096,
+        max_value=64000,
     ),
     "ocr.parallelism.local": SettingSpec(
         default=4,

@@ -33,6 +33,7 @@ from core.usecases.agent.engine import (
 from core.usecases.agent.turn_state import (
     get_active_page_text_box_count,
     sanitize_agent_reply_text,
+    stale_context_warning_message,
 )
 from infra.db.agent_store import (
     add_agent_message,
@@ -289,6 +290,28 @@ def _persist_action_event_messages(
     return persisted
 
 
+def _persist_agent_warning_message(
+    session_id: str,
+    *,
+    message: str,
+    filename: str | None,
+) -> dict[str, Any]:
+    meta: dict[str, Any] = {
+        "source": "agent_timeline",
+        "timelineOnly": True,
+        "eventType": "activity",
+        "severity": "warning",
+    }
+    if filename:
+        meta["filename"] = filename
+    return add_agent_message(
+        session_id,
+        role="tool",
+        content=message,
+        meta=meta,
+    )
+
+
 @router.get("/agent/config", response_model=AgentConfigResponse)
 async def get_agent_config() -> AgentConfigResponse:
     """Return agent config."""
@@ -479,12 +502,27 @@ async def create_agent_reply(
         volume_id=session.volume_id,
         current_filename=req.currentFilename,
     )
-    response_text, _ = sanitize_agent_reply_text(
+    response_text, guard_reason = sanitize_agent_reply_text(
         response_text=response_text,
         messages=payload,
         active_filename=req.currentFilename,
         active_text_box_count=active_text_box_count,
     )
+    warning_messages: list[dict[str, Any]] = []
+    assistant_meta: dict[str, Any] = {"source": "agent_reply"}
+    if guard_reason == "stale_context_warning":
+        warning_text = stale_context_warning_message(
+            active_filename=req.currentFilename,
+            active_text_box_count=active_text_box_count,
+        )
+        warning_messages.append(
+            _persist_agent_warning_message(
+                session_id,
+                message=warning_text,
+                filename=req.currentFilename,
+            )
+        )
+        assistant_meta["warnings"] = [warning_text]
     _log_agent_sdk_attempt(
         component="agent.chat.sync.sdk",
         status="success" if response_text else "error",
@@ -505,12 +543,18 @@ async def create_agent_reply(
         phase="sync_reply",
     )
 
-    return add_agent_message(
+    message = add_agent_message(
         session_id,
         role="assistant",
         content=response_text,
-        meta={"source": "agent_reply"},
+        meta=assistant_meta,
     )
+    if warning_messages:
+        message["meta"] = {
+            **(message.get("meta") or {}),
+            "timelineMessages": warning_messages,
+        }
+    return message
 
 
 @router.get("/agent/sessions/{session_id}/reply/stream")
@@ -800,11 +844,14 @@ async def stream_agent_reply(
                 active_filename=runtime_active_filename,
                 active_text_box_count=active_text_box_count,
             )
-            if guard_reason == "stale_context":
+            if guard_reason == "stale_context_warning":
                 action_events.append(
                     {
                         "type": "activity",
-                        "message": "Blocked stale page facts; returned grounded reply",
+                        "message": stale_context_warning_message(
+                            active_filename=runtime_active_filename,
+                            active_text_box_count=active_text_box_count,
+                        ),
                     }
                 )
             elif guard_reason == "empty_output_no_boxes":
@@ -1049,11 +1096,14 @@ async def stream_agent_reply(
                             )
                             guard_reason = "provider_error_empty"
                     fallback_actions = list(action_events)
-                    if guard_reason == "stale_context":
+                    if guard_reason == "stale_context_warning":
                         fallback_actions.append(
                             {
                                 "type": "activity",
-                                "message": "Blocked stale page facts in fallback reply",
+                                "message": stale_context_warning_message(
+                                    active_filename=runtime_active_filename,
+                                    active_text_box_count=fallback_text_box_count,
+                                ),
                             }
                         )
                     elif guard_reason == "empty_output_no_boxes":

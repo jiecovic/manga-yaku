@@ -45,7 +45,7 @@ export function ChatAgentCard({
                         className={ui.trainingInput}
                         type="number"
                         min={128}
-                        max={4096}
+                        max={64000}
                         value={agentChatMaxOutputTokens}
                         onChange={(e) =>
                             onUpdateDraft(
