@@ -5,7 +5,6 @@ OCR, and LLM-assisted translation.
 
 ## Status
 
-See `docs/STATUS.md` for stable vs experimental features and planned work.
 Current default page pipeline is `agent_translate_page`; standalone
 `translate_page` jobs are disabled.
 
@@ -94,7 +93,6 @@ See `CONTRIBUTING.md` for development setup, linting/testing, and internal conve
 
 ## See Also
 
-- `docs/STATUS.md`
 - `backend-python/README.md`
 - `CONTRIBUTING.md`
 - Swagger UI: http://localhost:8101/docs
