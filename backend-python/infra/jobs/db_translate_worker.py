@@ -15,8 +15,11 @@ from core.usecases.translation.execution import (
 from core.usecases.translation.profiles import get_translation_profile
 from infra.jobs.handlers.utils import make_snippet
 from infra.jobs.job_modes import TRANSLATE_BOX_WORKFLOW_TYPE
+from infra.jobs.task_attempt_events import (
+    build_reasoning_params_snapshot,
+    persist_task_attempt_event,
+)
 from infra.jobs.workflow_repo import (
-    append_task_attempt_event,
     claim_next_task,
     get_workflow_run,
     list_task_runs,
@@ -286,27 +289,13 @@ async def _run_claimed_task(
     prompt_file = resolve_translation_prompt_version(profile_id)
 
     def persist_attempt_event(event: dict[str, Any]) -> None:
-        attempt = max(1, _to_int(event.get("attempt"), default=1))
-        latency_ms = max(0, _to_int(event.get("latency_ms"), default=0))
-        max_output_raw = event.get("max_output_tokens")
-        max_output_tokens = (
-            _to_int(max_output_raw, default=0) or None if max_output_raw is not None else None
-        )
-        append_task_attempt_event(
+        persist_task_attempt_event(
             task_id=task_id,
-            attempt=attempt,
+            attempt_event=event,
             tool_name="translate_tool",
-            model_id=event.get("model_id"),
             prompt_version=prompt_file,
-            params_snapshot={
-                "max_output_tokens": max_output_tokens,
-                "reasoning_effort": event.get("reasoning_effort"),
-            },
-            finish_reason=event.get("status"),
-            latency_ms=latency_ms,
-            error_detail=event.get("error_message"),
+            params_snapshot=build_reasoning_params_snapshot(event),
         )
-        update_task_run(task_id, attempt=attempt)
 
     def on_attempt(event: dict[str, Any]) -> None:
         try:

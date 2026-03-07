@@ -1,4 +1,4 @@
-# backend-python/tests/core/agent_translate_page/test_agent_workflow_events.py
+# backend-python/tests/core/page_translation/test_agent_workflow_events.py
 """Unit tests for workflow attempt-event helpers and merge task utilities.
 
 What is tested:
@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.workflows.agent_translate_page.events import (
+from core.workflows.page_translation.events import (
     append_ocr_attempt_events,
     append_stage_attempt_event,
     coerce_non_negative_int,
 )
-from core.workflows.agent_translate_page.stages.merge import (
+from core.workflows.page_translation.stages.merge import (
     create_merge_task_run,
     mark_merge_task_canceled,
 )
@@ -36,8 +36,8 @@ def test_coerce_non_negative_int_handles_types() -> None:
 
 def test_append_stage_attempt_event_uses_merge_prompt_version() -> None:
     with patch(
-        "core.workflows.agent_translate_page.events.append_task_attempt_event"
-    ) as append_task_attempt_event:
+        "core.workflows.page_translation.events.persist_task_attempt_event"
+    ) as persist_task_attempt_event:
         append_stage_attempt_event(
             task_id="task-1",
             stage_name="merge_state",
@@ -52,13 +52,13 @@ def test_append_stage_attempt_event_uses_merge_prompt_version() -> None:
             fallback_model_id=None,
         )
 
-    append_task_attempt_event.assert_called_once()
-    kwargs = append_task_attempt_event.call_args.kwargs
+    persist_task_attempt_event.assert_called_once()
+    kwargs = persist_task_attempt_event.call_args.kwargs
     assert kwargs["task_id"] == "task-1"
-    assert kwargs["attempt"] == 2
     assert kwargs["tool_name"] == "merge_state"
     assert kwargs["prompt_version"] == "agent_translate_page_merge.yml"
-    assert kwargs["latency_ms"] == 14
+    assert kwargs["attempt_event"]["attempt_count"] == 2
+    assert kwargs["attempt_event"]["latency_ms"] == "14"
 
 
 def test_append_ocr_attempt_events_forwards_attempt_payload() -> None:
@@ -74,25 +74,27 @@ def test_append_ocr_attempt_events_forwards_attempt_payload() -> None:
         }
     ]
     with patch(
-        "core.workflows.agent_translate_page.events.append_task_attempt_event"
-    ) as append_task_attempt_event:
+        "core.workflows.page_translation.events.persist_task_attempt_event"
+    ) as persist_task_attempt_event:
         append_ocr_attempt_events(
             task_id="task-ocr",
             prompt_version="ocr_tool_openai_profile_v1",
             attempt_events=events,
         )
 
-    append_task_attempt_event.assert_called_once()
-    kwargs = append_task_attempt_event.call_args.kwargs
+    persist_task_attempt_event.assert_called_once()
+    kwargs = persist_task_attempt_event.call_args.kwargs
     assert kwargs["task_id"] == "task-ocr"
-    assert kwargs["attempt"] == 1
-    assert kwargs["finish_reason"] == "invalid"
-    assert kwargs["latency_ms"] == 22
+    assert kwargs["attempt_event"]["attempt"] == 1
+    assert kwargs["params_snapshot"] == {
+        "max_output_tokens": 512,
+        "reasoning_effort": "low",
+    }
 
 
 def test_create_merge_task_run_uses_expected_payload() -> None:
     with patch(
-        "core.workflows.agent_translate_page.stages.merge.create_task_run",
+        "core.workflows.page_translation.stages.merge.create_task_run",
         return_value="merge-task-1",
     ) as create_task_run:
         task_id = create_merge_task_run(
@@ -111,9 +113,7 @@ def test_create_merge_task_run_uses_expected_payload() -> None:
 
 
 def test_mark_merge_task_canceled_writes_terminal_status() -> None:
-    with patch(
-        "core.workflows.agent_translate_page.stages.merge.update_task_run"
-    ) as update_task_run:
+    with patch("core.workflows.page_translation.stages.merge.update_task_run") as update_task_run:
         mark_merge_task_canceled("merge-task-2", reason="upstream failed")
 
     update_task_run.assert_called_once()
