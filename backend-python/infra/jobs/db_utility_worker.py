@@ -147,6 +147,9 @@ class _PersistedJobStoreAdapter:
             return True
         return False
 
+    def should_stop(self) -> bool:
+        return self.shutdown_event.is_set() or self.is_canceled()
+
     def _persist(self, *, finished: bool) -> None:
         if self.is_canceled() and self.job.status not in _TERMINAL_JOB_STATUSES:
             self.job.status = JobStatus.canceled
@@ -313,13 +316,21 @@ async def _run_claimed_task(
         raise RuntimeError(f"Unknown utility workflow type: {workflow_type}")
 
     adapter.mark_started()
+    if shutdown_event.is_set():
+        return
     try:
         result = await handler.run(job, adapter)  # type: ignore[arg-type]
+        # Keep interrupted persisted work recoverable on startup instead of
+        # forcing a terminal state during backend shutdown.
+        if shutdown_event.is_set() and not adapter.is_canceled():
+            return
         if adapter.is_canceled() or job.status == JobStatus.canceled:
             adapter.finish_canceled(str(job.message or "Canceled"), result=result)
             return
         adapter.finish_success(result if isinstance(result, dict) else {"value": result})
     except JobCanceled as exc:
+        if shutdown_event.is_set() and not adapter.is_canceled():
+            return
         adapter.finish_canceled(str(exc) or "Canceled")
     except Exception as exc:
         error_text = str(exc).strip() or repr(exc)

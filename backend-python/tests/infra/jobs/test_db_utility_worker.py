@@ -16,6 +16,7 @@ import pytest
 
 from infra.jobs import db_utility_worker
 from infra.jobs.exceptions import JobCanceled
+from infra.jobs.handlers.detection import BoxDetectionJobHandler
 from infra.jobs.handlers.training import TrainModelJobHandler
 from infra.jobs.store import JobStore
 
@@ -29,6 +30,20 @@ class _FakeHandler:
 class _CancelingHandler:
     async def run(self, job, store):
         raise JobCanceled("Canceled")
+
+
+class _ShutdownAwareHandler:
+    def __init__(self, stop_event: threading.Event) -> None:
+        self.stop_event = stop_event
+        self.calls = 0
+
+    async def run(self, job, store):
+        self.calls += 1
+        self.stop_event.set()
+        should_stop = getattr(store, "should_stop", None)
+        assert callable(should_stop)
+        assert should_stop()
+        raise JobCanceled("Stopped for shutdown")
 
 
 class _FakeTrainer:
@@ -189,6 +204,137 @@ async def test_run_claimed_task_marks_canceled_when_handler_raises_job_canceled(
         )
 
     assert update_task_mock.call_args_list[-1].kwargs["status"] == "canceled"
+    assert update_workflow_mock.call_args_list[-1].kwargs["status"] == "canceled"
+
+
+@pytest.mark.asyncio
+async def test_run_claimed_task_leaves_work_recoverable_during_shutdown() -> None:
+    signal_store = JobStore()
+    stop_event = threading.Event()
+    handler = _ShutdownAwareHandler(stop_event)
+    claimed = {
+        "workflow_id": "wf-dataset-1",
+        "task_id": "task-dataset-1",
+        "workflow_type": "prepare_dataset",
+        "payload": {"sources": ["manga109s:demo"]},
+    }
+    run_record = {
+        "id": "wf-dataset-1",
+        "workflow_type": "prepare_dataset",
+        "volume_id": "",
+        "filename": "",
+        "status": "running",
+        "cancel_requested": False,
+        "created_at": None,
+        "updated_at": None,
+        "result_json": {
+            "request": {"sources": ["manga109s:demo"]},
+            "progress": 0,
+            "message": "Queued",
+        },
+    }
+
+    with (
+        patch.object(
+            db_utility_worker,
+            "HANDLERS",
+            {"prepare_dataset": handler},
+        ),
+        patch.object(
+            db_utility_worker,
+            "get_workflow_run",
+            return_value=run_record,
+        ),
+        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
+        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+    ):
+        await db_utility_worker._run_claimed_task(
+            claimed,
+            log_store={},
+            shutdown_event=stop_event,
+            signal_store=signal_store,
+        )
+
+    assert handler.calls == 1
+    assert update_task_mock.call_count == 1
+    assert update_task_mock.call_args_list[-1].kwargs["status"] == "running"
+    assert update_workflow_mock.call_count == 1
+    assert update_workflow_mock.call_args_list[-1].kwargs["status"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_box_detection_cancel_requested_marks_persisted_workflow_canceled() -> None:
+    signal_store = JobStore()
+    cancel_requested = False
+    claimed = {
+        "workflow_id": "wf-box-live-1",
+        "task_id": "task-box-live-1",
+        "workflow_type": "box_detection",
+        "payload": {"volumeId": "vol-a", "filename": "001.jpg"},
+    }
+    run_record = {
+        "id": "wf-box-live-1",
+        "workflow_type": "box_detection",
+        "volume_id": "vol-a",
+        "filename": "001.jpg",
+        "status": "running",
+        "cancel_requested": False,
+        "created_at": None,
+        "updated_at": None,
+        "result_json": {
+            "request": {"volumeId": "vol-a", "filename": "001.jpg"},
+            "progress": 0,
+            "message": "Queued",
+        },
+    }
+
+    def get_workflow_run_side_effect(_workflow_id: str) -> dict[str, object]:
+        current = dict(run_record)
+        current["cancel_requested"] = cancel_requested
+        return current
+
+    def detect_boxes_side_effect(*args, **kwargs):
+        nonlocal cancel_requested
+        stop_check = kwargs.get("is_canceled")
+        assert callable(stop_check)
+        cancel_requested = True
+        assert stop_check()
+        return []
+
+    async def _run_sync(func, /, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    with (
+        patch.object(
+            db_utility_worker,
+            "HANDLERS",
+            {"box_detection": BoxDetectionJobHandler()},
+        ),
+        patch(
+            "infra.jobs.handlers.detection.asyncio.to_thread",
+            side_effect=_run_sync,
+        ),
+        patch(
+            "infra.jobs.handlers.detection.detect_boxes_for_page",
+            side_effect=detect_boxes_side_effect,
+        ),
+        patch.object(
+            db_utility_worker,
+            "get_workflow_run",
+            side_effect=get_workflow_run_side_effect,
+        ),
+        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
+        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+    ):
+        await db_utility_worker._run_claimed_task(
+            claimed,
+            log_store={},
+            shutdown_event=threading.Event(),
+            signal_store=signal_store,
+        )
+
+    assert update_task_mock.call_args_list[-1].kwargs["status"] == "canceled"
+    assert update_task_mock.call_args_list[-1].kwargs["error_code"] == "cancel_requested"
     assert update_workflow_mock.call_args_list[-1].kwargs["status"] == "canceled"
 
 

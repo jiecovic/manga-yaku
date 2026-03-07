@@ -8,9 +8,9 @@ Purpose: runtime and persistence plumbing for background jobs.
   `ocr_page`, `ocr_box`, `translate_box`
   Stored in `workflow_runs` + `task_runs`, processed by DB workers.
 
-- `memory-only`:
+- `utility-workflow`:
   `box_detection`, `prepare_dataset`, `train_model`
-  Stored in in-memory `JobStore`, processed by in-process handlers.
+  Stored in `workflow_runs` + `task_runs`, processed by the DB utility worker.
 
 - `hybrid`:
   `agent_translate_page`

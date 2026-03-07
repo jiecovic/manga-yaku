@@ -65,8 +65,11 @@ class PrepareDatasetJobHandler(JobHandler):
 
         loop = asyncio.get_running_loop()
         last_percent = -1
-        raw_is_canceled = getattr(store, "is_canceled", None)
-        is_canceled = raw_is_canceled if callable(raw_is_canceled) else None
+        raw_should_stop = getattr(store, "should_stop", None)
+        is_canceled = raw_should_stop if callable(raw_should_stop) else None
+        if is_canceled is None:
+            raw_is_canceled = getattr(store, "is_canceled", None)
+            is_canceled = raw_is_canceled if callable(raw_is_canceled) else None
 
         def progress_cb(processed: int, total: int, label: str) -> None:
             nonlocal last_percent
@@ -118,8 +121,11 @@ class TrainModelJobHandler(JobHandler):
     async def run(self, job: Job, store: JobStore) -> TrainModelResult:
         payload = job.payload
         loop = asyncio.get_running_loop()
-        raw_is_canceled = getattr(store, "is_canceled", None)
-        is_canceled = raw_is_canceled if callable(raw_is_canceled) else None
+        raw_should_stop = getattr(store, "should_stop", None)
+        is_canceled = raw_should_stop if callable(raw_should_stop) else None
+        if is_canceled is None:
+            raw_is_canceled = getattr(store, "is_canceled", None)
+            is_canceled = raw_is_canceled if callable(raw_is_canceled) else None
         return await asyncio.to_thread(
             run_training_job,
             job=job,

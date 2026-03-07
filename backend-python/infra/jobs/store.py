@@ -111,6 +111,9 @@ class JobStore:
     def get_job(self, job_id: str) -> Job | None:
         return self.jobs.get(job_id)
 
+    def should_stop(self) -> bool:
+        return self.shutdown_event.is_set()
+
     def public_job(self, job: Job) -> JobPublic:
         return JobPublic(
             id=job.id,

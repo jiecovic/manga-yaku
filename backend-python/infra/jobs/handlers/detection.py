@@ -15,6 +15,7 @@ from core.usecases.box_detection.profiles import (
     get_box_detection_profile,
     pick_default_box_detection_profile_id,
 )
+from infra.jobs.exceptions import JobCanceled
 from infra.jobs.store import Job, JobStore
 
 from .base import JobHandler
@@ -48,6 +49,11 @@ class BoxDetectionInput:
 class BoxDetectionJobHandler(JobHandler):
     async def run(self, job: Job, store: JobStore) -> BoxDetectionResult:
         data = BoxDetectionInput.from_payload(dict(job.payload))
+        raw_should_stop = getattr(store, "should_stop", None)
+        stop_check = raw_should_stop if callable(raw_should_stop) else None
+        if stop_check is None:
+            raw_is_canceled = getattr(store, "is_canceled", None)
+            stop_check = raw_is_canceled if callable(raw_is_canceled) else None
         boxes = await asyncio.to_thread(
             detect_boxes_for_page,
             data.volume_id,
@@ -55,7 +61,10 @@ class BoxDetectionJobHandler(JobHandler):
             data.profile_id,
             task=data.task,
             replace_existing=data.replace_existing,
+            is_canceled=stop_check,
         )
+        if callable(stop_check) and stop_check():
+            raise JobCanceled("Canceled")
         conf_iou_label = ""
         profile_id = data.profile_id or pick_default_box_detection_profile_id()
         if profile_id:

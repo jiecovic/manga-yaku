@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ _TASK_CLASS_ALIASES = {
     "bodies": "body",
 }
 logger = logging.getLogger(__name__)
+CancelCallback = Callable[[], bool]
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +155,15 @@ def _normalize_task(task: str | None) -> str | None:
         return None
     key = task.strip().lower()
     return _TASK_CLASS_ALIASES.get(key, key) or None
+
+
+def _should_abort(is_canceled: CancelCallback | None) -> bool:
+    if is_canceled is None:
+        return False
+    try:
+        return bool(is_canceled())
+    except Exception:
+        return False
 
 
 def _resolve_allowed_classes(
@@ -348,6 +359,7 @@ def detect_boxes_for_page(
         *,
         task: str | None = None,
         replace_existing: bool = True,
+        is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run detection for a single page.
@@ -374,12 +386,19 @@ def detect_boxes_for_page(
 
     normalized_task = _normalize_task(task) or "text"
 
+    if _should_abort(is_canceled):
+        return []
+
     # 1) Load the image
     img = _load_page_image(volume_id, filename)
+    if _should_abort(is_canceled):
+        return []
 
     # 2) Run YOLO
     allowed_classes = _resolve_allowed_classes(profile, normalized_task)
     detections = _run_yolo_on_image(img, profile, allowed_classes=allowed_classes)
+    if _should_abort(is_canceled):
+        return []
 
     model_path = _resolve_model_path(profile)
     model_hash = _get_model_hash(model_path)
@@ -387,6 +406,8 @@ def detect_boxes_for_page(
     conf_th, iou_th = resolve_detection_thresholds(profile)
     containment_th = resolve_containment_threshold(profile)
     model_version = cfg.get("model_version") or cfg.get("version")
+    if _should_abort(is_canceled):
+        return []
     run_id = create_detection_run(
         volume_id,
         filename,
@@ -426,6 +447,8 @@ def detect_boxes_for_page(
         }
         for det in detections
     ]
+    if _should_abort(is_canceled):
+        return []
 
     if replace_existing:
         return replace_boxes_for_type(
@@ -454,6 +477,7 @@ def detect_text_boxes_for_page(
         profile_id: str | None = None,
         *,
         replace_existing: bool = True,
+        is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
     return detect_boxes_for_page(
         volume_id=volume_id,
@@ -461,4 +485,5 @@ def detect_text_boxes_for_page(
         profile_id=profile_id,
         task="text",
         replace_existing=replace_existing,
+        is_canceled=is_canceled,
     )
