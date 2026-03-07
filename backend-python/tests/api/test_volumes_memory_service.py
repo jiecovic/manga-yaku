@@ -12,9 +12,9 @@ How it is tested:
 
 from __future__ import annotations
 
-import unittest
 from unittest.mock import patch
 
+import pytest
 from fastapi import HTTPException
 
 from api.services.volumes_memory_service import (
@@ -25,90 +25,94 @@ from api.services.volumes_memory_service import (
 )
 
 
-class VolumesMemoryServiceTests(unittest.TestCase):
-    def test_get_volume_memory_defaults_when_missing_context(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.services.volumes_memory_service.get_volume_context", return_value=None),
-        ):
-            payload = get_volume_memory_payload("vol-a")
+def test_get_volume_memory_defaults_when_missing_context() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch("api.services.volumes_memory_service.get_volume_context", return_value=None),
+    ):
+        payload = get_volume_memory_payload("vol-a")
 
-        self.assertEqual(payload["rollingSummary"], "")
-        self.assertEqual(payload["activeCharacters"], [])
-        self.assertEqual(payload["openThreads"], [])
-        self.assertEqual(payload["glossary"], [])
-        self.assertIsNone(payload["lastPageIndex"])
-        self.assertIsNone(payload["updatedAt"])
+    assert payload["rollingSummary"] == ""
+    assert payload["activeCharacters"] == []
+    assert payload["openThreads"] == []
+    assert payload["glossary"] == []
+    assert payload["lastPageIndex"] is None
+    assert payload["updatedAt"] is None
 
-    def test_get_page_memory_rejects_unknown_page(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
-            self.assertRaises(HTTPException) as raised,
-        ):
-            get_page_memory_payload("vol-a", "002.jpg")
 
-        self.assertEqual(raised.exception.status_code, 404)
-        self.assertIn("page not found", str(raised.exception.detail).lower())
+def test_get_page_memory_rejects_unknown_page() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+        pytest.raises(HTTPException) as raised,
+    ):
+        get_page_memory_payload("vol-a", "002.jpg")
 
-    def test_get_page_memory_includes_manual_notes(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
-            patch(
-                "api.services.volumes_memory_service.get_page_context_snapshot",
-                return_value={
-                    "manual_notes": "notes",
-                    "page_summary": "summary",
-                    "image_summary": "image",
-                    "characters_snapshot": [],
-                    "open_threads_snapshot": [],
-                    "glossary_snapshot": [],
-                    "created_at": None,
-                    "updated_at": None,
-                },
-            ),
-        ):
-            payload = get_page_memory_payload("vol-a", "001.jpg")
+    assert raised.value.status_code == 404
+    assert "page not found" in str(raised.value.detail).lower()
 
-        self.assertEqual(payload["manualNotes"], "notes")
-        self.assertEqual(payload["pageSummary"], "summary")
 
-    def test_clear_page_memory_clears_snapshot_only(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
-            patch("api.services.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
-        ):
-            clear_page_memory("vol-a", "001.jpg")
+def test_get_page_memory_includes_manual_notes() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+        patch(
+            "api.services.volumes_memory_service.get_page_context_snapshot",
+            return_value={
+                "manual_notes": "notes",
+                "page_summary": "summary",
+                "image_summary": "image",
+                "characters_snapshot": [],
+                "open_threads_snapshot": [],
+                "glossary_snapshot": [],
+                "created_at": None,
+                "updated_at": None,
+            },
+        ),
+    ):
+        payload = get_page_memory_payload("vol-a", "001.jpg")
 
-        clear_snapshot_mock.assert_called_once_with("vol-a", "001.jpg")
+    assert payload["manualNotes"] == "notes"
+    assert payload["pageSummary"] == "summary"
 
-    def test_clear_volume_derived_state_maps_runtime_error_to_409(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch(
-                "api.services.volumes_memory_service.clear_volume_derived_data",
-                side_effect=RuntimeError("busy"),
-            ),
-            self.assertRaises(HTTPException) as raised,
-        ):
-            clear_volume_derived_state_payload("vol-a")
 
-        self.assertEqual(raised.exception.status_code, 409)
-        self.assertIn("busy", str(raised.exception.detail))
+def test_clear_page_memory_clears_snapshot_only() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
+        patch("api.services.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
+    ):
+        clear_page_memory("vol-a", "001.jpg")
 
-    def test_clear_volume_derived_state_maps_counts(self) -> None:
-        with (
-            patch("api.services.volumes_memory_service.get_volume", return_value=object()),
-            patch(
-                "api.services.volumes_memory_service.clear_volume_derived_data",
-                return_value={"pages_touched": 2, "boxes_deleted": 7},
-            ),
-        ):
-            payload = clear_volume_derived_state_payload("vol-a")
+    clear_snapshot_mock.assert_called_once_with("vol-a", "001.jpg")
 
-        self.assertTrue(payload["cleared"])
-        self.assertEqual(payload["details"]["pagesTouched"], 2)
-        self.assertEqual(payload["details"]["boxesDeleted"], 7)
-        self.assertEqual(payload["details"]["llmCallLogsDeleted"], 0)
+
+def test_clear_volume_derived_state_maps_runtime_error_to_409() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch(
+            "api.services.volumes_memory_service.clear_volume_derived_data",
+            side_effect=RuntimeError("busy"),
+        ),
+        pytest.raises(HTTPException) as raised,
+    ):
+        clear_volume_derived_state_payload("vol-a")
+
+    assert raised.value.status_code == 409
+    assert "busy" in str(raised.value.detail)
+
+
+def test_clear_volume_derived_state_maps_counts() -> None:
+    with (
+        patch("api.services.volumes_memory_service.get_volume", return_value=object()),
+        patch(
+            "api.services.volumes_memory_service.clear_volume_derived_data",
+            return_value={"pages_touched": 2, "boxes_deleted": 7},
+        ),
+    ):
+        payload = clear_volume_derived_state_payload("vol-a")
+
+    assert payload["cleared"] is True
+    assert payload["details"]["pagesTouched"] == 2
+    assert payload["details"]["boxesDeleted"] == 7
+    assert payload["details"]["llmCallLogsDeleted"] == 0

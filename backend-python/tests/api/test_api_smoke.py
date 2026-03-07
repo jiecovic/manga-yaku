@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import unittest
 from unittest.mock import patch
 
 from fastapi.responses import JSONResponse
@@ -24,28 +23,30 @@ from api.routers.training.routes import list_training_models
 from api.routers.volumes.routes import health
 
 
-class ApiSmokeTests(unittest.TestCase):
-    def test_health(self) -> None:
-        with patch("api.routers.volumes.routes.check_db", return_value=(True, None)):
-            resp = asyncio.run(health())
-        self.assertEqual(resp, {"status": "ok", "database": "ok"})
+def test_health() -> None:
+    with patch("api.routers.volumes.routes.check_db", return_value=(True, None)):
+        resp = asyncio.run(health())
+    assert resp == {"status": "ok", "database": "ok"}
 
-    def test_health_degraded(self) -> None:
-        with patch("api.routers.volumes.routes.check_db", return_value=(False, "db down")):
-            resp = asyncio.run(health())
-        self.assertIsInstance(resp, JSONResponse)
-        degraded = json.loads(resp.body.decode("utf-8"))
-        self.assertEqual(resp.status_code, 503)
-        self.assertEqual(degraded.get("status"), "degraded")
-        self.assertEqual(degraded.get("database"), "unavailable")
 
-    def test_jobs_list(self) -> None:
-        # Smoke-level contract only: we don't assert payload shape here.
-        resp = asyncio.run(list_jobs())
-        self.assertIsInstance(resp, list)
+def test_health_degraded() -> None:
+    with patch("api.routers.volumes.routes.check_db", return_value=(False, "db down")):
+        resp = asyncio.run(health())
+    assert isinstance(resp, JSONResponse)
+    degraded = json.loads(resp.body.decode("utf-8"))
+    assert resp.status_code == 503
+    assert degraded.get("status") == "degraded"
+    assert degraded.get("database") == "unavailable"
 
-    def test_training_models(self) -> None:
-        resp = list_training_models()
-        payload = resp.model_dump()
-        self.assertIn("ultralytics_version", payload)
-        self.assertIn("families", payload)
+
+def test_jobs_list() -> None:
+    # Smoke-level contract only: we don't assert payload shape here.
+    resp = asyncio.run(list_jobs())
+    assert isinstance(resp, list)
+
+
+def test_training_models() -> None:
+    resp = list_training_models()
+    payload = resp.model_dump()
+    assert "ultralytics_version" in payload
+    assert "families" in payload
