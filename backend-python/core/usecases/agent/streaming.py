@@ -1,23 +1,15 @@
 # backend-python/core/usecases/agent/streaming.py
-"""Streaming helpers for agent chat runtimes."""
+"""Streaming helpers for the SDK-based agent chat runtime."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Any
 
-from config import (
-    AGENT_MODEL,
-    AGENT_REASONING_EFFORT,
-    AGENT_TEMPERATURE,
-)
-from core.usecases.agent.chat_runtime_settings import (
-    resolve_agent_chat_max_output_tokens,
-)
 from core.usecases.agent.mcp_runtime import cleanup_mcp_servers, connect_mcp_servers
 from core.usecases.agent.stream_event_formatting import (
     extract_page_switch_filename,
@@ -26,12 +18,6 @@ from core.usecases.agent.stream_event_formatting import (
     format_tool_output_message,
     preview_tool_arguments,
     summarize_tool_output,
-)
-from infra.llm import (
-    build_response_params,
-    create_openai_client,
-    has_openai_sdk,
-    openai_responses_stream_events,
 )
 from infra.logging.correlation import append_correlation, normalize_correlation
 
@@ -104,65 +90,6 @@ def extract_sdk_result_text(result: Any) -> str:
 
     new_items = _event_attr(result, "new_items")
     return _extract_text_from_run_items(new_items)
-
-
-def run_legacy_stream_events(
-    messages: list[dict[str, Any]],
-    *,
-    model_id: str | None,
-    stop_event: Event | None,
-    build_input: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
-    correlation: Mapping[str, Any] | None = None,
-):
-    if not has_openai_sdk():
-        raise RuntimeError("OpenAI SDK is not available")
-
-    resolved_model = model_id or AGENT_MODEL
-    cfg: dict[str, Any] = {
-        "model": resolved_model,
-        "max_output_tokens": resolve_agent_chat_max_output_tokens(),
-    }
-    if str(resolved_model).startswith("gpt-5"):
-        effort = AGENT_REASONING_EFFORT
-        if effort not in {"low", "medium", "high"}:
-            effort = "medium"
-        cfg["reasoning"] = {"effort": effort}
-    else:
-        cfg["temperature"] = AGENT_TEMPERATURE
-
-    client = create_openai_client({})
-    input_payload = build_input(messages)
-    params = build_response_params(cfg, input_payload)
-    params.setdefault("text", {"format": {"type": "text"}})
-
-    had_delta = False
-    if stop_event is not None and stop_event.is_set():
-        return
-
-    for event in openai_responses_stream_events(
-        client,
-        params,
-        component="agent.chat.stream",
-        context=normalize_correlation(correlation, model_id=str(resolved_model)),
-    ):
-        if stop_event is not None and stop_event.is_set():
-            break
-        event_type = getattr(event, "type", None)
-        if event_type is None and isinstance(event, dict):
-            event_type = event.get("type")
-        if event_type == "response.output_text.delta":
-            delta = getattr(event, "delta", None)
-            if delta is None and isinstance(event, dict):
-                delta = event.get("delta")
-            if delta:
-                had_delta = True
-                yield {"type": "delta", "delta": str(delta)}
-        elif event_type == "response.output_text.done" and not had_delta:
-            text_value = getattr(event, "text", None)
-            if text_value is None and isinstance(event, dict):
-                text_value = event.get("text")
-            if text_value:
-                yield {"type": "delta", "delta": str(text_value)}
 
 
 def run_sdk_stream_events(
@@ -264,7 +191,9 @@ def run_sdk_stream_events(
                             or _event_attr(item, "description")
                             or "tool"
                         ).strip()
-                        call_id_raw = _event_attr(raw_item, "call_id") or _event_attr(raw_item, "id")
+                        call_id_raw = _event_attr(raw_item, "call_id") or _event_attr(
+                            raw_item, "id"
+                        )
                         call_id = str(call_id_raw or "").strip()
                         if call_id:
                             call_tool_name_by_id[call_id] = tool_name
@@ -279,11 +208,14 @@ def run_sdk_stream_events(
                         )
                     elif event_name == "tool_output":
                         raw_item = _event_attr(item, "raw_item")
-                        call_id_raw = _event_attr(raw_item, "call_id") or _event_attr(raw_item, "id")
+                        call_id_raw = _event_attr(raw_item, "call_id") or _event_attr(
+                            raw_item, "id"
+                        )
                         call_id = str(call_id_raw or "").strip()
-                        tool_name = call_tool_name_by_id.get(call_id) or str(
-                            _event_attr(raw_item, "name") or "tool"
-                        ).strip()
+                        tool_name = (
+                            call_tool_name_by_id.get(call_id)
+                            or str(_event_attr(raw_item, "name") or "tool").strip()
+                        )
                         tool_output = _event_attr(item, "output")
                         summary = summarize_tool_output(tool_name, tool_output)
                         emitted_events.put(

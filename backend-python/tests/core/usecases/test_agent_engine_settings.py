@@ -50,8 +50,14 @@ def test_run_agent_chat_repair_uses_text_only_observations() -> None:
                 {"role": "user", "content": "in the context of this page"},
             ],
             action_events=[
-                {"type": "tool_output", "message": "get_text_box_detail -> box #2: kore kao ...! aitsu ni sokkuri da ..."},
-                {"type": "tool_output", "message": "get_text_box_detail -> box #3: osananajimi no aitsu ...."},
+                {
+                    "type": "tool_output",
+                    "message": "get_text_box_detail -> box #2: kore kao ...! aitsu ni sokkuri da ...",
+                },
+                {
+                    "type": "tool_output",
+                    "message": "get_text_box_detail -> box #3: osananajimi no aitsu ....",
+                },
             ],
             model_id="gpt-5.2",
             volume_id="Arisa",
@@ -70,3 +76,58 @@ def test_run_agent_chat_repair_uses_text_only_observations() -> None:
     prompt_text = input_payload[1]["content"][0]["text"]
     assert "Tool observations:" in prompt_text
     assert "get_text_box_detail -> box #3" in prompt_text
+
+
+def test_run_agent_chat_always_uses_sdk_runtime() -> None:
+    with patch.object(engine, "_run_agent_chat_sdk", return_value="sdk answer") as sdk_mock:
+        result = engine.run_agent_chat(
+            [{"role": "user", "content": "hello"}],
+            model_id="gpt-5.2",
+            volume_id="vol-a",
+            current_filename="001.jpg",
+            session_id="sess-1",
+        )
+
+    assert result == "sdk answer"
+    sdk_mock.assert_called_once_with(
+        [{"role": "user", "content": "hello"}],
+        model_id="gpt-5.2",
+        volume_id="vol-a",
+        current_filename="001.jpg",
+        session_id="sess-1",
+    )
+
+
+def test_run_agent_chat_stream_always_uses_sdk_runtime() -> None:
+    with patch.object(
+        engine,
+        "_run_agent_chat_stream_sdk",
+        return_value=iter(
+            [
+                {"type": "activity", "message": "sdk"},
+                {"type": "delta", "delta": "hello"},
+            ]
+        ),
+    ) as sdk_mock:
+        result = list(
+            engine.run_agent_chat_stream(
+                [{"role": "user", "content": "hello"}],
+                model_id="gpt-5.2",
+                volume_id="vol-a",
+                current_filename="001.jpg",
+                session_id="sess-1",
+            )
+        )
+
+    assert result == [
+        {"type": "activity", "message": "sdk"},
+        {"type": "delta", "delta": "hello"},
+    ]
+    sdk_mock.assert_called_once_with(
+        [{"role": "user", "content": "hello"}],
+        model_id="gpt-5.2",
+        volume_id="vol-a",
+        current_filename="001.jpg",
+        session_id="sess-1",
+        stop_event=None,
+    )

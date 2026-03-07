@@ -36,7 +36,6 @@ from core.usecases.agent.mcp_runtime import (
 )
 from core.usecases.agent.streaming import (
     extract_sdk_result_text,
-    run_legacy_stream_events,
     run_sdk_stream_events,
 )
 from core.usecases.agent.tool_shared import coerce_filename
@@ -75,6 +74,7 @@ except Exception as exc:  # pragma: no cover - optional dependency path
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass(frozen=True)
 class AgentToolContext:
     volume_id: str
@@ -102,41 +102,9 @@ def _load_system_prompt() -> str:
     return rendered["system"]
 
 
-def _runtime_choice() -> str:
-    raw = os.getenv("AGENT_CHAT_RUNTIME", "sdk").strip().lower()
-    if raw not in {"legacy", "sdk"}:
-        raw = "sdk"
-    if raw == "sdk" and Runner is None:
-        return "legacy"
-    return raw
-
-
 def _sdk_use_sqlite_session() -> bool:
     raw = os.getenv("AGENT_SDK_USE_SQLITE_SESSION", "0").strip().lower()
     return raw in {"1", "true", "yes", "on"}
-
-
-def _build_legacy_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    system_prompt = _load_system_prompt()
-    input_payload: list[dict[str, Any]] = [
-        {
-            "role": "system",
-            "content": [{"type": "input_text", "text": system_prompt}],
-        }
-    ]
-    for msg in messages:
-        role = str(msg.get("role") or "user")
-        content = str(msg.get("content") or "")
-        content_type = "input_text"
-        if role in {"assistant", "tool"}:
-            content_type = "output_text"
-        input_payload.append(
-            {
-                "role": role,
-                "content": [{"type": content_type, "text": content}],
-            }
-        )
-    return input_payload
 
 
 def _build_sdk_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -219,50 +187,6 @@ def _build_sdk_session(session_id: str | None) -> Any:
     db_path = DATA_DIR / "agent_sdk_sessions.sqlite3"
     session_key = f"chat:{session_id}"
     return SQLiteSession(session_id=session_key, db_path=str(db_path))
-
-
-def _run_agent_chat_legacy(
-    messages: list[dict[str, Any]],
-    *,
-    model_id: str | None = None,
-    volume_id: str | None = None,
-    current_filename: str | None = None,
-    session_id: str | None = None,
-) -> str:
-    if not has_openai_sdk():
-        raise RuntimeError("OpenAI SDK is not available")
-
-    resolved_model = model_id or AGENT_MODEL
-    cfg = {
-        "model": resolved_model,
-        "max_output_tokens": _resolve_agent_chat_max_output_tokens(),
-    }
-    if str(resolved_model).startswith("gpt-5"):
-        effort = AGENT_REASONING_EFFORT
-        if effort not in {"low", "medium", "high"}:
-            effort = "medium"
-        cfg["reasoning"] = {"effort": effort}
-    else:
-        cfg["temperature"] = AGENT_TEMPERATURE
-
-    client = create_openai_client({})
-    input_payload = _build_legacy_input(messages)
-    params = build_response_params(cfg, input_payload)
-    resp = openai_responses_create(
-        client,
-        params,
-        component="agent.chat",
-        context=normalize_correlation(
-            {
-                "component": "agent.chat",
-                "model_id": str(resolved_model),
-                "session_id": session_id,
-                "volume_id": volume_id,
-                "filename": current_filename,
-            }
-        ),
-    )
-    return extract_response_text(resp).strip()
 
 
 def run_agent_chat_repair(
@@ -356,6 +280,7 @@ def _run_agent_chat_sdk(
 ) -> str:
     if Runner is None:
         raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
+    runner_cls = cast(Any, Runner)
 
     resolved_model = model_id or AGENT_MODEL
     volume_value = str(volume_id or "").strip()
@@ -433,7 +358,7 @@ def _run_agent_chat_sdk(
         max_turns = _resolve_agent_chat_max_turns()
         agent = _build_sdk_agent(resolved_model, mcp_servers=connected_servers)
         try:
-            result = await Runner.run(
+            result = await runner_cls.run(
                 agent,
                 input=sdk_input,
                 context=run_context,
@@ -455,44 +380,12 @@ def run_agent_chat(
     current_filename: str | None = None,
     session_id: str | None = None,
 ) -> str:
-    if _runtime_choice() == "sdk":
-        return _run_agent_chat_sdk(
-            messages,
-            model_id=model_id,
-            volume_id=volume_id,
-            current_filename=current_filename,
-            session_id=session_id,
-        )
-    return _run_agent_chat_legacy(
+    return _run_agent_chat_sdk(
         messages,
         model_id=model_id,
         volume_id=volume_id,
         current_filename=current_filename,
         session_id=session_id,
-    )
-
-
-def _run_agent_chat_stream_legacy(
-    messages: list[dict[str, Any]],
-    *,
-    model_id: str | None = None,
-    volume_id: str | None = None,
-    current_filename: str | None = None,
-    session_id: str | None = None,
-    stop_event: Event | None = None,
-):
-    yield from run_legacy_stream_events(
-        messages,
-        model_id=model_id,
-        stop_event=stop_event,
-        build_input=_build_legacy_input,
-        correlation={
-            "component": "agent.chat.stream",
-            "session_id": session_id,
-            "volume_id": volume_id,
-            "filename": current_filename,
-            "model_id": model_id or AGENT_MODEL,
-        },
     )
 
 
@@ -611,17 +504,6 @@ def run_agent_chat_stream(
     session_id: str | None = None,
     stop_event: Event | None = None,
 ):
-    if _runtime_choice() == "legacy":
-        yield from _run_agent_chat_stream_legacy(
-            messages,
-            model_id=model_id,
-            volume_id=volume_id,
-            current_filename=current_filename,
-            session_id=session_id,
-            stop_event=stop_event,
-        )
-        return
-
     yield from _run_agent_chat_stream_sdk(
         messages,
         model_id=model_id,
