@@ -13,7 +13,6 @@ from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
-
 from infra.jobs import db_utility_worker
 from infra.jobs.exceptions import JobCanceled
 from infra.jobs.handlers.detection import BoxDetectionJobHandler
@@ -135,8 +134,9 @@ async def test_run_claimed_task_persists_progress_and_terminal_result() -> None:
             "get_workflow_run",
             return_value=run_record,
         ),
-        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
-        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+        patch("infra.jobs.persisted_job_adapter.get_workflow_run", return_value=run_record),
+        patch("infra.jobs.persisted_job_adapter.update_task_run") as update_task_mock,
+        patch("infra.jobs.persisted_job_adapter.update_workflow_run") as update_workflow_mock,
     ):
         await db_utility_worker._run_claimed_task(
             claimed,
@@ -193,8 +193,9 @@ async def test_run_claimed_task_marks_canceled_when_handler_raises_job_canceled(
             "get_workflow_run",
             return_value=run_record,
         ),
-        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
-        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+        patch("infra.jobs.persisted_job_adapter.get_workflow_run", return_value=run_record),
+        patch("infra.jobs.persisted_job_adapter.update_task_run") as update_task_mock,
+        patch("infra.jobs.persisted_job_adapter.update_workflow_run") as update_workflow_mock,
     ):
         await db_utility_worker._run_claimed_task(
             claimed,
@@ -245,8 +246,9 @@ async def test_run_claimed_task_leaves_work_recoverable_during_shutdown() -> Non
             "get_workflow_run",
             return_value=run_record,
         ),
-        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
-        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+        patch("infra.jobs.persisted_job_adapter.get_workflow_run", return_value=run_record),
+        patch("infra.jobs.persisted_job_adapter.update_task_run") as update_task_mock,
+        patch("infra.jobs.persisted_job_adapter.update_workflow_run") as update_workflow_mock,
     ):
         await db_utility_worker._run_claimed_task(
             claimed,
@@ -323,8 +325,12 @@ async def test_box_detection_cancel_requested_marks_persisted_workflow_canceled(
             "get_workflow_run",
             side_effect=get_workflow_run_side_effect,
         ),
-        patch.object(db_utility_worker, "update_task_run") as update_task_mock,
-        patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+        patch(
+            "infra.jobs.persisted_job_adapter.get_workflow_run",
+            side_effect=get_workflow_run_side_effect,
+        ),
+        patch("infra.jobs.persisted_job_adapter.update_task_run") as update_task_mock,
+        patch("infra.jobs.persisted_job_adapter.update_workflow_run") as update_workflow_mock,
     ):
         await db_utility_worker._run_claimed_task(
             claimed,
@@ -403,8 +409,12 @@ def test_persisted_train_model_cancel_stops_training_run() -> None:
                 "get_workflow_run",
                 side_effect=get_workflow_run_side_effect,
             ),
-            patch.object(db_utility_worker, "update_task_run") as update_task_mock,
-            patch.object(db_utility_worker, "update_workflow_run") as update_workflow_mock,
+            patch(
+                "infra.jobs.persisted_job_adapter.get_workflow_run",
+                side_effect=get_workflow_run_side_effect,
+            ),
+            patch("infra.jobs.persisted_job_adapter.update_task_run") as update_task_mock,
+            patch("infra.jobs.persisted_job_adapter.update_workflow_run") as update_workflow_mock,
             patch(
                 "infra.training.job_runner.resolve_prepared_dataset",
                 return_value=dataset_dir,

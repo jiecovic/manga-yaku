@@ -5,9 +5,6 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
-
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
@@ -48,6 +45,8 @@ from api.services.jobs_service import (
     get_training_log_path,
     list_job_public_records,
 )
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from infra.jobs.runtime import STORE
 from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
@@ -55,13 +54,12 @@ from infra.training.catalog import resolve_prepared_dataset, resolve_training_so
 router = APIRouter(tags=["jobs"])
 
 _TRANSLATE_PAGE_DISABLED_REASON = (
-    "Standalone translation page jobs are not supported. "
-    "Use the agent translate page workflow."
+    "Standalone translation page jobs are not supported. Use the agent translate page workflow."
 )
 # Job mode boundary:
 # - DB task workflows are persisted and executed by DB workers.
 # - Utility jobs are persisted single-task workflows executed by the DB utility worker.
-# - Agent translate page is hybrid (memory queue + persisted workflow state).
+# - Agent translate page is a persisted workflow executed by a DB worker.
 
 _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     ocr_page=JobCapability(enabled=True),
@@ -77,6 +75,7 @@ _JOB_CAPABILITIES = JobsCapabilitiesResponse(
 
 def _notify_jobs_changed() -> None:
     STORE.broadcast_snapshot()
+
 
 @router.post("/jobs/ocr_box", response_model=CreateJobResponse)
 async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
@@ -124,10 +123,10 @@ async def create_agent_translate_page_job(
 ) -> CreateJobResponse:
     """Create agent translate page job."""
     decision = create_agent_translate_page_job_record(
-        store=STORE,
         req=req,
         idempotency_key=request.headers.get("Idempotency-Key"),
     )
+    _notify_jobs_changed()
     return CreateJobResponse(jobId=decision["job_id"])
 
 
@@ -206,7 +205,9 @@ async def stream_jobs(request: Request) -> StreamingResponse:
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
                     continue
-                payload = {"jobs": [job.model_dump() for job in list_job_public_records(store=STORE)]}
+                payload = {
+                    "jobs": [job.model_dump() for job in list_job_public_records(store=STORE)]
+                }
                 yield STORE.format_sse(payload)
         finally:
             STORE.unsubscribe(queue)
@@ -277,9 +278,9 @@ async def resume_job(job_id: str) -> CreateJobResponse:
     payload = get_resume_agent_payload(job_id=job_id, store=STORE)
     req = CreateAgentTranslatePageJobRequest(**payload)
     decision = create_agent_translate_page_job_record(
-        store=STORE,
         req=req,
     )
+    _notify_jobs_changed()
     return CreateJobResponse(jobId=decision["job_id"])
 
 

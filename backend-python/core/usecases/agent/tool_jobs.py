@@ -24,8 +24,7 @@ from infra.db.idempotency_store import (
 )
 from infra.jobs.agent_translate_creation import create_agent_translate_page_job
 from infra.jobs.job_modes import BOX_DETECTION_JOB_TYPE, OCR_BOX_WORKFLOW_TYPE
-from infra.jobs.runtime import STORE, wait_for_memory_job_terminal
-from infra.jobs.store import JobStatus
+from infra.jobs.runtime import STORE
 from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 from infra.jobs.workflow_repo import get_workflow_run
 from infra.jobs.workflow_runtime import wait_for_workflow_terminal
@@ -95,7 +94,7 @@ def _build_detection_replay_snapshot(
     profile_id: str | None,
     replace_existing: bool,
     job_id: str,
-    idempotency_key: str,
+    idempotency_key: str | None,
 ) -> dict[str, Any]:
     page = load_page(volume_id, filename)
     text_boxes = list_text_boxes_for_page(page)
@@ -153,6 +152,13 @@ def _build_ocr_replay_snapshot(
         "idempotency_state": "replay",
         "resource_reused": True,
     }
+
+
+def _result_json(payload: dict[str, Any] | None) -> dict[str, Any]:
+    raw = payload.get("result_json") if isinstance(payload, dict) else None
+    if isinstance(raw, dict):
+        return dict(raw)
+    return {}
 
 
 def detect_text_boxes_tool(
@@ -319,7 +325,7 @@ def detect_text_boxes_tool(
             "idempotency_state": idempotency_state,
         }
     workflow_status = str(finished_run.get("status") or "").strip().lower() or "failed"
-    result_json = finished_run.get("result_json") if isinstance(finished_run.get("result_json"), dict) else {}
+    result_json = _result_json(finished_run)
     if workflow_status == "failed":
         return {
             "error": str(finished_run.get("error_message") or "Detection job failed"),
@@ -439,7 +445,6 @@ def translate_active_page_tool(
         "forceRerun": bool(force_rerun),
     }
     decision = create_agent_translate_page_job(
-        store=STORE,
         payload=payload,
         idempotency_key=None,
     )
@@ -466,13 +471,11 @@ def translate_active_page_tool(
         }
 
     try:
-        finished_job = wait_for_memory_job_terminal(
-            job_id=job_id,
+        finished_run = wait_for_workflow_terminal(
+            job_id,
             timeout_seconds=_TOOL_AGENT_PAGE_WAIT_TIMEOUT_SECONDS,
             poll_seconds=_TOOL_AGENT_PAGE_WAIT_POLL_SECONDS,
         )
-    except TimeoutError:
-        finished_job = None
     except Exception as exc:
         return {
             "error": str(exc).strip() or "Failed while waiting for page-translate workflow",
@@ -481,53 +484,50 @@ def translate_active_page_tool(
             "job_id": job_id,
         }
 
-    if finished_job is None:
-        run = get_workflow_run(job_id)
-        if isinstance(run, dict):
-            workflow_status = str(run.get("status") or "").strip().lower() or "queued"
-            result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
-            return {
-                "status": "queued",
-                "volume_id": volume_id,
-                "filename": resolved_filename,
-                "job_id": job_id,
-                "workflow_run_id": job_id,
-                "workflow_status": workflow_status,
-                "text_box_count": pre_state["text_box_count"],
-                "ocr_filled_count": pre_state["ocr_filled_count"],
-                "translated_count": pre_state["translated_count"],
-                "translated_now_count": 0,
-                "already_translated_before": already_translated_before,
-                "started_now": bool(decision.get("queued")),
-                "message": str(result_json.get("message") or "").strip()
-                or "Page translation workflow queued/running; check Jobs panel for live progress",
-                "resource_reused": status != "queued",
-            }
+    if not isinstance(finished_run, dict):
+        return {
+            "error": "Page translation workflow could not be found",
+            "volume_id": volume_id,
+            "filename": resolved_filename,
+            "job_id": job_id,
+        }
+
+    workflow_run_id = str(finished_run.get("id") or "").strip() or job_id
+    workflow_status = str(finished_run.get("status") or "").strip().lower() or "queued"
+    result_json = _result_json(finished_run)
+
+    if workflow_status in {"queued", "running"}:
         return {
             "status": "queued",
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
+            "workflow_run_id": workflow_run_id,
+            "workflow_status": workflow_status,
             "text_box_count": pre_state["text_box_count"],
             "ocr_filled_count": pre_state["ocr_filled_count"],
             "translated_count": pre_state["translated_count"],
             "translated_now_count": 0,
             "already_translated_before": already_translated_before,
             "started_now": bool(decision.get("queued")),
-            "message": "Page translation workflow queued/running; check Jobs panel for live progress",
+            "message": str(result_json.get("message") or "").strip()
+            or "Page translation workflow queued/running; check Jobs panel for live progress",
             "resource_reused": status != "queued",
         }
 
-    workflow_run_id = str((finished_job.payload or {}).get("workflowRunId") or "").strip() or None
-    if finished_job.status == JobStatus.failed:
+    if workflow_status == "failed":
         return {
-            "error": str(finished_job.error or "Page translation workflow failed"),
+            "error": str(
+                result_json.get("error_message")
+                or finished_run.get("error_message")
+                or "Page translation workflow failed"
+            ),
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
             "workflow_run_id": workflow_run_id,
         }
-    if finished_job.status == JobStatus.canceled:
+    if workflow_status == "canceled":
         return {
             "error": "Page translation workflow was canceled",
             "volume_id": volume_id,
@@ -535,25 +535,7 @@ def translate_active_page_tool(
             "job_id": job_id,
             "workflow_run_id": workflow_run_id,
         }
-    if finished_job.status in {JobStatus.queued, JobStatus.running}:
-        return {
-            "status": "queued",
-            "volume_id": volume_id,
-            "filename": resolved_filename,
-            "job_id": job_id,
-            "workflow_run_id": workflow_run_id,
-            "text_box_count": pre_state["text_box_count"],
-            "ocr_filled_count": pre_state["ocr_filled_count"],
-            "translated_count": pre_state["translated_count"],
-            "translated_now_count": 0,
-            "already_translated_before": already_translated_before,
-            "started_now": bool(decision.get("queued")),
-            "message": str(finished_job.message or "").strip()
-            or "Page translation workflow queued/running; check Jobs panel for live progress",
-            "resource_reused": status != "queued",
-        }
 
-    result_json = finished_job.result if isinstance(finished_job.result, dict) else {}
     post_state = _count_page_translation_state(
         volume_id=volume_id,
         filename=resolved_filename,
@@ -630,7 +612,6 @@ def list_ocr_profiles_tool() -> dict[str, Any]:
         "default_profile_id": default_profile_id,
         "profiles": profiles,
     }
-
 
 
 def ocr_text_box_tool(
@@ -811,7 +792,7 @@ def ocr_text_box_tool(
             }
 
     workflow_status = str(run.get("status") or "").strip().lower() or "failed"
-    result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
+    result_json = _result_json(run)
     if workflow_status == "failed":
         return {
             "error": str(run.get("error_message") or "OCR workflow failed").strip(),

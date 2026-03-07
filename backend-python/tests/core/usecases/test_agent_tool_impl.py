@@ -19,7 +19,6 @@ from core.usecases.agent.tool_jobs import (
     ocr_text_box_tool,
     translate_active_page_tool,
 )
-from infra.jobs.store import JobStatus
 
 
 def test_list_text_boxes_defaults_to_active_page() -> None:
@@ -563,30 +562,25 @@ def test_ocr_text_box_claimed_request_finalizes_idempotency() -> None:
 
 
 def test_translate_active_page_defaults_to_active_page_and_returns_completed_result() -> None:
-    finished_job = type(
-        "FinishedJob",
-        (),
-        {
-            "status": JobStatus.finished,
-            "payload": {"workflowRunId": "wf-123"},
-            "message": "done",
-            "result": {
-                "workflowRunId": "wf-123",
-                "state": "completed",
-                "stage": "commit",
-                "processed": 18,
-                "total": 18,
-                "updated": 18,
-                "orderApplied": True,
-                "message": "Page translation complete",
-                "storySummary": "story",
-                "imageSummary": "image",
-                "characters": [{"name": "Arisa", "gender": "female", "info": "lead"}],
-                "openThreads": ["thread"],
-                "glossary": [{"term": "A", "translation": "B", "note": ""}],
-            },
+    finished_run = {
+        "id": "wf-123",
+        "status": "completed",
+        "result_json": {
+            "workflowRunId": "wf-123",
+            "state": "completed",
+            "stage": "commit",
+            "processed": 18,
+            "total": 18,
+            "updated": 18,
+            "orderApplied": True,
+            "message": "Page translation complete",
+            "storySummary": "story",
+            "imageSummary": "image",
+            "characters": [{"name": "Arisa", "gender": "female", "info": "lead"}],
+            "openThreads": ["thread"],
+            "glossary": [{"term": "A", "translation": "B", "note": ""}],
         },
-    )()
+    }
     with (
         patch(
             "core.usecases.agent.tool_jobs.create_agent_translate_page_job",
@@ -598,8 +592,8 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
-            return_value=finished_job,
+            "core.usecases.agent.tool_jobs.wait_for_workflow_terminal",
+            return_value=finished_run,
         ),
         patch(
             "core.usecases.agent.tool_jobs._count_page_translation_state",
@@ -634,12 +628,12 @@ def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
-            return_value=None,
-        ),
-        patch(
-            "core.usecases.agent.tool_jobs.get_workflow_run",
-            return_value={"status": "running", "result_json": {"message": "Working"}},
+            "core.usecases.agent.tool_jobs.wait_for_workflow_terminal",
+            return_value={
+                "id": "wf-999",
+                "status": "running",
+                "result_json": {"message": "Working"},
+            },
         ),
         patch(
             "core.usecases.agent.tool_jobs._count_page_translation_state",

@@ -1,5 +1,5 @@
 # backend-python/infra/jobs/job_modes.py
-"""Canonical job mode boundaries for persisted and hybrid workflows."""
+"""Canonical job mode boundaries for persisted workflows and memory jobs."""
 
 from __future__ import annotations
 
@@ -30,14 +30,7 @@ UTILITY_WORKFLOW_TYPES: Final[tuple[str, ...]] = (
     TRAIN_MODEL_JOB_TYPE,
 )
 
-# Hybrid workflows: memory queue entrypoint, but workflow state persisted in DB.
-HYBRID_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
-    {
-        AGENT_WORKFLOW_TYPE,
-    }
-)
-
 # Any workflow with persisted state in workflow/task tables.
 PERSISTED_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
-    DB_TASK_WORKFLOW_TYPES | HYBRID_WORKFLOW_TYPES | frozenset(UTILITY_WORKFLOW_TYPES)
+    DB_TASK_WORKFLOW_TYPES | frozenset(UTILITY_WORKFLOW_TYPES) | frozenset({AGENT_WORKFLOW_TYPE})
 )

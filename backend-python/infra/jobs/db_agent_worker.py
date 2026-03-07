@@ -1,5 +1,5 @@
-# backend-python/infra/jobs/db_utility_worker.py
-"""Database-backed worker for persisted single-task utility workflows."""
+# backend-python/infra/jobs/db_agent_worker.py
+"""Database-backed worker for persisted agent translate-page workflows."""
 
 from __future__ import annotations
 
@@ -7,42 +7,35 @@ import asyncio
 import logging
 from pathlib import Path
 from threading import Event
-from typing import Any
 
 from infra.jobs.exceptions import JobCanceled
 from infra.jobs.handlers.registry import HANDLERS
-from infra.jobs.job_modes import UTILITY_WORKFLOW_TYPES
+from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
 from infra.jobs.persisted_job_adapter import (
     PersistedJobStoreAdapter,
     extract_request_payload,
     timestamp_or_now,
 )
 from infra.jobs.store import Job, JobStatus, JobStore
-from infra.jobs.workflow_repo import (
-    claim_next_task,
-    get_workflow_run,
-)
-from infra.jobs.workflow_repo import (
-    recover_running_tasks_for_startup as repo_recover_running_tasks_for_startup,
-)
+from infra.jobs.workflow_repo import claim_next_task, get_workflow_run
 from infra.logging.correlation import append_correlation, normalize_correlation
 
 logger = logging.getLogger(__name__)
 
+_AGENT_STAGE = AGENT_WORKFLOW_TYPE
 _DEFAULT_LEASE_SECONDS = 60 * 60 * 24
 _DEFAULT_IDLE_SLEEP_SECONDS = 0.4
 _DEFAULT_ERROR_SLEEP_SECONDS = 1.0
 
 
-def _utility_correlation(
+def _agent_correlation(
     *,
     component: str,
     workflow_id: str | None = None,
     task_id: str | None = None,
-    workflow_type: str | None = None,
     volume_id: str | None = None,
     filename: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, str | None]:
     return normalize_correlation(
         {
             "component": component,
@@ -51,45 +44,12 @@ def _utility_correlation(
             "volume_id": volume_id,
             "filename": filename,
         },
-        workflow_type=workflow_type,
+        workflow_type=AGENT_WORKFLOW_TYPE,
     )
 
 
-def _recover_running_tasks() -> int:
-    changed = 0
-    for workflow_type in UTILITY_WORKFLOW_TYPES:
-        changed += repo_recover_running_tasks_for_startup(
-            workflow_types=(workflow_type,),
-            stage=workflow_type,
-        )
-    return changed
-
-
-def _claim_next_utility_task(
-    *,
-    lease_seconds: int,
-    start_index: int,
-) -> tuple[dict[str, Any] | None, int]:
-    for offset in range(len(UTILITY_WORKFLOW_TYPES)):
-        workflow_type = UTILITY_WORKFLOW_TYPES[(start_index + offset) % len(UTILITY_WORKFLOW_TYPES)]
-        claimed = claim_next_task(
-            workflow_types=(workflow_type,),
-            stage=workflow_type,
-            lease_seconds=lease_seconds,
-        )
-        if claimed:
-            payload = (
-                claimed.get("input_json") if isinstance(claimed.get("input_json"), dict) else {}
-            )
-            out = dict(claimed)
-            out["workflow_type"] = workflow_type
-            out["payload"] = dict(payload)
-            return out, (start_index + offset + 1) % len(UTILITY_WORKFLOW_TYPES)
-    return None, start_index
-
-
-async def _run_claimed_task(
-    claimed: dict[str, Any],
+async def _run_claimed_workflow(
+    claimed: dict[str, object],
     *,
     log_store: dict[str, Path],
     shutdown_event: Event,
@@ -97,16 +57,14 @@ async def _run_claimed_task(
 ) -> None:
     workflow_id = str(claimed.get("workflow_id") or "")
     task_id = str(claimed.get("task_id") or "")
-    workflow_type = str(claimed.get("workflow_type") or "")
-    if not workflow_id or not task_id or not workflow_type:
+    if not workflow_id or not task_id:
         return
 
     run = get_workflow_run(workflow_id)
     request_payload = extract_request_payload(run)
-    if not request_payload:
-        payload = claimed.get("payload")
-        if isinstance(payload, dict):
-            request_payload = dict(payload)
+    payload = claimed.get("input_json")
+    if not request_payload and isinstance(payload, dict):
+        request_payload = dict(payload)
 
     created_at = timestamp_or_now(run.get("created_at") if isinstance(run, dict) else None)
     updated_at = timestamp_or_now(run.get("updated_at") if isinstance(run, dict) else None)
@@ -117,7 +75,7 @@ async def _run_claimed_task(
     )
     job = Job(
         id=workflow_id,
-        type=workflow_type,
+        type=AGENT_WORKFLOW_TYPE,
         status=JobStatus.running,
         created_at=created_at,
         updated_at=updated_at,
@@ -152,17 +110,15 @@ async def _run_claimed_task(
         adapter.finish_canceled("Canceled")
         return
 
-    handler = HANDLERS.get(workflow_type)
+    handler = HANDLERS.get(AGENT_WORKFLOW_TYPE)
     if handler is None:
-        raise RuntimeError(f"Unknown utility workflow type: {workflow_type}")
+        raise RuntimeError("Missing agent workflow handler")
 
     adapter.mark_started()
     if shutdown_event.is_set():
         return
     try:
         result = await handler.run(job, adapter)  # type: ignore[arg-type]
-        # Keep interrupted persisted work recoverable on startup instead of
-        # forcing a terminal state during backend shutdown.
         if shutdown_event.is_set() and not adapter.is_canceled():
             return
         if adapter.is_canceled() or job.status == JobStatus.canceled:
@@ -174,15 +130,16 @@ async def _run_claimed_task(
             return
         adapter.finish_canceled(str(exc) or "Canceled")
     except Exception as exc:
+        if shutdown_event.is_set() and not adapter.is_canceled():
+            return
         error_text = str(exc).strip() or repr(exc)
         logger.exception(
             append_correlation(
-                "Utility workflow failed",
-                _utility_correlation(
-                    component="jobs.db_utility.task_error",
+                "Agent workflow failed",
+                _agent_correlation(
+                    component="jobs.db_agent.workflow_error",
                     workflow_id=workflow_id,
                     task_id=task_id,
-                    workflow_type=workflow_type,
                     volume_id=str(request_payload.get("volumeId") or ""),
                     filename=str(request_payload.get("filename") or ""),
                 ),
@@ -192,59 +149,29 @@ async def _run_claimed_task(
         adapter.finish_failed(error_text)
 
 
-async def run_utility_db_worker(
+async def run_agent_db_worker(
     stop_event: Event,
     *,
     log_store: dict[str, Path],
     signal_store: JobStore,
 ) -> None:
+    """Claim and execute queued persisted agent workflows."""
     lease_seconds = int(_DEFAULT_LEASE_SECONDS)
     idle_sleep = float(_DEFAULT_IDLE_SLEEP_SECONDS)
     error_sleep = float(_DEFAULT_ERROR_SLEEP_SECONDS)
 
-    try:
-        recovered = await asyncio.to_thread(_recover_running_tasks)
-    except Exception:
-        logger.exception(
-            append_correlation(
-                "Failed to recover running utility tasks on startup",
-                {"component": "jobs.db_utility.startup"},
-            )
-        )
-        recovered = 0
-    if recovered > 0:
-        logger.info(
-            append_correlation(
-                "Recovered interrupted utility tasks",
-                {"component": "jobs.db_utility.startup"},
-                recovered=recovered,
-            )
-        )
-
-    claim_index = 0
     while not stop_event.is_set():
         try:
-            claimed, claim_index = await asyncio.to_thread(
-                _claim_next_utility_task,
+            claimed = await asyncio.to_thread(
+                claim_next_task,
+                workflow_types=(AGENT_WORKFLOW_TYPE,),
+                stage=_AGENT_STAGE,
                 lease_seconds=lease_seconds,
-                start_index=claim_index,
             )
-        except Exception:
-            logger.exception(
-                append_correlation(
-                    "Utility DB worker failed to claim task",
-                    {"component": "jobs.db_utility.claim"},
-                )
-            )
-            await asyncio.sleep(error_sleep)
-            continue
-
-        if not claimed:
-            await asyncio.sleep(idle_sleep)
-            continue
-
-        try:
-            await _run_claimed_task(
+            if claimed is None:
+                await asyncio.sleep(idle_sleep)
+                continue
+            await _run_claimed_workflow(
                 claimed,
                 log_store=log_store,
                 shutdown_event=stop_event,
@@ -255,15 +182,8 @@ async def run_utility_db_worker(
         except Exception:
             logger.exception(
                 append_correlation(
-                    "Utility DB worker failed claimed task",
-                    _utility_correlation(
-                        component="jobs.db_utility.task",
-                        workflow_id=str(claimed.get("workflow_id") or ""),
-                        task_id=str(claimed.get("task_id") or ""),
-                        workflow_type=str(claimed.get("workflow_type") or ""),
-                        volume_id=str(claimed.get("payload", {}).get("volumeId") or ""),
-                        filename=str(claimed.get("payload", {}).get("filename") or ""),
-                    ),
+                    "Agent DB worker loop failed",
+                    _agent_correlation(component="jobs.db_agent.loop_error"),
                 )
             )
             await asyncio.sleep(error_sleep)

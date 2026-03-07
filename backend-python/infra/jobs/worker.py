@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from infra.jobs.exceptions import JobCanceled
-from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE, PERSISTED_WORKFLOW_TYPES
+from infra.jobs.job_modes import PERSISTED_WORKFLOW_TYPES
 from infra.jobs.workflow_repo import update_workflow_run
 from infra.logging.correlation import append_correlation, normalize_correlation
 
@@ -54,23 +54,10 @@ def _sync_terminal_workflow_status(
     if not workflow_run_id:
         return
 
-    state = terminal_status
-    if job.type == AGENT_WORKFLOW_TYPE and isinstance(result, dict):
-        raw_state = str(result.get("state") or "").strip().lower()
-        if raw_state in {"queued", "running", "detecting_boxes", "ocr_running", "translating", "committing"}:
-            if terminal_status == "completed":
-                state = "completed"
-            elif terminal_status == "failed":
-                state = "failed"
-            elif terminal_status == "canceled":
-                state = "canceled"
-        elif raw_state in {"completed", "failed", "canceled"}:
-            state = raw_state
-
     try:
         update_workflow_run(
             workflow_run_id,
-            state=state,
+            state=terminal_status,
             status=terminal_status,
             error_message=error_message,
         )
@@ -125,7 +112,9 @@ async def job_worker(store: JobStore) -> None:
                 logger.info(
                     append_correlation(
                         "Job finished",
-                        _job_correlation(job, workflow_run_id=_extract_workflow_run_id(job, result)),
+                        _job_correlation(
+                            job, workflow_run_id=_extract_workflow_run_id(job, result)
+                        ),
                         job_type=job.type,
                     )
                 )

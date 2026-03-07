@@ -33,12 +33,12 @@ Source of truth: `infra/jobs/job_modes.py`.
 - `db-task`:
   `ocr_page`, `ocr_box`, `translate_box`
   persisted in `workflow_runs` + `task_runs`, consumed by DB workers.
-- `memory-only`:
+- `utility-workflow`:
   `box_detection`, `prepare_dataset`, `train_model`
-  handled via in-memory `JobStore`.
-- `hybrid`:
+  persisted in `workflow_runs` + `task_runs`, consumed by the DB utility worker.
+- `workflow-orchestrator`:
   `agent_translate_page`
-  queued through memory runtime while workflow state is persisted in DB.
+  persisted in `workflow_runs` + `task_runs`, consumed by the DB agent worker.
 
 ## Agent translate submission semantics
 
@@ -57,8 +57,8 @@ Source of truth: `infra/jobs/job_modes.py`.
 
 ## Data flow (high-level)
 
-1. API route validates request and creates a workflow/job.
-2. For DB-task workflows, task rows are created in Postgres.
-3. Workers claim tasks, execute OCR/translation, and persist task outcomes.
+1. API route validates request and creates a persisted workflow/job.
+2. Workflow/task rows are created in Postgres.
+3. Workers claim tasks, execute work, and persist task outcomes.
 4. Workflow status/progress is updated and exposed through jobs APIs/SSE.
 5. Final results are written back to page state tables and surfaced in the UI.

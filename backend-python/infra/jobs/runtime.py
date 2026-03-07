@@ -12,6 +12,7 @@ from threading import Event
 from typing import Any, TypeVar
 from uuid import uuid4
 
+from infra.jobs.db_agent_worker import run_agent_db_worker
 from infra.jobs.db_ocr_worker import run_ocr_db_worker
 from infra.jobs.db_translate_worker import run_translate_db_worker
 from infra.jobs.db_utility_worker import run_utility_db_worker
@@ -28,6 +29,7 @@ STORE = JobStore()
 
 _worker_started = False
 _worker_task: asyncio.Task | None = None
+_db_agent_worker_task: asyncio.Task | None = None
 _db_ocr_worker_task: asyncio.Task | None = None
 _db_translate_worker_task: asyncio.Task | None = None
 _db_utility_worker_task: asyncio.Task | None = None
@@ -49,6 +51,32 @@ async def _run_ocr_db_worker_supervisor(shutdown_event: Event) -> None:
             logger.exception(
                 append_correlation(
                     "OCR DB worker crashed; restarting",
+                    base_corr,
+                    backoff_seconds=round(backoff_seconds, 1),
+                )
+            )
+            await asyncio.sleep(backoff_seconds)
+            backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+
+
+async def _run_agent_db_worker_supervisor(shutdown_event: Event) -> None:
+    base_corr = {"component": "jobs.runtime.agent_supervisor"}
+    backoff_seconds = 1.0
+    max_backoff_seconds = 10.0
+    while not shutdown_event.is_set():
+        try:
+            await run_agent_db_worker(
+                shutdown_event,
+                log_store=STORE.logs,
+                signal_store=STORE,
+            )
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                append_correlation(
+                    "Agent DB worker crashed; restarting",
                     base_corr,
                     backoff_seconds=round(backoff_seconds, 1),
                 )
@@ -112,7 +140,8 @@ def _cancel_running_memory_jobs() -> None:
 
 
 async def start_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task
+    global _worker_started, _worker_task, _db_agent_worker_task, _db_ocr_worker_task
+    global _db_translate_worker_task
     global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
         if _worker_started:
@@ -145,6 +174,10 @@ async def start_jobs_runtime() -> None:
         )
 
         _worker_task = asyncio.create_task(job_worker(STORE), name="jobs-worker")
+        _db_agent_worker_task = asyncio.create_task(
+            _run_agent_db_worker_supervisor(STORE.shutdown_event),
+            name="jobs-db-agent-supervisor",
+        )
         _db_ocr_worker_task = asyncio.create_task(
             _run_ocr_db_worker_supervisor(STORE.shutdown_event),
             name="jobs-db-ocr-supervisor",
@@ -160,7 +193,8 @@ async def start_jobs_runtime() -> None:
 
 
 async def stop_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task
+    global _worker_started, _worker_task, _db_agent_worker_task, _db_ocr_worker_task
+    global _db_translate_worker_task
     global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
         if not _worker_started:
@@ -173,6 +207,7 @@ async def stop_jobs_runtime() -> None:
             task
             for task in (
                 _worker_task,
+                _db_agent_worker_task,
                 _db_ocr_worker_task,
                 _db_translate_worker_task,
                 _db_utility_worker_task,
@@ -185,6 +220,7 @@ async def stop_jobs_runtime() -> None:
             await asyncio.gather(*tasks, return_exceptions=True)
 
         _worker_task = None
+        _db_agent_worker_task = None
         _db_ocr_worker_task = None
         _db_translate_worker_task = None
         _db_utility_worker_task = None

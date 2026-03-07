@@ -6,7 +6,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from api.routers.jobs import routes as jobs_routes
 
 
@@ -25,6 +24,7 @@ async def test_resume_route_reuses_shared_agent_creation_helper() -> None:
             "api.routers.jobs.routes.create_agent_translate_page_job_record",
             return_value={"job_id": "wf-resume-1", "queued": True},
         ) as create_mock,
+        patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,
     ):
         response = await jobs_routes.resume_job("wf-123")
 
@@ -35,4 +35,4 @@ async def test_resume_route_reuses_shared_agent_creation_helper() -> None:
     assert called_req.volumeId == "vol-a"
     assert called_req.filename == "001.jpg"
     assert called_req.sourceLanguage == "ja"
-    assert create_mock.call_args.kwargs["store"] is jobs_routes.STORE
+    notify_mock.assert_called_once()

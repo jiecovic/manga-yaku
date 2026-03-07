@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
-
 from infra.db.workflow_store import (
     cancel_workflow_run,
     delete_terminal_workflow_runs,
@@ -55,7 +54,9 @@ def get_job_tasks_payload(*, job_id: str, store: JobStore) -> dict[str, Any]:
     workflow_run_id: str | None = None
     if job is not None:
         if job.type not in PERSISTED_WORKFLOW_TYPES:
-            raise HTTPException(status_code=400, detail="Task runs are not available for this job type")
+            raise HTTPException(
+                status_code=400, detail="Task runs are not available for this job type"
+            )
         workflow_run_id = extract_workflow_run_id(job)
     else:
         run = get_workflow_run(job_id)
@@ -104,6 +105,7 @@ def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
 
     payload.pop("workflowRunId", None)
     payload.pop("workflowStage", None)
+    payload.pop("taskRunId", None)
     return payload
 
 
@@ -226,7 +228,10 @@ def clear_finished_jobs(*, store: JobStore) -> int:
         if store.get_job(job_id) is not None:
             continue
         run = get_workflow_run(job_id)
-        if run is not None and str(run.get("workflow_type") or "").strip() in PERSISTED_WORKFLOW_TYPES:
+        if (
+            run is not None
+            and str(run.get("workflow_type") or "").strip() in PERSISTED_WORKFLOW_TYPES
+        ):
             continue
         store.logs.pop(job_id, None)
     return len(to_delete) + db_deleted

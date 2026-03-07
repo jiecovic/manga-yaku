@@ -19,7 +19,6 @@ from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
-
 from infra.jobs import runtime
 from infra.jobs.store import Job, JobStatus, JobStore
 
@@ -97,6 +96,7 @@ async def test_startup_is_idempotent() -> None:
         # Replace worker bodies with wait loops so we can assert lifecycle
         # semantics without touching real DB-backed loops.
         patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+        patch.object(runtime, "_run_agent_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(
             runtime,
@@ -107,6 +107,7 @@ async def test_startup_is_idempotent() -> None:
     ):
         await runtime.start_jobs_runtime()
         first_worker_task = runtime._worker_task
+        first_agent_db_worker_task = runtime._db_agent_worker_task
         first_db_worker_task = runtime._db_ocr_worker_task
         first_translate_db_worker_task = runtime._db_translate_worker_task
         first_utility_db_worker_task = runtime._db_utility_worker_task
@@ -115,6 +116,7 @@ async def test_startup_is_idempotent() -> None:
 
         assert runtime.is_jobs_runtime_started()
         assert first_worker_task is runtime._worker_task
+        assert first_agent_db_worker_task is runtime._db_agent_worker_task
         assert first_db_worker_task is runtime._db_ocr_worker_task
         assert first_translate_db_worker_task is runtime._db_translate_worker_task
         assert first_utility_db_worker_task is runtime._db_utility_worker_task
@@ -128,6 +130,7 @@ async def test_startup_is_idempotent() -> None:
         await runtime.stop_jobs_runtime()
         assert not runtime.is_jobs_runtime_started()
         assert runtime._worker_task is None
+        assert runtime._db_agent_worker_task is None
         assert runtime._db_ocr_worker_task is None
         assert runtime._db_translate_worker_task is None
         assert runtime._db_utility_worker_task is None
@@ -140,7 +143,7 @@ async def test_shutdown_marks_running_memory_jobs_canceled() -> None:
     runtime.STORE.add_job(
         Job(
             id="running-job",
-            type="agent_translate_page",
+            type="box_detection",
             status=JobStatus.running,
             created_at=now,
             updated_at=now,
@@ -151,6 +154,7 @@ async def test_shutdown_marks_running_memory_jobs_canceled() -> None:
     with (
         patch.object(runtime, "mark_running_workflows_interrupted"),
         patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+        patch.object(runtime, "_run_agent_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(
             runtime,
@@ -174,6 +178,7 @@ async def test_create_and_enqueue_memory_job_from_thread() -> None:
     with (
         patch.object(runtime, "mark_running_workflows_interrupted"),
         patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+        patch.object(runtime, "_run_agent_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(
             runtime,
@@ -207,6 +212,7 @@ async def test_create_and_enqueue_memory_job_marks_failed_when_enqueue_raises() 
     with (
         patch.object(runtime, "mark_running_workflows_interrupted"),
         patch.object(runtime, "job_worker", new=_wait_for_store_shutdown),
+        patch.object(runtime, "_run_agent_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(runtime, "_run_ocr_db_worker_supervisor", new=_wait_for_event_shutdown),
         patch.object(
             runtime,

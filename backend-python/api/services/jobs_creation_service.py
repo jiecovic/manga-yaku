@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from fastapi import HTTPException
-
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
@@ -28,6 +26,7 @@ from core.usecases.ocr.workflow_creation import (
 )
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
+from fastapi import HTTPException
 from infra.jobs.agent_translate_creation import (
     create_agent_translate_page_job as create_shared_agent_translate_page_job,
 )
@@ -36,7 +35,6 @@ from infra.jobs.job_modes import (
     PREPARE_DATASET_JOB_TYPE,
     TRAIN_MODEL_JOB_TYPE,
 )
-from infra.jobs.store import JobStore
 from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 
 from .jobs_workflow_helpers import (
@@ -53,13 +51,11 @@ class AgentTranslatePageEnqueueResult(TypedDict):
 
 def create_agent_translate_page_job(
     *,
-    store: JobStore,
     req: CreateAgentTranslatePageJobRequest,
     idempotency_key: str | None = None,
 ) -> AgentTranslatePageEnqueueResult:
     """Create or reuse an agent translate-page job."""
     decision = create_shared_agent_translate_page_job(
-        store=store,
         payload=req.model_dump(),
         idempotency_key=idempotency_key,
     )
@@ -69,7 +65,9 @@ def create_agent_translate_page_job(
     if status in {"conflict", "in_progress"}:
         raise HTTPException(status_code=409, detail=decision.get("detail") or "Job conflict")
     if status == "error":
-        raise HTTPException(status_code=500, detail=decision.get("detail") or "Failed to enqueue job")
+        raise HTTPException(
+            status_code=500, detail=decision.get("detail") or "Failed to enqueue job"
+        )
     job_id = str(decision.get("job_id") or "").strip()
     if not job_id:
         raise HTTPException(status_code=500, detail="Failed to resolve job id")

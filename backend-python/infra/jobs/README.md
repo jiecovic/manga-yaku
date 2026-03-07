@@ -12,9 +12,9 @@ Purpose: runtime and persistence plumbing for background jobs.
   `box_detection`, `prepare_dataset`, `train_model`
   Stored in `workflow_runs` + `task_runs`, processed by the DB utility worker.
 
-- `hybrid`:
+- `workflow-orchestrator`:
   `agent_translate_page`
-  Enqueued via memory queue, with workflow state persisted in DB.
+  Stored in `workflow_runs` + `task_runs`, processed by the DB agent worker.
   Submission is deduped per page (`volumeId + filename`) while active.
 
 Source of truth: `infra/jobs/job_modes.py`.
@@ -35,5 +35,8 @@ For `agent_translate_page` create requests:
   `core/workflows/agent_translate_page/*`
   owns state transitions, stage ordering, and business decisions.
 - Infra workers:
-  `infra/jobs/db_ocr_worker.py` and `infra/jobs/db_translate_worker.py`
+  `infra/jobs/db_agent_worker.py`,
+  `infra/jobs/db_ocr_worker.py`,
+  `infra/jobs/db_translate_worker.py`,
+  and `infra/jobs/db_utility_worker.py`
   poll queued task rows, execute work, and persist task/workflow progress.

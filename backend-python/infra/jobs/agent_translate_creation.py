@@ -13,19 +13,15 @@ from infra.db.idempotency_store import (
     finalize_idempotency_key,
     release_idempotency_claim,
 )
-from infra.db.workflow_store import find_latest_active_workflow_run
-from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
-from infra.jobs.runtime import (
-    STORE,
-    create_and_enqueue_memory_job,
-    create_and_enqueue_memory_job_in_store,
+from infra.db.workflow_store import (
+    create_workflow_run_with_task,
+    delete_workflow_run,
+    find_latest_active_workflow_run,
 )
-from infra.jobs.store import JobStatus, JobStore
+from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
 from infra.logging.correlation import append_correlation
 
 logger = logging.getLogger(__name__)
-
-_ACTIVE_MEMORY_STATUSES = {JobStatus.queued, JobStatus.running}
 
 
 class AgentTranslatePageEnqueueDecision(TypedDict):
@@ -80,26 +76,6 @@ def _normalize_idempotency_key(raw_key: str | None) -> str | None:
     return key or None
 
 
-def _find_active_memory_agent_job_id(
-    *,
-    store: JobStore,
-    volume_id: str,
-    filename: str,
-) -> str | None:
-    active_jobs = [
-        job
-        for job in store.jobs.values()
-        if job.type == AGENT_WORKFLOW_TYPE
-        and job.status in _ACTIVE_MEMORY_STATUSES
-        and str(job.payload.get("volumeId") or "").strip() == volume_id
-        and str(job.payload.get("filename") or "").strip() == filename
-    ]
-    if not active_jobs:
-        return None
-    active_jobs.sort(key=lambda item: (item.updated_at, item.created_at), reverse=True)
-    return active_jobs[0].id
-
-
 def _find_active_persisted_agent_run_id(
     *,
     volume_id: str,
@@ -129,32 +105,28 @@ def _find_active_persisted_agent_run_id(
     return run_id or None
 
 
-def _create_and_enqueue_agent_launcher_job(
-    *,
-    store: JobStore,
-    payload: dict[str, Any],
-    progress: float | None = None,
-    message: str | None = None,
-) -> str:
-    if store is STORE:
-        return create_and_enqueue_memory_job(
-            job_type=AGENT_WORKFLOW_TYPE,
-            payload=payload,
-            progress=progress,
-            message=message,
-        )
-    return create_and_enqueue_memory_job_in_store(
-        store=store,
-        job_type=AGENT_WORKFLOW_TYPE,
-        payload=payload,
-        progress=progress,
-        message=message,
+def _create_persisted_agent_workflow(payload: dict[str, Any]) -> str:
+    volume_id = str(payload.get("volumeId") or "").strip()
+    filename = str(payload.get("filename") or "").strip()
+    return create_workflow_run_with_task(
+        workflow_type=AGENT_WORKFLOW_TYPE,
+        volume_id=volume_id,
+        filename=filename,
+        state="queued",
+        status="queued",
+        result_json={
+            "request": dict(payload),
+            "progress": 0,
+            "message": "Queued",
+        },
+        stage=AGENT_WORKFLOW_TYPE,
+        task_status="queued",
+        input_json=dict(payload),
     )
 
 
 def create_agent_translate_page_job(
     *,
-    store: JobStore,
     payload: dict[str, Any],
     idempotency_key: str | None = None,
 ) -> AgentTranslatePageEnqueueDecision:
@@ -169,19 +141,6 @@ def create_agent_translate_page_job(
             "queued": False,
             "status": "invalid",
             "detail": "volumeId and filename are required",
-        }
-
-    active_memory_id = _find_active_memory_agent_job_id(
-        store=store,
-        volume_id=volume_id,
-        filename=filename,
-    )
-    if active_memory_id:
-        return {
-            "job_id": active_memory_id,
-            "queued": False,
-            "status": "reused_active",
-            "detail": None,
         }
 
     active_run_id = _find_active_persisted_agent_run_id(
@@ -232,12 +191,7 @@ def create_agent_translate_page_job(
         claimed = claim_status == "claimed"
 
     try:
-        job_id = _create_and_enqueue_agent_launcher_job(
-            store=store,
-            payload=normalized_payload,
-            progress=0,
-            message="Queued",
-        )
+        job_id = _create_persisted_agent_workflow(normalized_payload)
     except Exception as exc:
         if normalized_idempotency_key and claimed:
             release_idempotency_claim(
@@ -261,6 +215,7 @@ def create_agent_translate_page_job(
                 resource_id=job_id,
             )
         except ValueError:
+            delete_workflow_run(job_id)
             return {
                 "job_id": None,
                 "queued": False,
@@ -268,8 +223,7 @@ def create_agent_translate_page_job(
                 "detail": "Idempotency-Key conflicts with a different request payload",
             }
         if resource_id != job_id:
-            if store.jobs.pop(job_id, None) is not None:
-                store.broadcast_snapshot()
+            delete_workflow_run(job_id)
             return {
                 "job_id": resource_id,
                 "queued": False,

@@ -86,22 +86,29 @@ async def run_agent_translate_page_workflow(
     is_canceled: CancelCheck | None = None,
 ) -> dict[str, Any]:
     """Run agent translate page workflow."""
-    request = AgentTranslatePageRequest.from_payload(payload)
+    request_payload = dict(payload)
+    request_payload.pop("workflowRunId", None)
+    request_payload.pop("taskRunId", None)
+    request_payload.pop("workflowStage", None)
+    request = AgentTranslatePageRequest.from_payload(request_payload)
     state = WorkflowState.queued
     detection_profile_id = resolve_detection_profile_id(request.detection_profile_id)
-    ocr_profiles = resolve_ocr_profiles(payload)
+    ocr_profiles = resolve_ocr_profiles(request_payload)
 
-    workflow_run_id = create_workflow_run(
-        workflow_type="agent_translate_page",
-        volume_id=request.volume_id,
-        filename=request.filename,
-        state=state.value,
-        status="queued",
-        page_revision=utc_now_iso(),
-    )
+    workflow_run_id = str(payload.get("workflowRunId") or "").strip()
+    if not workflow_run_id:
+        workflow_run_id = create_workflow_run(
+            workflow_type="agent_translate_page",
+            volume_id=request.volume_id,
+            filename=request.filename,
+            state=state.value,
+            status="queued",
+            page_revision=utc_now_iso(),
+        )
     update_workflow_run(
         workflow_run_id,
-        result_json={"request": dict(payload)},
+        result_json={"request": request_payload},
+        page_revision=utc_now_iso(),
     )
 
     run_ctx = WorkflowRunContext(
@@ -363,7 +370,9 @@ async def run_agent_translate_page_workflow(
             prior_open_threads=prior_open_threads if include_prior_open_threads else [],
             prior_glossary=prior_glossary if include_prior_glossary else [],
             model_id=model_id,
-            max_output_tokens=max_output_tokens if isinstance(max_output_tokens, int | float) else None,
+            max_output_tokens=max_output_tokens
+            if isinstance(max_output_tokens, int | float)
+            else None,
             reasoning_effort=str(reasoning_effort) if isinstance(reasoning_effort, str) else None,
             temperature=float(temperature) if isinstance(temperature, int | float) else None,
             merge_max_output_tokens=merge_max_output_tokens,
