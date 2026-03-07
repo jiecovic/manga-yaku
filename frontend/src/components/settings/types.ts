@@ -3,7 +3,6 @@ export type AgentDraft = {
     max_output_tokens: string;
     reasoning_effort: string;
     temperature: string;
-    max_turns: string;
 };
 
 export type OcrDraftProfile = {

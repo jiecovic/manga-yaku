@@ -41,6 +41,7 @@ def test_run_agent_chat_repair_uses_text_only_observations() -> None:
         patch.object(engine, "create_openai_client", return_value=object()),
         patch.object(engine, "openai_responses_create", side_effect=fake_responses_create),
         patch.object(engine, "extract_response_text", return_value="repaired answer"),
+        patch.object(engine, "_resolve_agent_chat_max_output_tokens", return_value=1536),
     ):
         result = engine.run_agent_chat_repair(
             [
@@ -62,7 +63,7 @@ def test_run_agent_chat_repair_uses_text_only_observations() -> None:
     assert captured["component"] == "agent.chat.repair"
     params = captured["params"]
     assert isinstance(params, dict)
-    assert 1 <= params["max_output_tokens"] <= 700
+    assert params["max_output_tokens"] == 1536
     input_payload = params["input"]
     assert isinstance(input_payload, list)
     assert len(input_payload) == 2

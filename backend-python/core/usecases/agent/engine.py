@@ -12,8 +12,6 @@ from typing import Any, cast
 
 from config import (
     AGENT_GROUNDING_MODE,
-    AGENT_MAX_OUTPUT_TOKENS,
-    AGENT_MAX_TURNS,
     AGENT_MODEL,
     AGENT_PROMPT_FILE,
     AGENT_REASONING_EFFORT,
@@ -21,6 +19,10 @@ from config import (
     DATA_DIR,
     TRANSLATION_SOURCE_LANGUAGE,
     TRANSLATION_TARGET_LANGUAGE,
+)
+from core.usecases.agent.chat_runtime_settings import (
+    resolve_agent_chat_max_output_tokens,
+    resolve_agent_chat_max_turns,
 )
 from core.usecases.agent.grounding_context import (
     build_grounding_message,
@@ -45,7 +47,6 @@ from core.usecases.agent.turn_state import (
     get_active_page_revision,
     get_active_page_text_box_count,
 )
-from core.usecases.settings.service import get_setting_value
 from infra.llm import (
     build_response_params,
     create_openai_client,
@@ -76,10 +77,6 @@ except Exception as exc:  # pragma: no cover - optional dependency path
 
 logger = logging.getLogger(__name__)
 
-_AGENT_CHAT_MAX_TURNS_MIN = 1
-_AGENT_CHAT_MAX_TURNS_MAX = 200
-
-
 @dataclass(frozen=True)
 class AgentToolContext:
     volume_id: str
@@ -87,25 +84,11 @@ class AgentToolContext:
 
 
 def _resolve_agent_chat_max_turns() -> int:
-    default_value = max(
-        _AGENT_CHAT_MAX_TURNS_MIN,
-        min(_AGENT_CHAT_MAX_TURNS_MAX, int(AGENT_MAX_TURNS)),
-    )
-    try:
-        raw_value = get_setting_value("agent.chat.max_turns")
-    except Exception:
-        raw_value = None
-    if raw_value in (None, ""):
-        return default_value
-    try:
-        parsed = int(raw_value)
-    except (TypeError, ValueError):
-        return default_value
-    if parsed < _AGENT_CHAT_MAX_TURNS_MIN:
-        return _AGENT_CHAT_MAX_TURNS_MIN
-    if parsed > _AGENT_CHAT_MAX_TURNS_MAX:
-        return _AGENT_CHAT_MAX_TURNS_MAX
-    return parsed
+    return resolve_agent_chat_max_turns()
+
+
+def _resolve_agent_chat_max_output_tokens() -> int:
+    return resolve_agent_chat_max_output_tokens()
 
 
 def _load_system_prompt() -> str:
@@ -207,7 +190,7 @@ def _build_sdk_agent(model_id: str, *, mcp_servers: list[Any]) -> Any:
         raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
 
     settings: dict[str, Any] = {
-        "max_tokens": AGENT_MAX_OUTPUT_TOKENS,
+        "max_tokens": _resolve_agent_chat_max_output_tokens(),
         "parallel_tool_calls": False,
     }
     if str(model_id).startswith("gpt-5"):
@@ -254,7 +237,7 @@ def _run_agent_chat_legacy(
     resolved_model = model_id or AGENT_MODEL
     cfg = {
         "model": resolved_model,
-        "max_output_tokens": AGENT_MAX_OUTPUT_TOKENS,
+        "max_output_tokens": _resolve_agent_chat_max_output_tokens(),
     }
     if str(resolved_model).startswith("gpt-5"):
         effort = AGENT_REASONING_EFFORT
@@ -299,7 +282,7 @@ def run_agent_chat_repair(
     resolved_model = model_id or AGENT_MODEL
     cfg = {
         "model": resolved_model,
-        "max_output_tokens": min(700, int(AGENT_MAX_OUTPUT_TOKENS)),
+        "max_output_tokens": _resolve_agent_chat_max_output_tokens(),
     }
     if str(resolved_model).startswith("gpt-5"):
         effort = AGENT_REASONING_EFFORT

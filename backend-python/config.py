@@ -37,9 +37,9 @@ ULTRALYTICS_DATASETS_ROOT = ULTRALYTICS_ROOT / "datasets"
 OPENAI_API_KEY = settings.openai_api_key
 DATABASE_URL = settings.database_url
 
-AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-5.2")
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-5.4")
 AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
-AGENT_MAX_OUTPUT_TOKENS = int(os.getenv("AGENT_MAX_OUTPUT_TOKENS", "512"))
+AGENT_MAX_OUTPUT_TOKENS = int(os.getenv("AGENT_MAX_OUTPUT_TOKENS", "2048"))
 AGENT_MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "18"))
 AGENT_TRANSLATE_MAX_OUTPUT_TOKENS = int(
     os.getenv("AGENT_TRANSLATE_MAX_OUTPUT_TOKENS", "2048")
@@ -67,7 +67,9 @@ AGENT_MODELS = [
     item.strip()
     for item in os.getenv(
         "AGENT_MODELS",
-        "gpt-5.2,gpt-5.2-pro,gpt-5-mini,gpt-5-nano,gpt-4.1,gpt-4.1-mini,gpt-4o,gpt-4o-mini",
+        # Keep the default chat-agent allowlist narrow and aligned with the
+        # current Agents SDK guidance: GPT-5.4 first, GPT-4.1 as compatibility.
+        "gpt-5.4,gpt-5.4-pro,gpt-5.2,gpt-5-mini,gpt-4.1",
     ).split(",")
     if item.strip()
 ]

@@ -11,10 +11,12 @@ from threading import Event, Thread
 from typing import Any
 
 from config import (
-    AGENT_MAX_OUTPUT_TOKENS,
     AGENT_MODEL,
     AGENT_REASONING_EFFORT,
     AGENT_TEMPERATURE,
+)
+from core.usecases.agent.chat_runtime_settings import (
+    resolve_agent_chat_max_output_tokens,
 )
 from core.usecases.agent.mcp_runtime import cleanup_mcp_servers, connect_mcp_servers
 from core.usecases.agent.stream_event_formatting import (
@@ -118,7 +120,7 @@ def run_legacy_stream_events(
     resolved_model = model_id or AGENT_MODEL
     cfg: dict[str, Any] = {
         "model": resolved_model,
-        "max_output_tokens": AGENT_MAX_OUTPUT_TOKENS,
+        "max_output_tokens": resolve_agent_chat_max_output_tokens(),
     }
     if str(resolved_model).startswith("gpt-5"):
         effort = AGENT_REASONING_EFFORT

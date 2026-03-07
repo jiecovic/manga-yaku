@@ -92,7 +92,6 @@ export function useSettingsLayoutState() {
                     value.temperature === null || value.temperature === undefined
                         ? ""
                         : String(value.temperature),
-                max_turns: "",
             });
             setAgentDirty(false);
         }
@@ -194,6 +193,10 @@ export function useSettingsLayoutState() {
         () => draftString(draft, "agent.chat.max_turns"),
         [draft],
     );
+    const agentChatMaxOutputTokens = useMemo(
+        () => draftString(draft, "agent.chat.max_output_tokens"),
+        [draft],
+    );
     const mergeReasoningEffort = useMemo(() => {
         const raw = draftString(draft, "agent.translate.merge.reasoning_effort")
             .trim()
@@ -276,6 +279,19 @@ export function useSettingsLayoutState() {
         }),
         [settings],
     );
+    const chatDefaults = useMemo(
+        () => ({
+            maxTurns: toIntWithFallback(
+                String(settings?.defaults?.["agent.chat.max_turns"] ?? "18"),
+                18,
+            ),
+            maxOutputTokens: toIntWithFallback(
+                String(settings?.defaults?.["agent.chat.max_output_tokens"] ?? "2048"),
+                2048,
+            ),
+        }),
+        [settings],
+    );
 
     const buildBaseSettingsPayload = useCallback(
         () => ({
@@ -297,7 +313,14 @@ export function useSettingsLayoutState() {
             ),
             "agent.translate.merge.reasoning_effort":
                 mergeReasoningEffort || mergeDefaults.reasoningEffort,
-            "agent.chat.max_turns": toIntWithFallback(agentChatMaxTurns, 18),
+            "agent.chat.max_turns": toIntWithFallback(
+                agentChatMaxTurns,
+                chatDefaults.maxTurns,
+            ),
+            "agent.chat.max_output_tokens": toIntWithFallback(
+                agentChatMaxOutputTokens,
+                chatDefaults.maxOutputTokens,
+            ),
             "ocr.parallelism.local": toIntWithFallback(
                 ocrParallelismLocal,
                 ocrParallelDefaults.local,
@@ -331,8 +354,10 @@ export function useSettingsLayoutState() {
             includePriorGlossary,
             mergeMaxOutputTokens,
             agentChatMaxTurns,
+            agentChatMaxOutputTokens,
             mergeReasoningEffort,
             mergeDefaults,
+            chatDefaults,
             ocrParallelismLocal,
             ocrParallelismRemote,
             ocrParallelismMaxWorkers,
@@ -733,6 +758,7 @@ export function useSettingsLayoutState() {
         includePriorGlossary,
         mergeMaxOutputTokens,
         agentChatMaxTurns,
+        agentChatMaxOutputTokens,
         mergeReasoningEffort,
         agentDetectionLoading,
         agentDetectionOptions,

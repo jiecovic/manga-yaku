@@ -1,3 +1,4 @@
+// src/components/settings/sections/TranslationProfilesCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
 import type { TranslationDraftProfile } from "../types";
@@ -6,22 +7,50 @@ type Props = {
     translationDraft: TranslationDraftProfile[];
     translationModelOptions: string[];
     translationReasoningOptions: string[];
+    translateSingleBoxUseContext: boolean;
     onUpdateTranslationProfile: (
         id: string,
         updates: Partial<TranslationDraftProfile>,
     ) => void;
+    onUpdateDraft: (key: string, value: unknown) => void;
 };
 
 export function TranslationProfilesCard({
     translationDraft,
     translationModelOptions,
     translationReasoningOptions,
+    translateSingleBoxUseContext,
     onUpdateTranslationProfile,
+    onUpdateDraft,
 }: Props) {
     return (
         <div className={ui.trainingCard}>
             <div className={ui.trainingSubTitle}>Single-box Translation LLMs</div>
             <div className="mt-3 space-y-2">
+                <Field
+                    label="Use context"
+                    layout="row"
+                    labelClassName={ui.label}
+                >
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+                        <input
+                            type="checkbox"
+                            checked={translateSingleBoxUseContext}
+                            onChange={(e) =>
+                                onUpdateDraft(
+                                    "translation.single_box.use_context",
+                                    e.target.checked,
+                                )
+                            }
+                        />
+                        include page + volume context
+                    </label>
+                </Field>
+                <div className={`${ui.trainingHelp} ml-28`}>
+                    Adds sibling OCR/translations and saved page or volume memory to
+                    manual single-box translation.
+                </div>
+
                 {translationDraft.map((profile) => {
                     const options = new Set(translationModelOptions);
                     if (profile.model_id) {

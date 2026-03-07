@@ -1,3 +1,4 @@
+// src/components/settings/sections/TranslationAgentCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
 import type { AgentDraft } from "../types";
@@ -13,9 +14,7 @@ type Props = {
     agentModelOptions: string[];
     agentReasoningOptions: string[];
     onUpdateAgentDraft: (key: keyof AgentDraft, value: string) => void;
-    agentChatMaxTurns: string;
     agentDetectionProfileId: string;
-    translateSingleBoxUseContext: boolean;
     includePriorContextSummary: boolean;
     includePriorCharacters: boolean;
     includePriorOpenThreads: boolean;
@@ -31,9 +30,7 @@ export function TranslationAgentCard({
     agentModelOptions,
     agentReasoningOptions,
     onUpdateAgentDraft,
-    agentChatMaxTurns,
     agentDetectionProfileId,
-    translateSingleBoxUseContext,
     includePriorContextSummary,
     includePriorCharacters,
     includePriorOpenThreads,
@@ -45,8 +42,13 @@ export function TranslationAgentCard({
 }: Props) {
     return (
         <div className={ui.trainingCard}>
-            <div className={ui.trainingSubTitle}>Translation Agent</div>
+            <div className={ui.trainingSubTitle}>Page Translate Workflow</div>
             <div className="mt-3 space-y-3">
+                <div className={ui.trainingHelp}>
+                    These settings affect the queued `agent_translate_page`
+                    workflow, not the interactive chat agent.
+                </div>
+
                 <Field label="Model" layout="row" labelClassName={ui.label}>
                     <Select
                         value={agentDraft?.model_id ?? ""}
@@ -110,47 +112,6 @@ export function TranslationAgentCard({
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
                     Reasoning level for Agent Translate runs (GPT-5 models only).
-                </div>
-
-                <Field label="Chat max turns" layout="row" labelClassName={ui.label}>
-                    <input
-                        className={ui.trainingInput}
-                        type="number"
-                        min={1}
-                        max={200}
-                        value={agentChatMaxTurns}
-                        onChange={(e) =>
-                            onUpdateDraft("agent.chat.max_turns", e.target.value)
-                        }
-                    />
-                </Field>
-                <div className={`${ui.trainingHelp} ml-28`}>
-                    Turn budget for one chat-agent run before the SDK stops with
-                    MaxTurnsExceeded.
-                </div>
-
-                <Field
-                    label="Single-box context"
-                    layout="row"
-                    labelClassName={ui.label}
-                >
-                    <label className="inline-flex items-center gap-2 text-xs text-slate-300">
-                        <input
-                            type="checkbox"
-                            checked={translateSingleBoxUseContext}
-                            onChange={(e) =>
-                                onUpdateDraft(
-                                    "translation.single_box.use_context",
-                                    e.target.checked,
-                                )
-                            }
-                        />
-                        include page + volume context
-                    </label>
-                </Field>
-                <div className={`${ui.trainingHelp} ml-28`}>
-                    Adds sibling OCR/translations and saved page or volume memory to
-                    the prompt.
                 </div>
 
                 <Field

@@ -57,6 +57,7 @@ def _build_options() -> dict[str, Any]:
             "choices": ["low", "medium", "high"]
         },
         "agent.chat.max_turns": {"min": 1, "max": 200},
+        "agent.chat.max_output_tokens": {"min": 128, "max": 4096},
         "ocr.parallelism.local": {"min": 1, "max": 32},
         "ocr.parallelism.remote": {"min": 1, "max": 32},
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},

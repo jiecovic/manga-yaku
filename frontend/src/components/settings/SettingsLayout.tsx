@@ -2,6 +2,7 @@
 import { Button } from "../../ui/primitives";
 import { ui } from "../../ui/tokens";
 import { JobsPanel } from "../JobsPanel";
+import { ChatAgentCard } from "./sections/ChatAgentCard";
 import { DetectionDefaultsCard } from "./sections/DetectionDefaultsCard";
 import { AgentMergeCard } from "./sections/AgentMergeCard";
 import { OcrParallelismCard } from "./sections/OcrParallelismCard";
@@ -44,6 +45,7 @@ export function SettingsLayout() {
         includePriorOpenThreads,
         includePriorGlossary,
         agentChatMaxTurns,
+        agentChatMaxOutputTokens,
         mergeMaxOutputTokens,
         mergeReasoningEffort,
         agentDetectionLoading,
@@ -148,14 +150,17 @@ export function SettingsLayout() {
                     <div className="space-y-4">
                         {activeTab === "agent" && (
                             <>
+                                <ChatAgentCard
+                                    agentChatMaxTurns={agentChatMaxTurns}
+                                    agentChatMaxOutputTokens={agentChatMaxOutputTokens}
+                                    onUpdateDraft={updateDraft}
+                                />
                                 <TranslationAgentCard
                                     agentDraft={agentDraft}
                                     agentModelOptions={agentModelOptions}
                                     agentReasoningOptions={agentReasoningOptions}
                                     onUpdateAgentDraft={updateAgentDraft}
-                                    agentChatMaxTurns={agentChatMaxTurns}
                                     agentDetectionProfileId={agentDetectionProfileId}
-                                    translateSingleBoxUseContext={translateSingleBoxUseContext}
                                     includePriorContextSummary={includePriorContextSummary}
                                     includePriorCharacters={includePriorCharacters}
                                     includePriorOpenThreads={includePriorOpenThreads}
@@ -180,7 +185,9 @@ export function SettingsLayout() {
                                     translationDraft={translationDraft}
                                     translationModelOptions={translationModelOptions}
                                     translationReasoningOptions={translationReasoningOptions}
+                                    translateSingleBoxUseContext={translateSingleBoxUseContext}
                                     onUpdateTranslationProfile={updateTranslationProfile}
+                                    onUpdateDraft={updateDraft}
                                 />
                             </>
                         )}
