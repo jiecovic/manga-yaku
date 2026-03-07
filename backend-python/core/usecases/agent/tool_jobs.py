@@ -15,17 +15,19 @@ from core.usecases.agent.tool_shared import (
     resolve_active_page_filename,
 )
 from core.usecases.agent.turn_state import get_active_page_revision
-from core.usecases.ocr.workflow_creation import OcrBoxWorkflowInput, create_ocr_box_workflow
 from infra.db.db_store import load_page
 from infra.db.idempotency_store import (
     claim_idempotency_key,
     finalize_idempotency_key,
     release_idempotency_claim,
 )
-from infra.jobs.agent_translate_creation import create_agent_translate_page_job
 from infra.jobs.job_modes import BOX_DETECTION_JOB_TYPE, OCR_BOX_WORKFLOW_TYPE
+from infra.jobs.operations import (
+    enqueue_agent_translate_page_operation,
+    enqueue_box_detection_operation,
+    enqueue_ocr_box_operation,
+)
 from infra.jobs.runtime import STORE
-from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 from infra.jobs.workflow_repo import get_workflow_run
 from infra.jobs.workflow_runtime import wait_for_workflow_terminal
 
@@ -232,9 +234,8 @@ def detect_text_boxes_tool(
     claimed = idempotency_state == "new"
     if claimed:
         try:
-            job_id = create_persisted_utility_workflow(
-                workflow_type=BOX_DETECTION_JOB_TYPE,
-                request_payload=payload,
+            job_id = enqueue_box_detection_operation(
+                payload,
                 message="Queued (agent tool)",
             )
             if idempotency_key and request_hash:
@@ -444,8 +445,8 @@ def translate_active_page_tool(
         "modelId": coerce_filename(model_id),
         "forceRerun": bool(force_rerun),
     }
-    decision = create_agent_translate_page_job(
-        payload=payload,
+    decision = enqueue_agent_translate_page_operation(
+        payload,
         idempotency_key=None,
     )
     status = str(decision.get("status") or "").strip().lower()
@@ -707,18 +708,18 @@ def ocr_text_box_tool(
     claimed = idempotency_state == "new"
     if claimed:
         try:
-            workflow_run_id = create_ocr_box_workflow(
-                OcrBoxWorkflowInput(
-                    profile_id=selected_profile_id,
-                    volume_id=volume_id,
-                    filename=resolved_filename,
-                    x=float(target_box["x"]),
-                    y=float(target_box["y"]),
-                    width=float(target_box["width"]),
-                    height=float(target_box["height"]),
-                    box_id=int(target_box["id"]),
-                    box_order=int(target_box["orderIndex"]),
-                )
+            workflow_run_id = enqueue_ocr_box_operation(
+                {
+                    "profileId": selected_profile_id,
+                    "volumeId": volume_id,
+                    "filename": resolved_filename,
+                    "x": float(target_box["x"]),
+                    "y": float(target_box["y"]),
+                    "width": float(target_box["width"]),
+                    "height": float(target_box["height"]),
+                    "boxId": int(target_box["id"]),
+                    "boxOrder": int(target_box["orderIndex"]),
+                }
             )
             workflow_run_id = finalize_idempotency_key(
                 job_type=OCR_BOX_WORKFLOW_TYPE,

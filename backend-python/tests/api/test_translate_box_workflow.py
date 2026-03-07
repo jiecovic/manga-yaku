@@ -19,19 +19,21 @@ import pytest
 from api.routers.jobs.routes import create_translate_box_job
 from api.schemas.jobs import CreateTranslateBoxJobRequest
 from api.services.jobs_creation_service import create_translate_box_workflow
-from api.services.jobs_workflow_helpers import create_translate_workflow_with_task
 from fastapi import HTTPException
+from infra.jobs.translate_workflow_creation import create_translate_workflow_with_task
 
 
 def test_create_translate_workflow_with_task_creates_single_task() -> None:
     with (
         patch(
-            "api.services.jobs_workflow_helpers.create_workflow_run",
+            "infra.jobs.translate_workflow_creation.create_workflow_run",
             return_value="wf-123",
         ) as create_workflow_run_mock,
-        patch("api.services.jobs_workflow_helpers.update_workflow_run") as update_workflow_run_mock,
         patch(
-            "api.services.jobs_workflow_helpers.create_task_runs",
+            "infra.jobs.translate_workflow_creation.update_workflow_run"
+        ) as update_workflow_run_mock,
+        patch(
+            "infra.jobs.translate_workflow_creation.create_task_runs",
             return_value=1,
         ) as create_task_runs_mock,
     ):
@@ -92,13 +94,8 @@ def test_create_translate_box_job_builds_translate_task_payload() -> None:
         boxOrder=3,
     )
     with (
-        patch("api.services.jobs_creation_service.get_setting_value", return_value=True),
         patch(
-            "api.services.jobs_creation_service.get_translation_profile",
-            return_value={"enabled": True},
-        ),
-        patch(
-            "api.services.jobs_creation_service.create_translate_workflow_with_task",
+            "api.services.jobs_creation_service.enqueue_translate_box_operation",
             return_value="wf-xyz",
         ) as create_workflow_mock,
     ):
@@ -106,13 +103,13 @@ def test_create_translate_box_job_builds_translate_task_payload() -> None:
 
     assert workflow_id == "wf-xyz"
     create_workflow_mock.assert_called_once()
-    kwargs = create_workflow_mock.call_args.kwargs
-    assert kwargs["volume_id"] == "vol-a"
-    assert kwargs["filename"] == "001.jpg"
-    assert kwargs["box_id"] == 9
-    assert kwargs["profile_id"] == "openai_fast_translate"
-    assert kwargs["use_page_context"] is True
-    assert kwargs["request_payload"]["boxOrder"] == 3
+    payload = create_workflow_mock.call_args.args[0]
+    assert payload["volumeId"] == "vol-a"
+    assert payload["filename"] == "001.jpg"
+    assert payload["boxId"] == 9
+    assert payload["profileId"] == "openai_fast_translate"
+    assert payload["usePageContext"] is None
+    assert payload["boxOrder"] == 3
 
 
 def test_create_translate_box_job_rejects_disabled_profile() -> None:
@@ -124,8 +121,8 @@ def test_create_translate_box_job_rejects_disabled_profile() -> None:
     )
     with (
         patch(
-            "api.services.jobs_creation_service.get_translation_profile",
-            return_value={"enabled": False},
+            "api.services.jobs_creation_service.enqueue_translate_box_operation",
+            side_effect=ValueError("Selected translation profile is disabled"),
         ),
         pytest.raises(HTTPException) as raised,
     ):

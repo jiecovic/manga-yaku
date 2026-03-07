@@ -165,7 +165,7 @@ def test_force_rerun_skips_idempotency_claim() -> None:
 def test_service_maps_conflict_to_http_409() -> None:
     with (
         patch(
-            "api.services.jobs_creation_service.create_shared_agent_translate_page_job",
+            "api.services.jobs_creation_service.enqueue_agent_translate_page_operation",
             return_value={
                 "job_id": None,
                 "queued": False,
@@ -185,7 +185,7 @@ def test_service_maps_conflict_to_http_409() -> None:
 
 def test_service_returns_job_id_for_shared_helper_success() -> None:
     with patch(
-        "api.services.jobs_creation_service.create_shared_agent_translate_page_job",
+        "api.services.jobs_creation_service.enqueue_agent_translate_page_operation",
         return_value={
             "job_id": "job-123",
             "queued": True,

@@ -157,7 +157,7 @@ def test_ocr_text_box_defaults_to_active_page() -> None:
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs.create_ocr_box_workflow",
+            "core.usecases.agent.tool_jobs.enqueue_ocr_box_operation",
             return_value="wf-123",
         ) as create_workflow_mock,
         patch(
@@ -187,9 +187,9 @@ def test_ocr_text_box_defaults_to_active_page() -> None:
     assert result["status"] == "ok"
     assert result["filename"] == "001.jpg"
     create_workflow_mock.assert_called_once()
-    workflow_input = create_workflow_mock.call_args.args[0]
-    assert workflow_input.filename == "001.jpg"
-    assert workflow_input.box_id == 5
+    payload = create_workflow_mock.call_args.args[0]
+    assert payload["filename"] == "001.jpg"
+    assert payload["boxId"] == 5
     assert load_page_mock.call_count == 2
 
 
@@ -219,7 +219,7 @@ def test_ocr_text_box_skips_existing_text_by_default() -> None:
             "core.usecases.agent.tool_jobs.claim_idempotency_key",
         ) as claim_mock,
         patch(
-            "core.usecases.agent.tool_jobs.create_ocr_box_workflow",
+            "core.usecases.agent.tool_jobs.enqueue_ocr_box_operation",
         ) as create_workflow_mock,
         patch(
             "core.usecases.agent.tool_jobs.get_active_page_revision",
@@ -285,7 +285,7 @@ def test_ocr_text_box_force_rerun_overrides_existing_text_guard() -> None:
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs.create_ocr_box_workflow",
+            "core.usecases.agent.tool_jobs.enqueue_ocr_box_operation",
             return_value="wf-123",
         ) as create_workflow_mock,
         patch(
@@ -454,7 +454,7 @@ def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
             return_value={"status": "replay", "resource_id": "job-old"},
         ) as claim_mock,
         patch(
-            "core.usecases.agent.tool_jobs.create_persisted_utility_workflow",
+            "core.usecases.agent.tool_jobs.enqueue_box_detection_operation",
             return_value="job-789",
         ),
         patch(
@@ -532,7 +532,7 @@ def test_ocr_text_box_claimed_request_finalizes_idempotency() -> None:
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs.create_ocr_box_workflow",
+            "core.usecases.agent.tool_jobs.enqueue_ocr_box_operation",
             return_value="wf-123",
         ),
         patch(
@@ -583,7 +583,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs.create_agent_translate_page_job",
+            "core.usecases.agent.tool_jobs.enqueue_agent_translate_page_operation",
             return_value={
                 "job_id": "job-123",
                 "queued": True,
@@ -619,7 +619,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
 def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs.create_agent_translate_page_job",
+            "core.usecases.agent.tool_jobs.enqueue_agent_translate_page_operation",
             return_value={
                 "job_id": "wf-999",
                 "queued": False,
@@ -678,7 +678,7 @@ def test_translate_active_page_short_circuits_when_page_already_translated() -> 
             return_value=page,
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs.create_agent_translate_page_job",
+            "core.usecases.agent.tool_jobs.enqueue_agent_translate_page_operation",
         ) as create_job_mock,
     ):
         result = translate_active_page_tool(

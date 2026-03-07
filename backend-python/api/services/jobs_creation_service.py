@@ -14,31 +14,15 @@ from api.schemas.jobs import (
     CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
 )
-from core.usecases.ocr.workflow_creation import (
-    OcrBoxWorkflowInput,
-    OcrPageWorkflowInput,
-)
-from core.usecases.ocr.workflow_creation import (
-    create_ocr_box_workflow as create_persisted_ocr_box_workflow,
-)
-from core.usecases.ocr.workflow_creation import (
-    create_ocr_page_workflow as create_persisted_ocr_page_workflow,
-)
-from core.usecases.settings.service import get_setting_value
-from core.usecases.translation.profiles import get_translation_profile
 from fastapi import HTTPException
-from infra.jobs.agent_translate_creation import (
-    create_agent_translate_page_job as create_shared_agent_translate_page_job,
-)
-from infra.jobs.job_modes import (
-    BOX_DETECTION_JOB_TYPE,
-    PREPARE_DATASET_JOB_TYPE,
-    TRAIN_MODEL_JOB_TYPE,
-)
-from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
-
-from .jobs_workflow_helpers import (
-    create_translate_workflow_with_task,
+from infra.jobs.operations import (
+    enqueue_agent_translate_page_operation,
+    enqueue_box_detection_operation,
+    enqueue_ocr_box_operation,
+    enqueue_ocr_page_operation,
+    enqueue_prepare_dataset_operation,
+    enqueue_train_model_operation,
+    enqueue_translate_box_operation,
 )
 
 
@@ -55,8 +39,8 @@ def create_agent_translate_page_job(
     idempotency_key: str | None = None,
 ) -> AgentTranslatePageEnqueueResult:
     """Create or reuse an agent translate-page job."""
-    decision = create_shared_agent_translate_page_job(
-        payload=req.model_dump(),
+    decision = enqueue_agent_translate_page_operation(
+        req.model_dump(),
         idempotency_key=idempotency_key,
     )
     status = str(decision.get("status") or "")
@@ -76,105 +60,40 @@ def create_agent_translate_page_job(
 
 def create_box_detection_workflow(req: CreateBoxDetectionJobRequest) -> str:
     """Create a persisted box-detection utility workflow."""
-    return create_persisted_utility_workflow(
-        workflow_type=BOX_DETECTION_JOB_TYPE,
-        request_payload=req.model_dump(),
-    )
+    return enqueue_box_detection_operation(req.model_dump())
 
 
 def create_prepare_dataset_workflow(req: CreatePrepareDatasetJobRequest) -> str:
     """Create a persisted dataset-preparation utility workflow."""
-    return create_persisted_utility_workflow(
-        workflow_type=PREPARE_DATASET_JOB_TYPE,
-        request_payload=req.model_dump(),
-    )
+    return enqueue_prepare_dataset_operation(req.model_dump())
 
 
 def create_train_model_workflow(req: CreateTrainModelJobRequest) -> str:
     """Create a persisted training utility workflow."""
-    return create_persisted_utility_workflow(
-        workflow_type=TRAIN_MODEL_JOB_TYPE,
-        request_payload=req.model_dump(),
-    )
+    return enqueue_train_model_operation(req.model_dump())
 
 
 def create_ocr_box_workflow(req: CreateOcrBoxJobRequest) -> str:
     """Create ocr box workflow."""
     try:
-        return create_persisted_ocr_box_workflow(
-            OcrBoxWorkflowInput(
-                profile_id=str(req.profileId or "").strip(),
-                volume_id=str(req.volumeId or "").strip(),
-                filename=str(req.filename or "").strip(),
-                x=float(req.x),
-                y=float(req.y),
-                width=float(req.width),
-                height=float(req.height),
-                box_id=int(req.boxId or 0),
-                box_order=req.boxOrder,
-            )
-        )
+        return enqueue_ocr_box_operation(req.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def create_ocr_page_workflow(req: CreateOcrPageJobRequest) -> str:
     """Create ocr page workflow."""
-    raw_profile_ids = req.profileIds if isinstance(req.profileIds, list) else []
-    selected_profile_id = str(req.profileId or "").strip()
-    if not selected_profile_id and raw_profile_ids:
-        selected_profile_id = str(raw_profile_ids[0] or "").strip()
     try:
-        return create_persisted_ocr_page_workflow(
-            OcrPageWorkflowInput(
-                profile_ids=[selected_profile_id] if selected_profile_id else list(raw_profile_ids),
-                volume_id=str(req.volumeId or "").strip(),
-                filename=str(req.filename or "").strip(),
-                skip_existing=bool(req.skipExisting),
-            )
-        )
+        return enqueue_ocr_page_operation(req.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def create_translate_box_workflow(req: CreateTranslateBoxJobRequest) -> str:
     """Create translate box workflow."""
-    profile_id = str(req.profileId or "").strip()
-    if not profile_id:
-        raise HTTPException(status_code=400, detail="profileId is required")
     try:
-        profile = get_translation_profile(profile_id)
+        return enqueue_translate_box_operation(req.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if not profile.get("enabled", True):
-        raise HTTPException(status_code=400, detail="Selected translation profile is disabled")
-
-    volume_id = str(req.volumeId or "").strip()
-    filename = str(req.filename or "").strip()
-    box_id = int(req.boxId or 0)
-    if box_id <= 0:
-        raise HTTPException(status_code=400, detail="boxId is required for translation workflow")
-
-    use_page_context: bool
-    if req.usePageContext is None:
-        raw = get_setting_value("translation.single_box.use_context")
-        use_page_context = bool(raw) if isinstance(raw, bool) else True
-    else:
-        use_page_context = bool(req.usePageContext)
-
-    request_payload = {
-        "profileId": profile_id,
-        "volumeId": volume_id,
-        "filename": filename,
-        "boxId": box_id,
-        "usePageContext": use_page_context,
-        "boxOrder": req.boxOrder,
-    }
-    return create_translate_workflow_with_task(
-        volume_id=volume_id,
-        filename=filename,
-        request_payload=request_payload,
-        box_id=box_id,
-        profile_id=profile_id,
-        use_page_context=use_page_context,
-    )
