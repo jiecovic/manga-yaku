@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from infra.db.workflow_store import create_task_run, create_workflow_run, update_workflow_run
+from infra.db.workflow_store import create_workflow_run_with_task
 from infra.jobs.job_modes import UTILITY_WORKFLOW_TYPES
 
 
@@ -28,15 +28,10 @@ def create_persisted_utility_workflow(
 
     payload = dict(request_payload or {})
     volume_id, filename = _normalize_location(payload)
-    workflow_run_id = create_workflow_run(
+    return create_workflow_run_with_task(
         workflow_type=workflow_type,
         volume_id=volume_id,
         filename=filename,
-        state="queued",
-        status="queued",
-    )
-    update_workflow_run(
-        workflow_run_id,
         state="queued",
         status="queued",
         result_json={
@@ -44,11 +39,7 @@ def create_persisted_utility_workflow(
             "progress": 0,
             "message": str(message),
         },
-    )
-    create_task_run(
-        workflow_id=workflow_run_id,
         stage=workflow_type,
-        status="queued",
+        task_status="queued",
         input_json=payload,
     )
-    return workflow_run_id

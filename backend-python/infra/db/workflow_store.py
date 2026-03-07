@@ -50,6 +50,55 @@ def create_workflow_run(
         return str(row.id)
 
 
+def create_workflow_run_with_task(
+    *,
+    workflow_type: str,
+    volume_id: str,
+    filename: str,
+    state: str,
+    status: str,
+    stage: str,
+    task_status: str = "queued",
+    page_revision: str | None = None,
+    deadline_at: datetime | None = None,
+    result_json: dict[str, Any] | None = None,
+    box_id: int | None = None,
+    profile_id: str | None = None,
+    input_json: dict[str, Any] | None = None,
+) -> str:
+    """Create a workflow row and its first task row in one transaction."""
+    now = _utc_now()
+    with get_session() as session:
+        workflow_row = WorkflowRun(
+            workflow_type=workflow_type,
+            volume_id=volume_id,
+            filename=filename,
+            page_revision=page_revision,
+            state=state,
+            status=status,
+            result_json=result_json,
+            deadline_at=deadline_at,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(workflow_row)
+        session.flush()
+
+        task_row = TaskRun(
+            workflow_id=workflow_row.id,
+            stage=stage,
+            box_id=box_id,
+            profile_id=profile_id,
+            status=task_status,
+            input_json=input_json,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(task_row)
+        session.flush()
+        return str(workflow_row.id)
+
+
 def update_workflow_run(
     workflow_id: str | UUID,
     *,

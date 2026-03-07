@@ -17,12 +17,13 @@ from config import (
     ULTRALYTICS_WEIGHTS_ROOT,
     configure_ultralytics_settings,
 )
+from infra.jobs.exceptions import JobCanceled
 from infra.logging.ansi import strip_ansi
 from infra.logging.correlation import append_correlation
 from infra.training.catalog import resolve_prepared_dataset
 
 
-class TrainingCanceled(RuntimeError):
+class TrainingCanceled(JobCanceled):
     pass
 
 

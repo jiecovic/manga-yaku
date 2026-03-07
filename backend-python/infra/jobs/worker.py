@@ -6,10 +6,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from infra.jobs.exceptions import JobCanceled
 from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE, PERSISTED_WORKFLOW_TYPES
 from infra.jobs.workflow_repo import update_workflow_run
 from infra.logging.correlation import append_correlation, normalize_correlation
-from infra.training.job_runner import TrainingCanceled
 
 from .handlers.registry import HANDLERS
 from .store import Job, JobStatus, JobStore
@@ -142,7 +142,7 @@ async def job_worker(store: JobStore) -> None:
                     error_message="Canceled",
                 )
 
-        except TrainingCanceled as exc:
+        except JobCanceled as exc:
             if job.status != JobStatus.canceled:
                 store.update_job(job, status=JobStatus.canceled, message=str(exc) or "Canceled")
             logger.warning(

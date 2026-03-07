@@ -16,11 +16,13 @@ from pathlib import Path
 from PIL import Image
 
 from config import TRAINING_PREPARED_ROOT
+from infra.jobs.exceptions import JobCanceled
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_TARGETS = {"frame", "text", "face", "body"}
 ALLOWED_LINK_MODES = {"copy", "hardlink"}
 ProgressCallback = Callable[[int, int, str], None]
+CancelCallback = Callable[[], bool]
 
 
 @dataclass
@@ -173,6 +175,7 @@ def _prepare_manga109s(
     seed: int,
     *,
     progress_cb: ProgressCallback | None,
+    is_canceled: CancelCallback | None,
     progress_state: dict[str, int],
     total_volumes: int,
 ) -> BuildStats:
@@ -190,6 +193,7 @@ def _prepare_manga109s(
     stats = BuildStats()
 
     for xml_file in _iter_xml_files(annotations_dir):
+        _raise_if_canceled(is_canceled)
         tree = ET.parse(xml_file)
         root = tree.getroot()
         book_title = root.attrib.get("title", xml_file.stem)
@@ -200,6 +204,7 @@ def _prepare_manga109s(
         split = _choose_split(rng, val_split, test_split)
         pages_processed = 0
         for page in pages_el.findall("page"):
+            _raise_if_canceled(is_canceled)
             idx = int(page.attrib["index"])
             img_path = _manga109s_image_path(images_dir, book_title, idx)
             if not img_path.is_file():
@@ -262,6 +267,17 @@ def _prepare_manga109s(
     return stats
 
 
+def _raise_if_canceled(is_canceled: CancelCallback | None) -> None:
+    if is_canceled is None:
+        return
+    try:
+        canceled = bool(is_canceled())
+    except Exception:
+        canceled = False
+    if canceled:
+        raise JobCanceled("Canceled")
+
+
 def prepare_dataset(
     *,
     dataset_id: str | None,
@@ -273,6 +289,7 @@ def prepare_dataset(
     seed: int = 1337,
     overwrite: bool = False,
     progress_cb: ProgressCallback | None = None,
+    is_canceled: CancelCallback | None = None,
 ) -> tuple[str, Path, BuildStats]:
     selected_targets = targets or ["text"]
     invalid_targets = [tag for tag in selected_targets if tag not in ALLOWED_TARGETS]
@@ -306,58 +323,70 @@ def prepare_dataset(
 
     _ensure_dir(out_dir)
 
-    stats = BuildStats()
-    total_volumes = sum(
-        _count_manga109s_volumes(source_dir) for source_dir in source_dirs
-    )
-    if total_volumes == 0:
-        raise DatasetBuildError("No volumes found for selected sources")
-
-    progress_state = {"processed": 0}
-
-    for source_dir in source_dirs:
-        stats_for_source = _prepare_manga109s(
-            source_dir=source_dir,
-            out_dir=out_dir,
-            targets=selected_targets,
-            val_split=val_split,
-            test_split=test_split,
-            link_mode=link_mode,
-            seed=seed,
-            progress_cb=progress_cb,
-            progress_state=progress_state,
-            total_volumes=total_volumes,
+    try:
+        _raise_if_canceled(is_canceled)
+        stats = BuildStats()
+        total_volumes = sum(
+            _count_manga109s_volumes(source_dir) for source_dir in source_dirs
         )
-        stats.train_images += stats_for_source.train_images
-        stats.val_images += stats_for_source.val_images
-        stats.test_images += stats_for_source.test_images
-        stats.train_labels += stats_for_source.train_labels
-        stats.val_labels += stats_for_source.val_labels
-        stats.test_labels += stats_for_source.test_labels
+        if total_volumes == 0:
+            raise DatasetBuildError("No volumes found for selected sources")
 
-    _write_yaml(out_dir / "data.yaml", selected_targets, has_test=test_split > 0)
+        progress_state = {"processed": 0}
 
-    manifest = {
-        "dataset_id": dataset_id,
-        "created_at": _utc_now_iso(),
-        "targets": selected_targets,
-        "val_split": val_split,
-        "test_split": test_split,
-        "image_mode": link_mode,
-        "seed": seed,
-        "sources": [str(p) for p in source_dirs],
-        "stats": {
-            "train_images": stats.train_images,
-            "val_images": stats.val_images,
-            "test_images": stats.test_images,
-            "train_labels": stats.train_labels,
-            "val_labels": stats.val_labels,
-            "test_labels": stats.test_labels,
-        },
-    }
-    (out_dir / "manifest.json").write_text(
-        json.dumps(manifest, indent=2),
-        encoding="utf-8",
-    )
+        for source_dir in source_dirs:
+            _raise_if_canceled(is_canceled)
+            stats_for_source = _prepare_manga109s(
+                source_dir=source_dir,
+                out_dir=out_dir,
+                targets=selected_targets,
+                val_split=val_split,
+                test_split=test_split,
+                link_mode=link_mode,
+                seed=seed,
+                progress_cb=progress_cb,
+                is_canceled=is_canceled,
+                progress_state=progress_state,
+                total_volumes=total_volumes,
+            )
+            stats.train_images += stats_for_source.train_images
+            stats.val_images += stats_for_source.val_images
+            stats.test_images += stats_for_source.test_images
+            stats.train_labels += stats_for_source.train_labels
+            stats.val_labels += stats_for_source.val_labels
+            stats.test_labels += stats_for_source.test_labels
 
-    return dataset_id, out_dir, stats
+        _raise_if_canceled(is_canceled)
+        _write_yaml(out_dir / "data.yaml", selected_targets, has_test=test_split > 0)
+
+        manifest = {
+            "dataset_id": dataset_id,
+            "created_at": _utc_now_iso(),
+            "targets": selected_targets,
+            "val_split": val_split,
+            "test_split": test_split,
+            "image_mode": link_mode,
+            "seed": seed,
+            "sources": [str(p) for p in source_dirs],
+            "stats": {
+                "train_images": stats.train_images,
+                "val_images": stats.val_images,
+                "test_images": stats.test_images,
+                "train_labels": stats.train_labels,
+                "val_labels": stats.val_labels,
+                "test_labels": stats.test_labels,
+            },
+        }
+        (out_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2),
+            encoding="utf-8",
+        )
+
+        return dataset_id, out_dir, stats
+    except JobCanceled:
+        if out_dir.exists():
+            if out_dir.is_dir():
+                shutil.rmtree(out_dir, ignore_errors=True)
+            else:
+                out_dir.unlink(missing_ok=True)
+        raise

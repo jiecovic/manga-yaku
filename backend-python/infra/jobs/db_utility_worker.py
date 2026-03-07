@@ -10,6 +10,7 @@ from pathlib import Path
 from threading import Event
 from typing import Any
 
+from infra.jobs.exceptions import JobCanceled
 from infra.jobs.handlers.registry import HANDLERS
 from infra.jobs.job_modes import TRAIN_MODEL_JOB_TYPE, UTILITY_WORKFLOW_TYPES
 from infra.jobs.store import Job, JobStatus, JobStore
@@ -23,7 +24,6 @@ from infra.jobs.workflow_repo import (
     recover_running_tasks_for_startup as repo_recover_running_tasks_for_startup,
 )
 from infra.logging.correlation import append_correlation, normalize_correlation
-from infra.training.job_runner import TrainingCanceled
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +319,7 @@ async def _run_claimed_task(
             adapter.finish_canceled(str(job.message or "Canceled"), result=result)
             return
         adapter.finish_success(result if isinstance(result, dict) else {"value": result})
-    except TrainingCanceled as exc:
+    except JobCanceled as exc:
         adapter.finish_canceled(str(exc) or "Canceled")
     except Exception as exc:
         error_text = str(exc).strip() or repr(exc)
