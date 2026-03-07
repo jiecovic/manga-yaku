@@ -12,6 +12,18 @@ from infra.llm import extract_response_text, openai_responses_create
 from .missing_react_config import MissingBoxDetectionConfig
 
 
+def _build_log_context(
+    *,
+    volume_id: str,
+    filename: str,
+    log_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    context = dict(log_context or {})
+    context.setdefault("volume_id", volume_id)
+    context.setdefault("filename", filename)
+    return context
+
+
 def _extract_json_object(raw: str) -> dict[str, Any]:
     text = str(raw or "").strip()
     if not text:
@@ -222,6 +234,7 @@ def _propose_missing_candidates(
     cfg: MissingBoxDetectionConfig,
     volume_id: str,
     filename: str,
+    log_context: dict[str, Any] | None,
     page_data_url: str,
     resized_w: int,
     resized_h: int,
@@ -265,7 +278,11 @@ def _propose_missing_candidates(
         input_payload=input_payload,
         text_format=_build_proposal_format(),
         component="box_detection.missing_react.propose",
-        context={"volume_id": volume_id, "filename": filename},
+        context=_build_log_context(
+            volume_id=volume_id,
+            filename=filename,
+            log_context=log_context,
+        ),
         max_output_tokens=1400,
     )
     raw_candidates = parsed.get("candidates")
@@ -280,6 +297,7 @@ def _verify_candidate_crop(
     cfg: MissingBoxDetectionConfig,
     volume_id: str,
     filename: str,
+    log_context: dict[str, Any] | None,
     attempt_index: int,
     crop_data_url: str,
 ) -> dict[str, Any]:
@@ -317,7 +335,11 @@ def _verify_candidate_crop(
         input_payload=input_payload,
         text_format=_build_verify_format(),
         component="box_detection.missing_react.verify",
-        context={"volume_id": volume_id, "filename": filename},
+        context=_build_log_context(
+            volume_id=volume_id,
+            filename=filename,
+            log_context=log_context,
+        ),
         max_output_tokens=450,
     )
 
@@ -328,6 +350,7 @@ def _adjust_candidate_box(
     cfg: MissingBoxDetectionConfig,
     volume_id: str,
     filename: str,
+    log_context: dict[str, Any] | None,
     hint_text: str,
     attempt_index: int,
     image_w: int,
@@ -389,6 +412,10 @@ def _adjust_candidate_box(
         input_payload=input_payload,
         text_format=_build_adjust_format(),
         component="box_detection.missing_react.adjust",
-        context={"volume_id": volume_id, "filename": filename},
+        context=_build_log_context(
+            volume_id=volume_id,
+            filename=filename,
+            log_context=log_context,
+        ),
         max_output_tokens=400,
     )

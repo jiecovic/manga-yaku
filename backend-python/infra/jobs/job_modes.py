@@ -1,5 +1,5 @@
 # backend-python/infra/jobs/job_modes.py
-"""Canonical job mode boundaries (db-task, memory-only, and hybrid)."""
+"""Canonical job mode boundaries for persisted and hybrid workflows."""
 
 from __future__ import annotations
 
@@ -24,6 +24,14 @@ DB_TASK_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
     }
 )
 
+# Persisted utility workflows: single workflow/task pair executed by the DB utility worker.
+UTILITY_WORKFLOW_TYPES: Final[tuple[str, ...]] = (
+    BOX_DETECTION_JOB_TYPE,
+    MISSING_BOX_DETECTION_JOB_TYPE,
+    PREPARE_DATASET_JOB_TYPE,
+    TRAIN_MODEL_JOB_TYPE,
+)
+
 # Hybrid workflows: memory queue entrypoint, but workflow state persisted in DB.
 HYBRID_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
     {
@@ -33,15 +41,5 @@ HYBRID_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
 
 # Any workflow with persisted state in workflow/task tables.
 PERSISTED_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
-    DB_TASK_WORKFLOW_TYPES | HYBRID_WORKFLOW_TYPES
-)
-
-# Pure memory jobs: no persisted task fanout.
-MEMORY_ONLY_JOB_TYPES: Final[frozenset[str]] = frozenset(
-    {
-        BOX_DETECTION_JOB_TYPE,
-        MISSING_BOX_DETECTION_JOB_TYPE,
-        PREPARE_DATASET_JOB_TYPE,
-        TRAIN_MODEL_JOB_TYPE,
-    }
+    DB_TASK_WORKFLOW_TYPES | HYBRID_WORKFLOW_TYPES | frozenset(UTILITY_WORKFLOW_TYPES)
 )

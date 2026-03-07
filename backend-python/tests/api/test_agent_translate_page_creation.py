@@ -15,7 +15,7 @@ How it is tested:
 from __future__ import annotations
 
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from starlette.requests import Request
@@ -90,6 +90,7 @@ class AgentTranslatePageCreationSharedHelperTests(unittest.TestCase):
 
         self.assertTrue(result["queued"])
         self.assertIn(result["job_id"], self.store.jobs)
+        self.assertEqual(self.store.queue.get_nowait(), result["job_id"])
         claim_mock.assert_called_once()
         finalize_mock.assert_called_once()
 
@@ -212,30 +213,19 @@ class AgentTranslatePageRouteTests(unittest.IsolatedAsyncioTestCase):
                 "api.routers.jobs.routes.create_agent_translate_page_job_record",
                 return_value={"job_id": "wf-123", "queued": False},
             ) as service_mock,
-            patch.object(
-                jobs_routes.STORE.queue,
-                "put",
-                new=AsyncMock(),
-            ) as queue_put_mock,
         ):
             resp = await jobs_routes.create_agent_translate_page_job(req, self._request_scope())
 
         self.assertEqual(resp.jobId, "wf-123")
-        queue_put_mock.assert_not_awaited()
         service_mock.assert_called_once()
 
-    async def test_route_enqueues_new_job(self) -> None:
+    async def test_route_returns_new_job_id_without_manual_queue_step(self) -> None:
         req = CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg")
         with (
             patch(
                 "api.routers.jobs.routes.create_agent_translate_page_job_record",
                 return_value={"job_id": "mem-1", "queued": True},
             ) as service_mock,
-            patch.object(
-                jobs_routes.STORE.queue,
-                "put",
-                new=AsyncMock(),
-            ) as queue_put_mock,
         ):
             resp = await jobs_routes.create_agent_translate_page_job(
                 req,
@@ -243,5 +233,4 @@ class AgentTranslatePageRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(resp.jobId, "mem-1")
-        queue_put_mock.assert_awaited_once_with("mem-1")
         service_mock.assert_called_once()

@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 from typing import TypedDict
-from uuid import uuid4
 
 from fastapi import HTTPException
 
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
+    CreateBoxDetectionJobRequest,
+    CreateMissingBoxDetectionJobRequest,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
+    CreatePrepareDatasetJobRequest,
+    CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
 )
 from core.usecases.ocr.workflow_creation import (
@@ -29,7 +32,14 @@ from core.usecases.translation.profiles import get_translation_profile
 from infra.jobs.agent_translate_creation import (
     create_agent_translate_page_job as create_shared_agent_translate_page_job,
 )
-from infra.jobs.store import Job, JobStatus, JobStore
+from infra.jobs.job_modes import (
+    BOX_DETECTION_JOB_TYPE,
+    MISSING_BOX_DETECTION_JOB_TYPE,
+    PREPARE_DATASET_JOB_TYPE,
+    TRAIN_MODEL_JOB_TYPE,
+)
+from infra.jobs.store import JobStore
+from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 
 from .jobs_workflow_helpers import (
     create_translate_workflow_with_task,
@@ -68,32 +78,36 @@ def create_agent_translate_page_job(
     return {"job_id": job_id, "queued": bool(decision.get("queued"))}
 
 
-def enqueue_memory_job(
-    *,
-    store: JobStore,
-    job_type: str,
-    payload: dict,
-    progress: float | None = None,
-    message: str | None = None,
-) -> str:
-    """Enqueue an in-memory job for the worker loop."""
-    job_id = str(uuid4())
-    now = store.now()
-    store.add_job(
-        Job(
-            id=job_id,
-            type=job_type,
-            status=JobStatus.queued,
-            created_at=now,
-            updated_at=now,
-            payload=payload,
-            result=None,
-            error=None,
-            progress=progress,
-            message=message,
-        )
+def create_box_detection_workflow(req: CreateBoxDetectionJobRequest) -> str:
+    """Create a persisted box-detection utility workflow."""
+    return create_persisted_utility_workflow(
+        workflow_type=BOX_DETECTION_JOB_TYPE,
+        request_payload=req.model_dump(),
     )
-    return job_id
+
+
+def create_missing_box_detection_workflow(req: CreateMissingBoxDetectionJobRequest) -> str:
+    """Create a persisted missing-box-detection utility workflow."""
+    return create_persisted_utility_workflow(
+        workflow_type=MISSING_BOX_DETECTION_JOB_TYPE,
+        request_payload=req.model_dump(),
+    )
+
+
+def create_prepare_dataset_workflow(req: CreatePrepareDatasetJobRequest) -> str:
+    """Create a persisted dataset-preparation utility workflow."""
+    return create_persisted_utility_workflow(
+        workflow_type=PREPARE_DATASET_JOB_TYPE,
+        request_payload=req.model_dump(),
+    )
+
+
+def create_train_model_workflow(req: CreateTrainModelJobRequest) -> str:
+    """Create a persisted training utility workflow."""
+    return create_persisted_utility_workflow(
+        workflow_type=TRAIN_MODEL_JOB_TYPE,
+        request_payload=req.model_dump(),
+    )
 
 
 def create_ocr_box_workflow(req: CreateOcrBoxJobRequest) -> str:

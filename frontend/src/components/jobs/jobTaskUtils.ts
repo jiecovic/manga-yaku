@@ -14,6 +14,10 @@ const WORKFLOW_JOB_TYPES = new Set([
     "ocr_page",
     "translate_box",
     "agent_translate_page",
+    "box_detection",
+    "detect_missing_boxes",
+    "prepare_dataset",
+    "train_model",
 ]);
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running"]);
 const TERMINAL_TASK_STATUSES = new Set(["completed", "failed", "canceled", "timed_out"]);

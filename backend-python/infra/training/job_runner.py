@@ -57,6 +57,7 @@ def run_training_job(
     log_store: dict[str, Path],
     shutdown_event: threading.Event,
     status_canceled: Any,
+    is_canceled: Any | None = None,
 ) -> dict[str, Any]:
     dataset_id = str(payload.get("dataset_id") or "")
     dataset_dir = resolve_prepared_dataset(dataset_id)
@@ -344,7 +345,13 @@ def run_training_job(
         schedule_update(progress=percent, message=message)
 
     def check_canceled(trainer: Any) -> None:
-        if job.status != status_canceled and not shutdown_event.is_set():
+        canceled = job.status == status_canceled or shutdown_event.is_set()
+        if not canceled and callable(is_canceled):
+            try:
+                canceled = bool(is_canceled())
+            except Exception:
+                canceled = False
+        if not canceled:
             return
         trainer.stop = True
         if job.status != status_canceled:

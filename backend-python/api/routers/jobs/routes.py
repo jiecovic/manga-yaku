@@ -26,10 +26,13 @@ from api.services.jobs_creation_service import (
     create_agent_translate_page_job as create_agent_translate_page_job_record,
 )
 from api.services.jobs_creation_service import (
+    create_box_detection_workflow,
+    create_missing_box_detection_workflow,
     create_ocr_box_workflow,
     create_ocr_page_workflow,
+    create_prepare_dataset_workflow,
+    create_train_model_workflow,
     create_translate_box_workflow,
-    enqueue_memory_job,
 )
 from api.services.jobs_service import (
     cancel_job as cancel_job_record,
@@ -44,28 +47,25 @@ from api.services.jobs_service import (
     get_job_public,
     get_job_tasks_payload,
     get_resume_agent_payload,
+    get_training_log_path,
     list_job_public_records,
 )
 from infra.jobs.job_modes import (
     AGENT_WORKFLOW_TYPE,
-    BOX_DETECTION_JOB_TYPE,
-    MISSING_BOX_DETECTION_JOB_TYPE,
-    PREPARE_DATASET_JOB_TYPE,
-    TRAIN_MODEL_JOB_TYPE,
 )
-from infra.jobs.runtime import STORE
+from infra.jobs.runtime import STORE, create_and_enqueue_memory_job
 from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
 
 router = APIRouter(tags=["jobs"])
 
 _TRANSLATE_PAGE_DISABLED_REASON = (
-    "Standalone translation jobs are temporarily disabled during workflow rewrite. "
-    "Use agent translate page workflow path."
+    "Standalone translation page jobs are not supported. "
+    "Use the agent translate page workflow."
 )
 # Job mode boundary:
 # - DB task workflows are persisted and executed by DB workers.
-# - Memory-only jobs stay in JobStore/in-process handlers.
+# - Utility jobs are persisted single-task workflows executed by the DB utility worker.
 # - Agent translate page is hybrid (memory queue + persisted workflow state).
 
 _JOB_CAPABILITIES = JobsCapabilitiesResponse(
@@ -79,10 +79,15 @@ _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     agent_translate_page=JobCapability(enabled=True),
 )
 
+
+def _notify_jobs_changed() -> None:
+    STORE.broadcast_snapshot()
+
 @router.post("/jobs/ocr_box", response_model=CreateJobResponse)
 async def create_ocr_box_job(req: CreateOcrBoxJobRequest) -> CreateJobResponse:
     """Create ocr box job."""
     workflow_run_id = create_ocr_box_workflow(req)
+    _notify_jobs_changed()
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -92,6 +97,7 @@ async def create_ocr_page_job(
 ) -> CreateJobResponse:
     """Create ocr page job."""
     workflow_run_id = create_ocr_page_workflow(req)
+    _notify_jobs_changed()
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -101,6 +107,7 @@ async def create_translate_box_job(
 ) -> CreateJobResponse:
     """Create translate box job."""
     workflow_run_id = create_translate_box_workflow(req)
+    _notify_jobs_changed()
     return CreateJobResponse(jobId=workflow_run_id)
 
 
@@ -126,9 +133,6 @@ async def create_agent_translate_page_job(
         req=req,
         idempotency_key=request.headers.get("Idempotency-Key"),
     )
-    if decision["queued"]:
-        await STORE.queue.put(decision["job_id"])
-
     return CreateJobResponse(jobId=decision["job_id"])
 
 
@@ -143,14 +147,9 @@ async def create_box_detection_job(
     req: CreateBoxDetectionJobRequest,
 ) -> CreateJobResponse:
     """Create box detection job."""
-    job_id = enqueue_memory_job(
-        store=STORE,
-        job_type=BOX_DETECTION_JOB_TYPE,
-        payload=req.dict(),
-    )
-    await STORE.queue.put(job_id)
-
-    return CreateJobResponse(jobId=job_id)
+    workflow_run_id = create_box_detection_workflow(req)
+    _notify_jobs_changed()
+    return CreateJobResponse(jobId=workflow_run_id)
 
 
 @router.post("/jobs/detect_missing_boxes", response_model=CreateJobResponse)
@@ -158,15 +157,9 @@ async def create_missing_box_detection_job(
     req: CreateMissingBoxDetectionJobRequest,
 ) -> CreateJobResponse:
     """Create LLM-assisted missing text-box detection job."""
-    job_id = enqueue_memory_job(
-        store=STORE,
-        job_type=MISSING_BOX_DETECTION_JOB_TYPE,
-        payload=req.model_dump(),
-        progress=0,
-        message="Queued",
-    )
-    await STORE.queue.put(job_id)
-    return CreateJobResponse(jobId=job_id)
+    workflow_run_id = create_missing_box_detection_workflow(req)
+    _notify_jobs_changed()
+    return CreateJobResponse(jobId=workflow_run_id)
 
 
 @router.post("/jobs/prepare_dataset", response_model=CreateJobResponse)
@@ -184,16 +177,9 @@ async def create_prepare_dataset_job(
             raise HTTPException(status_code=404, detail=message) from exc
         raise HTTPException(status_code=400, detail=message) from exc
 
-    job_id = enqueue_memory_job(
-        store=STORE,
-        job_type=PREPARE_DATASET_JOB_TYPE,
-        payload=req.dict(),
-        progress=0,
-        message="Queued",
-    )
-    await STORE.queue.put(job_id)
-
-    return CreateJobResponse(jobId=job_id)
+    workflow_run_id = create_prepare_dataset_workflow(req)
+    _notify_jobs_changed()
+    return CreateJobResponse(jobId=workflow_run_id)
 
 
 @router.post("/jobs/train_model", response_model=CreateJobResponse)
@@ -206,16 +192,9 @@ async def create_train_model_job(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    job_id = enqueue_memory_job(
-        store=STORE,
-        job_type=TRAIN_MODEL_JOB_TYPE,
-        payload=req.dict(),
-        progress=0,
-        message="Queued",
-    )
-    await STORE.queue.put(job_id)
-
-    return CreateJobResponse(jobId=job_id)
+    workflow_run_id = create_train_model_workflow(req)
+    _notify_jobs_changed()
+    return CreateJobResponse(jobId=workflow_run_id)
 
 
 @router.get("/jobs", response_model=list[JobPublic])
@@ -259,21 +238,20 @@ async def stream_jobs(request: Request) -> StreamingResponse:
 @router.get("/jobs/{job_id}/logs/stream")
 async def stream_job_logs(job_id: str, request: Request) -> StreamingResponse:
     """Stream job logs."""
-    job = STORE.get_job(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if job.type != "train_model":
-        raise HTTPException(status_code=400, detail="Logs available for training jobs only")
+    log_path = get_training_log_path(job_id=job_id, store=STORE)
 
     async def event_generator():
         offset = 0
         while True:
             if await request.is_disconnected():
                 break
-            log_path = STORE.logs.get(job_id)
-            if log_path and log_path.is_file():
+            try:
+                current_path = get_training_log_path(job_id=job_id, store=STORE) or log_path
+            except HTTPException:
+                current_path = log_path
+            if current_path and current_path.is_file():
                 try:
-                    with log_path.open("r", encoding="utf-8", errors="replace") as handle:
+                    with current_path.open("r", encoding="utf-8", errors="replace") as handle:
                         handle.seek(offset)
                         chunk = handle.read()
                         offset = handle.tell()
@@ -313,14 +291,12 @@ async def resume_job(job_id: str) -> CreateJobResponse:
     """Resume job."""
     payload = get_resume_agent_payload(job_id=job_id, store=STORE)
 
-    new_job_id = enqueue_memory_job(
-        store=STORE,
+    new_job_id = create_and_enqueue_memory_job(
         job_type=AGENT_WORKFLOW_TYPE,
         payload=payload,
         progress=0,
         message="Queued (resume)",
     )
-    await STORE.queue.put(new_job_id)
     return CreateJobResponse(jobId=new_job_id)
 
 
@@ -328,6 +304,7 @@ async def resume_job(job_id: str) -> CreateJobResponse:
 async def cancel_job(job_id: str) -> dict:
     """Cancel job."""
     status = cancel_job_record(job_id=job_id, store=STORE)
+    _notify_jobs_changed()
     return {"status": status}
 
 
@@ -335,6 +312,8 @@ async def cancel_job(job_id: str) -> dict:
 async def clear_finished_jobs() -> dict:
     """Clear finished jobs."""
     deleted = clear_finished_jobs_record(store=STORE)
+    if deleted:
+        _notify_jobs_changed()
     return {"deleted": deleted}
 
 
@@ -342,4 +321,6 @@ async def clear_finished_jobs() -> dict:
 async def delete_job(job_id: str) -> dict:
     """Delete job."""
     deleted = delete_job_record(job_id=job_id, store=STORE)
+    if deleted:
+        _notify_jobs_changed()
     return {"deleted": deleted}

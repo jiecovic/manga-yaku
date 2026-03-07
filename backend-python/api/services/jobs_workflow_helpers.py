@@ -112,6 +112,12 @@ def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
 
     workflow_type = str(run.get("workflow_type") or "").strip()
     job_type = workflow_type if workflow_type in PERSISTED_WORKFLOW_TYPES else AGENT_WORKFLOW_TYPE
+    metrics = result.get("metrics") if isinstance(result, dict) and isinstance(result.get("metrics"), dict) else None
+    warnings = (
+        list(result.get("warnings"))
+        if isinstance(result, dict) and isinstance(result.get("warnings"), list)
+        else None
+    )
 
     return JobPublic(
         id=str(run.get("id")),
@@ -124,6 +130,8 @@ def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
         payload=payload,
         progress=progress,
         message=message,
+        metrics=metrics,
+        warnings=warnings,
     )
 
 

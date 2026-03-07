@@ -63,6 +63,7 @@ def detect_missing_text_boxes_react(
     overlap_iou_threshold: float = 0.45,
     max_image_side: int = 1536,
     crop_padding_px: int = 6,
+    log_context: dict[str, Any] | None = None,
     on_runtime_event: RuntimeEventCallback | None = None,
 ) -> dict[str, Any]:
     """
@@ -122,6 +123,7 @@ def detect_missing_text_boxes_react(
             cfg=cfg,
             volume_id=volume_id,
             filename=filename,
+            log_context=log_context,
             page_data_url=page_data_url,
             resized_w=resized_image.width,
             resized_h=resized_image.height,
@@ -199,6 +201,7 @@ def detect_missing_text_boxes_react(
             cfg=cfg,
             volume_id=volume_id,
             filename=filename,
+            log_context=log_context,
             source_image=source_image,
             resized_image=resized_image,
             page_data_url=page_data_url,

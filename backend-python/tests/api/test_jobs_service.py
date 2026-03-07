@@ -23,7 +23,9 @@ from api.services.jobs_service import (
     get_job_public,
     get_job_tasks_payload,
     get_resume_agent_payload,
+    get_training_log_path,
 )
+from api.services.jobs_workflow_helpers import workflow_run_to_job_public
 from infra.jobs.store import Job, JobStatus, JobStore
 
 
@@ -54,7 +56,7 @@ class JobsServiceTests(unittest.TestCase):
         self.store.add_job(
             Job(
                 id="job-2",
-                type="train_model",
+                type="unknown_job",
                 status=JobStatus.queued,
                 created_at=now,
                 updated_at=now,
@@ -66,6 +68,45 @@ class JobsServiceTests(unittest.TestCase):
             get_job_tasks_payload(job_id="job-2", store=self.store)
         self.assertEqual(raised.exception.status_code, 400)
         self.assertIn("task runs", str(raised.exception.detail).lower())
+
+    def test_get_training_log_path_reads_persisted_workflow_result(self) -> None:
+        with patch(
+            "api.services.jobs_service.get_workflow_run",
+            return_value={
+                "id": "wf-train-1",
+                "workflow_type": "train_model",
+                "result_json": {"log": "/tmp/train.log"},
+            },
+        ):
+            log_path = get_training_log_path(job_id="wf-train-1", store=self.store)
+
+        self.assertEqual(str(log_path), "/tmp/train.log")
+
+    def test_workflow_run_projection_surfaces_metrics_and_warnings(self) -> None:
+        public = workflow_run_to_job_public(
+            {
+                "id": "wf-train-2",
+                "workflow_type": "train_model",
+                "volume_id": "",
+                "filename": "",
+                "status": "running",
+                "state": "running",
+                "error_message": None,
+                "created_at": None,
+                "updated_at": None,
+                "result_json": {
+                    "request": {"dataset_id": "dataset-1"},
+                    "progress": 42,
+                    "message": "Training",
+                    "metrics": {"device": "cuda:0"},
+                    "warnings": ["gpu busy"],
+                },
+            },
+            store=self.store,
+        )
+
+        self.assertEqual(public.metrics, {"device": "cuda:0"})
+        self.assertEqual(public.warnings, ["gpu busy"])
 
     def test_get_resume_agent_payload_strips_workflow_fields(self) -> None:
         now = self.store.now()

@@ -100,11 +100,13 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "_run_translate_db_worker_supervisor",
                 new=_wait_for_event_shutdown,
             ),
+            patch.object(runtime, "_run_utility_db_worker_supervisor", new=_wait_for_event_shutdown),
         ):
             await runtime.start_jobs_runtime()
             first_worker_task = runtime._worker_task
             first_db_worker_task = runtime._db_ocr_worker_task
             first_translate_db_worker_task = runtime._db_translate_worker_task
+            first_utility_db_worker_task = runtime._db_utility_worker_task
 
             await runtime.start_jobs_runtime()
 
@@ -112,6 +114,7 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(first_worker_task, runtime._worker_task)
             self.assertIs(first_db_worker_task, runtime._db_ocr_worker_task)
             self.assertIs(first_translate_db_worker_task, runtime._db_translate_worker_task)
+            self.assertIs(first_utility_db_worker_task, runtime._db_utility_worker_task)
             self.assertFalse(runtime.STORE.shutdown_event.is_set())
             mark_interrupted.assert_called_once()
 
@@ -120,6 +123,7 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(runtime._worker_task)
             self.assertIsNone(runtime._db_ocr_worker_task)
             self.assertIsNone(runtime._db_translate_worker_task)
+            self.assertIsNone(runtime._db_utility_worker_task)
             self.assertTrue(runtime.STORE.shutdown_event.is_set())
 
     async def test_shutdown_marks_running_memory_jobs_canceled(self) -> None:
@@ -144,6 +148,7 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "_run_translate_db_worker_supervisor",
                 new=_wait_for_event_shutdown,
             ),
+            patch.object(runtime, "_run_utility_db_worker_supervisor", new=_wait_for_event_shutdown),
         ):
             await runtime.start_jobs_runtime()
             await runtime.stop_jobs_runtime()
@@ -164,6 +169,7 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "_run_translate_db_worker_supervisor",
                 new=_wait_for_event_shutdown,
             ),
+            patch.object(runtime, "_run_utility_db_worker_supervisor", new=_wait_for_event_shutdown),
         ):
             await runtime.start_jobs_runtime()
 
@@ -194,6 +200,7 @@ class JobsRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "_run_translate_db_worker_supervisor",
                 new=_wait_for_event_shutdown,
             ),
+            patch.object(runtime, "_run_utility_db_worker_supervisor", new=_wait_for_event_shutdown),
         ):
             await runtime.start_jobs_runtime()
             with patch.object(runtime.STORE.queue, "put_nowait", side_effect=RuntimeError("queue down")):

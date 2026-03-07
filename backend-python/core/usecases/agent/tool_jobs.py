@@ -24,8 +24,9 @@ from infra.db.idempotency_store import (
 )
 from infra.jobs.agent_translate_creation import create_agent_translate_page_job
 from infra.jobs.job_modes import BOX_DETECTION_JOB_TYPE, OCR_BOX_WORKFLOW_TYPE
-from infra.jobs.runtime import STORE, create_and_enqueue_memory_job, wait_for_memory_job_terminal
+from infra.jobs.runtime import STORE, wait_for_memory_job_terminal
 from infra.jobs.store import JobStatus
+from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 from infra.jobs.workflow_repo import get_workflow_run
 from infra.jobs.workflow_runtime import wait_for_workflow_terminal
 
@@ -225,9 +226,9 @@ def detect_text_boxes_tool(
     claimed = idempotency_state == "new"
     if claimed:
         try:
-            job_id = create_and_enqueue_memory_job(
-                job_type=BOX_DETECTION_JOB_TYPE,
-                payload=payload,
+            job_id = create_persisted_utility_workflow(
+                workflow_type=BOX_DETECTION_JOB_TYPE,
+                request_payload=payload,
                 message="Queued (agent tool)",
             )
             if idempotency_key and request_hash:
@@ -237,6 +238,7 @@ def detect_text_boxes_tool(
                     request_hash=request_hash,
                     resource_id=job_id,
                 )
+            STORE.broadcast_snapshot()
         except Exception as exc:
             if idempotency_key and request_hash:
                 release_idempotency_claim(
@@ -258,7 +260,7 @@ def detect_text_boxes_tool(
             "filename": resolved_filename,
             "profile_id": selected_profile_id,
             "replace_existing": bool(replace_existing),
-            "job_status": JobStatus.queued.value,
+            "job_status": "queued",
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
             "resource_reused": True,
@@ -266,10 +268,10 @@ def detect_text_boxes_tool(
         }
 
     try:
-        finished_job = wait_for_memory_job_terminal(
-            job_id=job_id,
+        finished_run = wait_for_workflow_terminal(
+            workflow_run_id=job_id,
             timeout_seconds=_TOOL_JOB_WAIT_TIMEOUT_SECONDS,
-            poll_seconds=_TOOL_JOB_WAIT_POLL_SECONDS,
+            poll_seconds=_TOOL_WORKFLOW_WAIT_POLL_SECONDS,
         )
     except TimeoutError:
         return {
@@ -279,7 +281,8 @@ def detect_text_boxes_tool(
             "profile_id": selected_profile_id,
             "replace_existing": bool(replace_existing),
             "job_id": job_id,
-            "job_status": JobStatus.queued.value,
+            "workflow_run_id": job_id,
+            "job_status": "queued",
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
             "resource_reused": idempotency_state != "new",
@@ -291,11 +294,12 @@ def detect_text_boxes_tool(
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
+            "workflow_run_id": job_id,
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
 
-    if finished_job is None:
+    if finished_run is None:
         if idempotency_state == "replay":
             return _build_detection_replay_snapshot(
                 volume_id=volume_id,
@@ -310,30 +314,35 @@ def detect_text_boxes_tool(
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
+            "workflow_run_id": job_id,
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if finished_job.status == JobStatus.failed:
+    workflow_status = str(finished_run.get("status") or "").strip().lower() or "failed"
+    result_json = finished_run.get("result_json") if isinstance(finished_run.get("result_json"), dict) else {}
+    if workflow_status == "failed":
         return {
-            "error": str(finished_job.error or "Detection job failed"),
+            "error": str(finished_run.get("error_message") or "Detection job failed"),
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
-            "job_status": finished_job.status.value,
+            "workflow_run_id": job_id,
+            "job_status": workflow_status,
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if finished_job.status == JobStatus.canceled:
+    if workflow_status == "canceled":
         return {
             "error": "Detection job was canceled",
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
-            "job_status": finished_job.status.value,
+            "workflow_run_id": job_id,
+            "job_status": workflow_status,
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if finished_job.status in {JobStatus.queued, JobStatus.running}:
+    if workflow_status in {"queued", "running"}:
         return {
             "status": "queued",
             "volume_id": volume_id,
@@ -341,15 +350,16 @@ def detect_text_boxes_tool(
             "profile_id": selected_profile_id,
             "replace_existing": bool(replace_existing),
             "job_id": job_id,
-            "job_status": finished_job.status.value,
+            "workflow_run_id": job_id,
+            "job_status": workflow_status,
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
             "resource_reused": idempotency_state != "new",
-            "message": "Detection job queued/running; check Jobs panel for live progress",
+            "message": str(result_json.get("message") or "").strip()
+            or "Detection job queued/running; check Jobs panel for live progress",
         }
 
-    job_result = finished_job.result if isinstance(finished_job.result, dict) else {}
-    detected_count = int(job_result.get("count") or 0)
+    detected_count = int(result_json.get("count") or 0)
     page = load_page(volume_id, resolved_filename)
     text_boxes = list_text_boxes_for_page(page)
     return {
@@ -361,7 +371,8 @@ def detect_text_boxes_tool(
         "detected_count": detected_count,
         "text_box_count": len(text_boxes),
         "job_id": job_id,
-        "job_status": finished_job.status.value,
+        "workflow_run_id": job_id,
+        "job_status": workflow_status,
         "page_revision": get_active_page_revision(
             volume_id=volume_id,
             current_filename=resolved_filename,
@@ -453,17 +464,6 @@ def translate_active_page_tool(
             "volume_id": volume_id,
             "filename": resolved_filename,
         }
-
-    if bool(decision.get("queued")):
-        try:
-            STORE.queue.put_nowait(job_id)
-        except Exception:
-            return {
-                "error": "Failed to queue page-translate workflow",
-                "volume_id": volume_id,
-                "filename": resolved_filename,
-                "job_id": job_id,
-            }
 
     try:
         finished_job = wait_for_memory_job_terminal(

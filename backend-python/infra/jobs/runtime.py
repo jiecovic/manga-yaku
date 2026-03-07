@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from infra.jobs.db_ocr_worker import run_ocr_db_worker
 from infra.jobs.db_translate_worker import run_translate_db_worker
+from infra.jobs.db_utility_worker import run_utility_db_worker
 from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.jobs.worker import job_worker
@@ -29,6 +30,7 @@ _worker_started = False
 _worker_task: asyncio.Task | None = None
 _db_ocr_worker_task: asyncio.Task | None = None
 _db_translate_worker_task: asyncio.Task | None = None
+_db_utility_worker_task: asyncio.Task | None = None
 _runtime_lock = asyncio.Lock()
 _runtime_loop: asyncio.AbstractEventLoop | None = None
 
@@ -77,6 +79,32 @@ async def _run_translate_db_worker_supervisor(shutdown_event: Event) -> None:
             backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
 
 
+async def _run_utility_db_worker_supervisor(shutdown_event: Event) -> None:
+    base_corr = {"component": "jobs.runtime.utility_supervisor"}
+    backoff_seconds = 1.0
+    max_backoff_seconds = 10.0
+    while not shutdown_event.is_set():
+        try:
+            await run_utility_db_worker(
+                shutdown_event,
+                log_store=STORE.logs,
+                signal_store=STORE,
+            )
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                append_correlation(
+                    "Utility DB worker crashed; restarting",
+                    base_corr,
+                    backoff_seconds=round(backoff_seconds, 1),
+                )
+            )
+            await asyncio.sleep(backoff_seconds)
+            backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
+
+
 def _cancel_running_memory_jobs() -> None:
     for job in list(STORE.jobs.values()):
         if job.status == JobStatus.running:
@@ -84,7 +112,8 @@ def _cancel_running_memory_jobs() -> None:
 
 
 async def start_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task, _runtime_loop
+    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task
+    global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
         if _worker_started:
             return
@@ -123,10 +152,15 @@ async def start_jobs_runtime() -> None:
             _run_translate_db_worker_supervisor(STORE.shutdown_event),
             name="jobs-db-translate-supervisor",
         )
+        _db_utility_worker_task = asyncio.create_task(
+            _run_utility_db_worker_supervisor(STORE.shutdown_event),
+            name="jobs-db-utility-supervisor",
+        )
 
 
 async def stop_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task, _runtime_loop
+    global _worker_started, _worker_task, _db_ocr_worker_task, _db_translate_worker_task
+    global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
         if not _worker_started:
             return
@@ -136,7 +170,12 @@ async def stop_jobs_runtime() -> None:
 
         tasks = [
             task
-            for task in (_worker_task, _db_ocr_worker_task, _db_translate_worker_task)
+            for task in (
+                _worker_task,
+                _db_ocr_worker_task,
+                _db_translate_worker_task,
+                _db_utility_worker_task,
+            )
             if task is not None and not task.done()
         ]
         for task in tasks:
@@ -147,6 +186,7 @@ async def stop_jobs_runtime() -> None:
         _worker_task = None
         _db_ocr_worker_task = None
         _db_translate_worker_task = None
+        _db_utility_worker_task = None
         _runtime_loop = None
         _cancel_running_memory_jobs()
         logger.info(
@@ -198,15 +238,17 @@ def _clone_job(job: Job | None) -> Job | None:
     return job.model_copy(deep=True)
 
 
-def _create_and_enqueue_memory_job_now(
+def create_and_enqueue_memory_job_in_store(
     *,
+    store: JobStore,
     job_type: str,
     payload: dict[str, Any],
     progress: float | None = None,
     message: str | None = None,
 ) -> str:
+    """Create and enqueue a memory job atomically inside the provided store."""
     job_id = str(uuid4())
-    now = STORE.now()
+    now = store.now()
     job = Job(
         id=job_id,
         type=job_type,
@@ -221,13 +263,13 @@ def _create_and_enqueue_memory_job_now(
         metrics=None,
         warnings=None,
     )
-    STORE.add_job(job)
+    store.add_job(job)
 
     try:
-        STORE.queue.put_nowait(job_id)
+        store.queue.put_nowait(job_id)
     except Exception as exc:
         error_text = str(exc).strip() or "Failed to enqueue memory job"
-        STORE.update_job(
+        store.update_job(
             job,
             status=JobStatus.failed,
             error=error_text,
@@ -235,6 +277,22 @@ def _create_and_enqueue_memory_job_now(
         )
         raise RuntimeError(error_text) from exc
     return job_id
+
+
+def _create_and_enqueue_memory_job_now(
+    *,
+    job_type: str,
+    payload: dict[str, Any],
+    progress: float | None = None,
+    message: str | None = None,
+) -> str:
+    return create_and_enqueue_memory_job_in_store(
+        store=STORE,
+        job_type=job_type,
+        payload=payload,
+        progress=progress,
+        message=message,
+    )
 
 
 async def _create_and_enqueue_memory_job_on_runtime_loop(

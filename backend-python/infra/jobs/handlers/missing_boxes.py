@@ -58,6 +58,12 @@ class MissingBoxDetectionInput:
 class MissingBoxDetectionJobHandler(JobHandler):
     async def run(self, job: Job, store: JobStore) -> MissingBoxDetectionResult:
         trial_history: list[dict[str, Any]] = []
+        log_context = {
+            "job_id": job.id,
+            "workflow_run_id": str(job.payload.get("workflowRunId") or "").strip() or None,
+            "task_run_id": str(job.payload.get("taskRunId") or "").strip() or None,
+        }
+        log_context = {key: value for key, value in log_context.items() if value}
 
         def _append_trial_to_history(event: dict[str, Any]) -> None:
             latest_trial = event.get("latest_trial")
@@ -173,6 +179,7 @@ class MissingBoxDetectionJobHandler(JobHandler):
             overlap_iou_threshold=data.overlap_iou_threshold,
             max_image_side=data.max_image_side,
             crop_padding_px=data.crop_padding_px,
+            log_context=log_context,
             on_runtime_event=_on_runtime_event,
         )
         finalized = True

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
@@ -15,6 +16,7 @@ from infra.db.workflow_store import (
     list_task_attempt_events,
     list_task_runs,
 )
+from infra.jobs.job_modes import TRAIN_MODEL_JOB_TYPE
 from infra.jobs.store import JobPublic, JobStatus, JobStore
 
 from .jobs_workflow_helpers import (
@@ -102,6 +104,56 @@ def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
     return payload
 
 
+def _resolve_log_path(raw_path: Any) -> Path | None:
+    if not isinstance(raw_path, str):
+        return None
+    normalized = raw_path.strip()
+    if not normalized:
+        return None
+    return Path(normalized)
+
+
+def get_training_log_path(*, job_id: str, store: JobStore) -> Path | None:
+    """Return a training log path for a memory or persisted training job."""
+    job = store.get_job(job_id)
+    if job is not None:
+        if job.type != TRAIN_MODEL_JOB_TYPE:
+            raise HTTPException(status_code=400, detail="Logs available for training jobs only")
+        live_path = store.logs.get(job_id)
+        if live_path is not None:
+            return live_path
+        if isinstance(job.result, dict):
+            return _resolve_log_path(job.result.get("log"))
+        return None
+
+    run = get_workflow_run(job_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if str(run.get("workflow_type") or "").strip() != TRAIN_MODEL_JOB_TYPE:
+        raise HTTPException(status_code=400, detail="Logs available for training jobs only")
+
+    live_path = store.logs.get(job_id)
+    if live_path is not None:
+        return live_path
+    result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
+    return _resolve_log_path(result_json.get("log"))
+
+
+def _append_training_cancel_log(*, job_id: str, store: JobStore) -> None:
+    log_path = None
+    try:
+        log_path = get_training_log_path(job_id=job_id, store=store)
+    except HTTPException:
+        return
+    if log_path is None or not log_path.is_file():
+        return
+    try:
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write("\nCanceled by user.\n")
+    except OSError:
+        pass
+
+
 def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
     """Cancel job."""
     job = store.get_job(job_id)
@@ -114,14 +166,8 @@ def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
         if workflow_run_id and job.type in PERSISTED_WORKFLOW_TYPES:
             cancel_workflow_run(workflow_run_id, message="Canceled")
             cancel_pending_tasks(workflow_run_id)
-        if job.type == "train_model":
-            log_path = store.logs.get(job_id)
-            if log_path and log_path.is_file():
-                try:
-                    with log_path.open("a", encoding="utf-8") as handle:
-                        handle.write("\nCanceled by user.\n")
-                except OSError:
-                    pass
+        if job.type == TRAIN_MODEL_JOB_TYPE:
+            _append_training_cancel_log(job_id=job_id, store=store)
         return job.status
 
     run = get_workflow_run(job_id)
@@ -132,6 +178,8 @@ def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
         return status
     cancel_workflow_run(job_id, message="Canceled")
     cancel_pending_tasks(job_id)
+    if str(run.get("workflow_type") or "").strip() == TRAIN_MODEL_JOB_TYPE:
+        _append_training_cancel_log(job_id=job_id, store=store)
     return JobStatus.canceled
 
 
@@ -149,6 +197,13 @@ def clear_finished_jobs(*, store: JobStore) -> int:
     db_deleted = 0
     for workflow_type in PERSISTED_WORKFLOW_TYPES:
         db_deleted += delete_terminal_workflow_runs(workflow_type=workflow_type)
+    for job_id in list(store.logs):
+        if store.get_job(job_id) is not None:
+            continue
+        run = get_workflow_run(job_id)
+        if run is not None and str(run.get("workflow_type") or "").strip() in PERSISTED_WORKFLOW_TYPES:
+            continue
+        store.logs.pop(job_id, None)
     return len(to_delete) + db_deleted
 
 
@@ -173,6 +228,7 @@ def delete_job(*, job_id: str, store: JobStore) -> int:
         return deleted or 1
 
     if delete_workflow_run(job_id):
+        store.logs.pop(job_id, None)
         return 1
 
     raise HTTPException(status_code=404, detail="Job not found")

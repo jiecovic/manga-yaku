@@ -16,7 +16,6 @@ from core.usecases.agent.tool_impl import (
     update_page_memory_tool,
     update_text_box_fields_tool,
 )
-from core.usecases.agent.tool_jobs import STORE
 from infra.jobs.store import JobStatus
 
 
@@ -424,7 +423,7 @@ class AgentToolHelpersTests(unittest.TestCase):
                 return_value={"status": "replay", "resource_id": "job-123"},
             ),
             patch(
-                "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
+                "core.usecases.agent.tool_jobs.wait_for_workflow_terminal",
                 return_value=None,
             ),
             patch(
@@ -455,19 +454,15 @@ class AgentToolHelpersTests(unittest.TestCase):
                 return_value={"status": "replay", "resource_id": "job-old"},
             ) as claim_mock,
             patch(
-                "core.usecases.agent.tool_jobs.create_and_enqueue_memory_job",
+                "core.usecases.agent.tool_jobs.create_persisted_utility_workflow",
                 return_value="job-789",
             ),
             patch(
-                "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
-                return_value=type(
-                    "FinishedJob",
-                    (),
-                    {
-                        "status": type("JobStatusLike", (), {"value": "completed"})(),
-                        "result": {"count": 4},
-                    },
-                )(),
+                "core.usecases.agent.tool_jobs.wait_for_workflow_terminal",
+                return_value={
+                    "status": "completed",
+                    "result_json": {"count": 4, "message": "Detected 4 boxes"},
+                },
             ),
             patch(
                 "core.usecases.agent.tool_jobs.load_page",
@@ -599,10 +594,16 @@ class AgentToolHelpersTests(unittest.TestCase):
                     "detail": None,
                 },
             ),
-            patch.object(STORE.queue, "put_nowait") as queue_put_mock,
             patch(
                 "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
                 return_value=finished_job,
+            ),
+            patch(
+                "core.usecases.agent.tool_jobs._count_page_translation_state",
+                side_effect=[
+                    {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 0},
+                    {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 18},
+                ],
             ),
         ):
             result = translate_active_page_tool(
@@ -616,7 +617,6 @@ class AgentToolHelpersTests(unittest.TestCase):
         self.assertEqual(result["workflow_run_id"], "wf-123")
         self.assertEqual(result["updated"], 18)
         self.assertFalse(result["resource_reused"])
-        queue_put_mock.assert_called_once_with("job-123")
 
     def test_translate_active_page_reuses_active_run_without_requeueing(self) -> None:
         with (
@@ -629,7 +629,6 @@ class AgentToolHelpersTests(unittest.TestCase):
                     "detail": None,
                 },
             ),
-            patch.object(STORE.queue, "put_nowait") as queue_put_mock,
             patch(
                 "core.usecases.agent.tool_jobs.wait_for_memory_job_terminal",
                 return_value=None,
@@ -637,6 +636,14 @@ class AgentToolHelpersTests(unittest.TestCase):
             patch(
                 "core.usecases.agent.tool_jobs.get_workflow_run",
                 return_value={"status": "running", "result_json": {"message": "Working"}},
+            ),
+            patch(
+                "core.usecases.agent.tool_jobs._count_page_translation_state",
+                return_value={
+                    "text_box_count": 18,
+                    "ocr_filled_count": 18,
+                    "translated_count": 0,
+                },
             ),
         ):
             result = translate_active_page_tool(
@@ -648,7 +655,6 @@ class AgentToolHelpersTests(unittest.TestCase):
         self.assertEqual(result["status"], "queued")
         self.assertEqual(result["workflow_run_id"], "wf-999")
         self.assertTrue(result["resource_reused"])
-        queue_put_mock.assert_not_called()
 
     def test_translate_active_page_short_circuits_when_page_already_translated(self) -> None:
         page = {

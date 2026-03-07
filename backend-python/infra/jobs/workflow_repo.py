@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy import select
+
 from infra.db.db import TaskRun, WorkflowRun, get_session
 from infra.db.workflow_store import (
     append_task_attempt_event as store_append_task_attempt_event,
@@ -22,7 +24,6 @@ from infra.db.workflow_store import update_task_run as store_update_task_run
 from infra.db.workflow_store import (
     update_workflow_run as store_update_workflow_run,
 )
-from sqlalchemy import select
 
 
 def _utc_now() -> datetime:
@@ -117,6 +118,49 @@ def requeue_stale_running_tasks(
                 task_row.error_detail = "Requeued after worker restart"
             task_row.lease_until = None
             task_row.updated_at = now
+            changed += 1
+    return changed
+
+
+def recover_running_tasks_for_startup(
+    *,
+    workflow_types: Sequence[str],
+    stage: str,
+) -> int:
+    """Reset interrupted running tasks after backend startup."""
+    now = _utc_now()
+    changed = 0
+    workflow_type_values = tuple(str(item) for item in workflow_types if str(item).strip())
+    if not workflow_type_values:
+        return 0
+
+    with get_session() as session:
+        stmt = (
+            select(TaskRun, WorkflowRun)
+            .join(WorkflowRun, TaskRun.workflow_id == WorkflowRun.id)
+            .where(WorkflowRun.workflow_type.in_(workflow_type_values))
+            .where(TaskRun.stage == stage)
+            .where(TaskRun.status == "running")
+            .with_for_update(skip_locked=True)
+        )
+        rows = session.execute(stmt).all()
+        for task_row, workflow_row in rows:
+            if workflow_row.cancel_requested or workflow_row.status == "canceled":
+                task_row.status = "canceled"
+                task_row.finished_at = now
+                task_row.error_code = "cancel_requested"
+                task_row.error_detail = "Canceled"
+                workflow_row.status = "canceled"
+                workflow_row.state = "canceled"
+            else:
+                task_row.status = "queued"
+                task_row.error_code = "worker_restart"
+                task_row.error_detail = "Requeued after backend restart"
+                workflow_row.status = "queued"
+                workflow_row.state = "queued"
+            task_row.lease_until = None
+            task_row.updated_at = now
+            workflow_row.updated_at = now
             changed += 1
     return changed
 

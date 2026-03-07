@@ -7,7 +7,6 @@ import hashlib
 import json
 import logging
 from typing import Any, TypedDict
-from uuid import uuid4
 
 from infra.db.idempotency_store import (
     claim_idempotency_key,
@@ -16,7 +15,12 @@ from infra.db.idempotency_store import (
 )
 from infra.db.workflow_store import find_latest_active_workflow_run
 from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
-from infra.jobs.store import Job, JobStatus, JobStore
+from infra.jobs.runtime import (
+    STORE,
+    create_and_enqueue_memory_job,
+    create_and_enqueue_memory_job_in_store,
+)
+from infra.jobs.store import JobStatus, JobStore
 from infra.logging.correlation import append_correlation
 
 logger = logging.getLogger(__name__)
@@ -125,30 +129,27 @@ def _find_active_persisted_agent_run_id(
     return run_id or None
 
 
-def _enqueue_memory_job(
+def _create_and_enqueue_agent_launcher_job(
     *,
     store: JobStore,
     payload: dict[str, Any],
     progress: float | None = None,
     message: str | None = None,
 ) -> str:
-    job_id = str(uuid4())
-    now = store.now()
-    store.add_job(
-        Job(
-            id=job_id,
-            type=AGENT_WORKFLOW_TYPE,
-            status=JobStatus.queued,
-            created_at=now,
-            updated_at=now,
+    if store is STORE:
+        return create_and_enqueue_memory_job(
+            job_type=AGENT_WORKFLOW_TYPE,
             payload=payload,
-            result=None,
-            error=None,
             progress=progress,
             message=message,
         )
+    return create_and_enqueue_memory_job_in_store(
+        store=store,
+        job_type=AGENT_WORKFLOW_TYPE,
+        payload=payload,
+        progress=progress,
+        message=message,
     )
-    return job_id
 
 
 def create_agent_translate_page_job(
@@ -231,7 +232,7 @@ def create_agent_translate_page_job(
         claimed = claim_status == "claimed"
 
     try:
-        job_id = _enqueue_memory_job(
+        job_id = _create_and_enqueue_agent_launcher_job(
             store=store,
             payload=normalized_payload,
             progress=0,

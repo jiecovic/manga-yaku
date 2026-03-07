@@ -39,6 +39,7 @@ def run_verification_step(
     cfg: MissingBoxDetectionConfig,
     volume_id: str,
     filename: str,
+    log_context: dict[str, Any] | None,
     source_image: Any,
     attempt_box: dict[str, float],
     attempt_idx: int,
@@ -57,6 +58,7 @@ def run_verification_step(
             cfg=cfg,
             volume_id=volume_id,
             filename=filename,
+            log_context=log_context,
             attempt_index=attempt_idx,
             crop_data_url=crop_data_url,
         )
