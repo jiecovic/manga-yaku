@@ -15,7 +15,7 @@ def test_wait_for_workflow_snapshot_uses_latest_observed_run() -> None:
         "result_json": {"message": "Working"},
     }
     with patch(
-        "infra.jobs.workflow_runtime.wait_for_workflow_terminal",
+        "infra.jobs.workflow_runtime.poll_workflow_run",
         return_value=run,
     ) as wait_mock:
         snapshot = wait_for_workflow_snapshot(
@@ -44,7 +44,7 @@ def test_wait_for_workflow_snapshot_refreshes_when_poll_returns_none() -> None:
     }
     with (
         patch(
-            "infra.jobs.workflow_runtime.wait_for_workflow_terminal",
+            "infra.jobs.workflow_runtime.poll_workflow_run",
             return_value=None,
         ),
         patch(
@@ -69,7 +69,7 @@ def test_wait_for_workflow_snapshot_refreshes_when_poll_returns_none() -> None:
 def test_wait_for_workflow_snapshot_marks_missing_run() -> None:
     with (
         patch(
-            "infra.jobs.workflow_runtime.wait_for_workflow_terminal",
+            "infra.jobs.workflow_runtime.poll_workflow_run",
             return_value=None,
         ),
         patch(

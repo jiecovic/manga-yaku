@@ -1,5 +1,5 @@
 # backend-python/infra/jobs/workflow_runtime.py
-"""Helpers for waiting on persisted workflow runs."""
+"""Helpers for polling persisted workflow runs."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class WorkflowRunSnapshot:
         return self.status in _TERMINAL_WORKFLOW_STATUSES
 
 
-def wait_for_workflow_terminal(
+def poll_workflow_run(
     workflow_run_id: str,
     *,
     timeout_seconds: float,
@@ -63,7 +63,7 @@ def wait_for_workflow_snapshot(
     poll_seconds: float,
 ) -> WorkflowRunSnapshot:
     """Return the latest observed workflow row after polling for terminal state."""
-    run = wait_for_workflow_terminal(
+    run = poll_workflow_run(
         workflow_run_id,
         timeout_seconds=timeout_seconds,
         poll_seconds=poll_seconds,
