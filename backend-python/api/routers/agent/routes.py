@@ -242,6 +242,53 @@ def _try_text_repair_reply(
     return repaired
 
 
+def _build_prompt_payload(history: list[dict[str, Any]]) -> list[dict[str, str]]:
+    payload: list[dict[str, str]] = []
+    for item in history:
+        role = str(item.get("role") or "").strip().lower()
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        if role == "tool":
+            continue
+        payload.append({"role": role or "user", "content": content})
+    return payload
+
+
+def _persist_action_event_messages(
+    session_id: str,
+    action_events: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    persisted: list[dict[str, Any]] = []
+    for action in action_events:
+        event_type = str(action.get("type") or "").strip()
+        message = str(action.get("message") or "").strip()
+        if event_type not in {"activity", "tool_called", "tool_output", "page_switch"}:
+            continue
+        if not message:
+            continue
+        meta: dict[str, Any] = {
+            "source": "agent_timeline",
+            "timelineOnly": True,
+            "eventType": event_type,
+        }
+        tool_name = str(action.get("tool") or "").strip()
+        filename = str(action.get("filename") or "").strip()
+        if tool_name:
+            meta["tool"] = tool_name
+        if filename:
+            meta["filename"] = filename
+        persisted.append(
+            add_agent_message(
+                session_id,
+                role="tool",
+                content=message,
+                meta=meta,
+            )
+        )
+    return persisted
+
+
 @router.get("/agent/config", response_model=AgentConfigResponse)
 async def get_agent_config() -> AgentConfigResponse:
     """Return agent config."""
@@ -388,11 +435,7 @@ async def create_agent_reply(
 
     max_messages = max(1, min(100, int(req.maxMessages)))
     history = list_agent_messages(session_id, limit=max_messages)
-    payload = [
-        {"role": item["role"], "content": item["content"]}
-        for item in history
-        if item.get("content")
-    ]
+    payload = _build_prompt_payload(history)
     model_id = session.model_id or AGENT_MODEL
     if model_id not in AGENT_MODELS and AGENT_MODELS:
         model_id = AGENT_MODELS[0]
@@ -484,11 +527,7 @@ async def stream_agent_reply(
 
     limit = max(1, min(100, int(max_messages)))
     history = list_agent_messages(session_id, limit=limit)
-    payload = [
-        {"role": item["role"], "content": item["content"]}
-        for item in history
-        if item.get("content")
-    ]
+    payload = _build_prompt_payload(history)
     model_id = session.model_id or AGENT_MODEL
     if model_id not in AGENT_MODELS and AGENT_MODELS:
         model_id = AGENT_MODELS[0]
@@ -785,6 +824,7 @@ async def stream_agent_reply(
             meta: dict[str, object] = {"source": "agent_reply"}
             if action_events:
                 meta["actions"] = action_events
+            persisted_timeline = _persist_action_event_messages(session_id, action_events)
             message = add_agent_message(
                 session_id,
                 role="assistant",
@@ -793,7 +833,11 @@ async def stream_agent_reply(
             )
             loop.call_soon_threadsafe(
                 queue.put_nowait,
-                {"type": "done", "message": message},
+                {
+                    "type": "done",
+                    "message": message,
+                    "timelineMessages": persisted_timeline,
+                },
             )
             if not primary_stream_used_retry:
                 _log_agent_sdk_attempt(
@@ -1050,6 +1094,7 @@ async def stream_agent_reply(
                     fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
                     if fallback_actions:
                         fallback_meta["actions"] = fallback_actions[-40:]
+                    persisted_timeline = _persist_action_event_messages(session_id, fallback_actions)
                     fallback_message = add_agent_message(
                         session_id,
                         role="assistant",
@@ -1058,7 +1103,11 @@ async def stream_agent_reply(
                     )
                     loop.call_soon_threadsafe(
                         queue.put_nowait,
-                        {"type": "done", "message": fallback_message},
+                        {
+                            "type": "done",
+                            "message": fallback_message,
+                            "timelineMessages": persisted_timeline,
+                        },
                     )
                     _log_agent_sdk_attempt(
                         component="agent.chat.sync.sdk",
@@ -1127,6 +1176,7 @@ async def stream_agent_reply(
                         fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
                         if fallback_actions:
                             fallback_meta["actions"] = fallback_actions[-40:]
+                        persisted_timeline = _persist_action_event_messages(session_id, fallback_actions)
                         fallback_message = add_agent_message(
                             session_id,
                             role="assistant",
@@ -1135,7 +1185,11 @@ async def stream_agent_reply(
                         )
                         loop.call_soon_threadsafe(
                             queue.put_nowait,
-                            {"type": "done", "message": fallback_message},
+                            {
+                                "type": "done",
+                                "message": fallback_message,
+                                "timelineMessages": persisted_timeline,
+                            },
                         )
                         logger.warning(
                             append_correlation(
