@@ -466,18 +466,3 @@ async def run_agent_translate_page_workflow(
         message=completion_message,
     )
     return result
-
-
-async def run_agent_translate_page_detect_stage(
-    *,
-    payload: dict[str, Any],
-    on_progress: ProgressCallback | None = None,
-    is_canceled: CancelCheck | None = None,
-) -> dict[str, Any]:
-    # Backward-compatible entrypoint name while the handler/API wiring is unchanged.
-    """Run agent translate page detect stage."""
-    return await run_agent_translate_page_workflow(
-        payload=payload,
-        on_progress=on_progress,
-        is_canceled=is_canceled,
-    )

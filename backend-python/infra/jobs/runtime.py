@@ -338,30 +338,6 @@ async def _wait_for_memory_job_terminal_on_runtime_loop(
     return _clone_job(job)
 
 
-def enqueue_memory_job_id(job_id: str, *, timeout_seconds: float = 2.0) -> None:
-    """
-    Enqueue a memory-job ID onto the jobs runtime queue from any thread.
-
-    Agent tools run in a separate runner thread/loop, so direct queue writes can
-    bypass the main jobs loop. This helper always schedules onto the runtime loop.
-    """
-    normalized_job_id = str(job_id or "").strip()
-    if not normalized_job_id:
-        raise ValueError("job_id is required")
-
-    runtime_loop = _runtime_loop_or_raise()
-    if _current_loop() is runtime_loop:
-        if STORE.get_job(normalized_job_id) is None:
-            raise KeyError(f"Job {normalized_job_id} not found")
-        STORE.queue.put_nowait(normalized_job_id)
-        return
-
-    _run_on_runtime_loop(
-        _enqueue_existing_job_on_runtime_loop(normalized_job_id),
-        timeout_seconds=timeout_seconds,
-    )
-
-
 def create_and_enqueue_memory_job(
     *,
     job_type: str,

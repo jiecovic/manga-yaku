@@ -12,7 +12,7 @@ How it is tested:
 
 from __future__ import annotations
 
-from core.usecases.agent.page_translate_helpers import (
+from core.usecases.agent.page_translate_schema import (
     apply_no_text_consensus_guard,
     normalize_translate_stage_result,
 )

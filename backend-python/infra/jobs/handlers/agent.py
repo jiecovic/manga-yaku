@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.workflows.agent_translate_page import run_agent_translate_page_workflow
+from core.workflows.agent_translate_page.runner import run_agent_translate_page_workflow
 from core.workflows.agent_translate_page.types import AgentTranslateWorkflowSnapshot
 from infra.jobs.store import Job, JobStatus, JobStore
 

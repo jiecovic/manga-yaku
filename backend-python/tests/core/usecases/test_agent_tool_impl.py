@@ -5,15 +5,19 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.usecases.agent.tool_impl import (
-    detect_text_boxes_tool,
+from core.usecases.agent.tool_boxes import (
+    list_text_boxes_tool,
+    update_text_box_fields_tool,
+)
+from core.usecases.agent.tool_context import (
     get_page_memory_tool,
     get_volume_context_tool,
-    list_text_boxes_tool,
+    update_page_memory_tool,
+)
+from core.usecases.agent.tool_jobs import (
+    detect_text_boxes_tool,
     ocr_text_box_tool,
     translate_active_page_tool,
-    update_page_memory_tool,
-    update_text_box_fields_tool,
 )
 from infra.jobs.store import JobStatus
 
