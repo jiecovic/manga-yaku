@@ -39,9 +39,7 @@ from core.usecases.agent.streaming import (
     run_legacy_stream_events,
     run_sdk_stream_events,
 )
-from core.usecases.agent.tool_impl import (
-    coerce_filename,
-)
+from core.usecases.agent.tool_shared import coerce_filename
 from core.usecases.agent.turn_state import (
     build_turn_state_message,
     get_active_page_revision,

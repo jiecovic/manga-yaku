@@ -1,4 +1,4 @@
-# backend-python/tests/core/usecases/test_agent_page_translate_prompts.py
+# backend-python/tests/core/usecases/test_translate_stage_prompt_payload.py
 """Tests for page-translation prompt safeguards."""
 
 from __future__ import annotations
