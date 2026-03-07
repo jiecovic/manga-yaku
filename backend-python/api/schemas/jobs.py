@@ -7,7 +7,7 @@ Field names intentionally follow the public API contract used by the frontend
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class CreateOcrBoxJobRequest(BaseModel):
@@ -76,20 +76,6 @@ class CreateBoxDetectionJobRequest(BaseModel):
     profileId: str | None = None
     task: str | None = None
     replaceExisting: bool = True
-
-
-class CreateMissingBoxDetectionJobRequest(BaseModel):
-    """Create an LLM-assisted missing text-box detection task."""
-
-    volumeId: str
-    filename: str
-    modelId: str | None = None
-    maxCandidates: int = Field(default=8, ge=1, le=40)
-    maxAttemptsPerCandidate: int = Field(default=3, ge=1, le=5)
-    minConfidence: float = Field(default=0.75, ge=0.0, le=1.0)
-    overlapIouThreshold: float = Field(default=0.45, ge=0.05, le=0.95)
-    maxImageSide: int = Field(default=1536, ge=768, le=2048)
-    cropPaddingPx: int = Field(default=6, ge=0, le=32)
 
 
 class CreatePrepareDatasetJobRequest(BaseModel):

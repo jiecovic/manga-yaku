@@ -15,7 +15,6 @@ const WORKFLOW_JOB_TYPES = new Set([
     "translate_box",
     "agent_translate_page",
     "box_detection",
-    "detect_missing_boxes",
     "prepare_dataset",
     "train_model",
 ]);

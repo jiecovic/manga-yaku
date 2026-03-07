@@ -13,7 +13,6 @@ interface PageViewerProps {
     currentPageFilename: string;
     isDraftPage?: boolean;
     boxesByType: Record<BoxType, Box[]>;
-    runtimeProbeBoxes: Box[];
     visibleBoxTypes: BoxType[];
     activeBoxType: BoxType;
     onChangeBoxesForType: (type: BoxType, next: Box[]) => void;
@@ -41,7 +40,6 @@ export function PageViewer({
     currentPageFilename,
     isDraftPage = false,
     boxesByType,
-    runtimeProbeBoxes,
     visibleBoxTypes,
     activeBoxType,
     onChangeBoxesForType,
@@ -85,7 +83,6 @@ export function PageViewer({
                         pageLabel={pageLabel}
                         filenameLabel={filenameLabel}
                         boxesByType={boxesByType}
-                        runtimeProbeBoxes={runtimeProbeBoxes}
                         visibleBoxTypes={visibleBoxTypes}
                         activeBoxType={activeBoxType}
                         editableBoxTypes={EDITABLE_BOX_TYPES}

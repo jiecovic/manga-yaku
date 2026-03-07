@@ -15,7 +15,6 @@ interface PageCanvasProps {
     pageLabel: string;
     filenameLabel: string;
     boxesByType: Record<BoxType, Box[]>;
-    runtimeProbeBoxes: Box[];
     visibleBoxTypes: BoxType[];
     activeBoxType: BoxType;
     editableBoxTypes: BoxType[];
@@ -47,7 +46,6 @@ export function PageCanvas({
     pageLabel,
     filenameLabel,
     boxesByType,
-    runtimeProbeBoxes,
     visibleBoxTypes,
     activeBoxType,
     editableBoxTypes,
@@ -366,80 +364,6 @@ export function PageCanvas({
                                                         fontSize={11}
                                                         fill="#e5e7eb"
                                                     />
-                                                </Group>
-                                            )}
-                                        </Fragment>
-                                    );
-                                })}
-
-                                {/* Runtime probe boxes (live non-persistent overlay) */}
-                                {runtimeProbeBoxes.map((box, probeIndex) => {
-                                    const rect = toStageRect(box);
-                                    const label = String(box.note || "").trim();
-                                    const badgeRadius = 8;
-                                    const badgeDiameter = badgeRadius * 2;
-                                    const badgeX = rect.x - badgeRadius + 2;
-                                    const badgeY = rect.y - badgeRadius + 2;
-                                    const alpha = Math.max(
-                                        0.28,
-                                        Math.min(
-                                            1,
-                                            (probeIndex + 1) /
-                                                Math.max(1, runtimeProbeBoxes.length),
-                                        ),
-                                    );
-                                    const strokeColor = label.includes("accepted")
-                                        ? `rgba(34, 197, 94, ${alpha})`
-                                        : label.includes("rejected")
-                                          ? `rgba(239, 68, 68, ${alpha})`
-                                          : `rgba(249, 115, 22, ${alpha})`;
-                                    return (
-                                        <Fragment key={`probe-${probeIndex}`}>
-                                            <Rect
-                                                x={rect.x}
-                                                y={rect.y}
-                                                width={rect.width}
-                                                height={rect.height}
-                                                listening={false}
-                                                stroke={strokeColor}
-                                                strokeWidth={2}
-                                                dash={[6, 4]}
-                                            />
-                                            {label && (
-                                                <Group listening={false}>
-                                                    <Rect
-                                                        x={badgeX}
-                                                        y={badgeY}
-                                                        width={badgeDiameter}
-                                                        height={badgeDiameter}
-                                                        cornerRadius={badgeRadius}
-                                                        fill="#0f172a"
-                                                        stroke={strokeColor}
-                                                        strokeWidth={1}
-                                                    />
-                                                    <Text
-                                                        x={badgeX}
-                                                        y={badgeY}
-                                                        width={badgeDiameter}
-                                                        height={badgeDiameter}
-                                                        text="?"
-                                                        align="center"
-                                                        verticalAlign="middle"
-                                                        fontSize={11}
-                                                        fill="#e5e7eb"
-                                                    />
-                                                    <Label x={badgeX + badgeDiameter + 4} y={badgeY}>
-                                                        <Tag
-                                                            fill="rgba(15, 23, 42, 0.92)"
-                                                            cornerRadius={4}
-                                                        />
-                                                        <Text
-                                                            text={label}
-                                                            padding={6}
-                                                            fontSize={10}
-                                                            fill="#e5e7eb"
-                                                        />
-                                                    </Label>
                                                 </Group>
                                             )}
                                         </Fragment>

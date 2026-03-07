@@ -82,7 +82,6 @@ interface RightSidebarTabsProps {
     onClearOcrText: () => void;
     onClearTranslationText: () => void;
     onAutoDetectBoxes: () => void;
-    onDetectMissingBoxes: () => void;
     onRefreshPageState: () => void;
     onAgentPageSwitch: (filename: string) => void;
     onOpenMemory: () => void;
@@ -137,7 +136,6 @@ export function RightSidebarTabs({
     onClearOcrText,
     onClearTranslationText,
     onAutoDetectBoxes,
-    onDetectMissingBoxes,
     onRefreshPageState,
     onAgentPageSwitch,
     onOpenMemory,
@@ -247,7 +245,6 @@ export function RightSidebarTabs({
                             onClearOcrText={onClearOcrText}
                             onClearTranslationText={onClearTranslationText}
                             onAutoDetectBoxes={onAutoDetectBoxes}
-                            onDetectMissingBoxes={onDetectMissingBoxes}
                             onRefreshPageState={onRefreshPageState}
                             onOpenMemory={onOpenMemory}
                             canOpenMemory={canOpenMemory}

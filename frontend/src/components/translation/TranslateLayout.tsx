@@ -249,7 +249,6 @@ function TranslateInner({
     // page workspace (boxes, per-page context, actions)
     const {
         boxesByType,
-        runtimeProbeBoxes,
         handleChangeBoxesForType,
         activeBoxType,
         setActiveBoxType,
@@ -411,7 +410,6 @@ function TranslateInner({
                     currentPageFilename={currentPageFilename}
                     isDraftPage={isDraftPage}
                     boxesByType={boxesByType}
-                    runtimeProbeBoxes={runtimeProbeBoxes}
                     visibleBoxTypes={visibleBoxTypes}
                     activeBoxType={activeBoxType}
                     onChangeBoxesForType={handleChangeBoxesForType}
@@ -497,7 +495,6 @@ function TranslateInner({
                 onClearOcrText={pageActions.onClearOcrText}
                 onClearTranslationText={pageActions.onClearTranslationText}
                 onAutoDetectBoxes={pageActions.onAutoDetectBoxes}
-                onDetectMissingBoxes={pageActions.onDetectMissingBoxes}
                 onRefreshPageState={pageActions.onRefreshPageState}
                 onAgentPageSwitch={handleAgentPageSwitch}
                 onOpenMemory={() => setMemoryOpen(true)}

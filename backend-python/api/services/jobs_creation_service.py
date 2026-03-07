@@ -10,7 +10,6 @@ from fastapi import HTTPException
 from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
-    CreateMissingBoxDetectionJobRequest,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
     CreatePrepareDatasetJobRequest,
@@ -34,7 +33,6 @@ from infra.jobs.agent_translate_creation import (
 )
 from infra.jobs.job_modes import (
     BOX_DETECTION_JOB_TYPE,
-    MISSING_BOX_DETECTION_JOB_TYPE,
     PREPARE_DATASET_JOB_TYPE,
     TRAIN_MODEL_JOB_TYPE,
 )
@@ -82,14 +80,6 @@ def create_box_detection_workflow(req: CreateBoxDetectionJobRequest) -> str:
     """Create a persisted box-detection utility workflow."""
     return create_persisted_utility_workflow(
         workflow_type=BOX_DETECTION_JOB_TYPE,
-        request_payload=req.model_dump(),
-    )
-
-
-def create_missing_box_detection_workflow(req: CreateMissingBoxDetectionJobRequest) -> str:
-    """Create a persisted missing-box-detection utility workflow."""
-    return create_persisted_utility_workflow(
-        workflow_type=MISSING_BOX_DETECTION_JOB_TYPE,
         request_payload=req.model_dump(),
     )
 

@@ -12,7 +12,6 @@ from api.schemas.jobs import (
     CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
     CreateJobResponse,
-    CreateMissingBoxDetectionJobRequest,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
     CreatePrepareDatasetJobRequest,
@@ -27,7 +26,6 @@ from api.services.jobs_creation_service import (
 )
 from api.services.jobs_creation_service import (
     create_box_detection_workflow,
-    create_missing_box_detection_workflow,
     create_ocr_box_workflow,
     create_ocr_page_workflow,
     create_prepare_dataset_workflow,
@@ -148,16 +146,6 @@ async def create_box_detection_job(
 ) -> CreateJobResponse:
     """Create box detection job."""
     workflow_run_id = create_box_detection_workflow(req)
-    _notify_jobs_changed()
-    return CreateJobResponse(jobId=workflow_run_id)
-
-
-@router.post("/jobs/detect_missing_boxes", response_model=CreateJobResponse)
-async def create_missing_box_detection_job(
-    req: CreateMissingBoxDetectionJobRequest,
-) -> CreateJobResponse:
-    """Create LLM-assisted missing text-box detection job."""
-    workflow_run_id = create_missing_box_detection_workflow(req)
     _notify_jobs_changed()
     return CreateJobResponse(jobId=workflow_run_id)
 

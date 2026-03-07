@@ -293,7 +293,6 @@ export function usePageJobEffects({
         const pending = jobs.filter(
             (job) =>
                 (job.type === "box_detection" ||
-                    job.type === "detect_missing_boxes" ||
                     job.type === "ocr_box" ||
                     job.type === "translate_box" ||
                     job.type === "ocr_page" ||

@@ -25,7 +25,6 @@ interface ActionsSectionProps {
 
     // NEW
     onAutoDetectBoxes: () => void;
-    onDetectMissingBoxes: () => void;
     onRefreshPageState: () => void;
     onOpenMemory: () => void;
     canOpenMemory: boolean;
@@ -46,7 +45,6 @@ export function RightSidebarActionsSection({
     onClearOcrText,
     onClearTranslationText,
     onAutoDetectBoxes,
-    onDetectMissingBoxes,
     onRefreshPageState,
     onOpenMemory,
     canOpenMemory,
@@ -253,20 +251,6 @@ export function RightSidebarActionsSection({
                             : normalizedTask === "body"
                             ? "Auto detect bodies"
                             : "Auto detect text"}
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="actionIndigo"
-                        onClick={onDetectMissingBoxes}
-                        disabled={normalizedTask !== "text"}
-                        title={
-                            normalizedTask !== "text"
-                                ? "Missing-box detection is only available for text boxes."
-                                : undefined
-                        }
-                    >
-                        Detect missing text
                     </Button>
 
                     <Button

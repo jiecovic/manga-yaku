@@ -1,11 +1,10 @@
 // src/hooks/usePageWorkspace.ts
 import { useMemo, useState } from "react";
-import type {Box, BoxType} from "../types";
-import {useJobs} from "../context/useJobs";
-import { usePage } from "../context/usePage";
-import {usePageBoxes} from "./usePageBoxes";
-import {usePageJobEffects} from "./usePageJobEffects";
-import {usePageJobActions} from "./usePageJobActions";
+import type { Box, BoxType } from "../types";
+import { useJobs } from "../context/useJobs";
+import { usePageBoxes } from "./usePageBoxes";
+import { usePageJobActions } from "./usePageJobActions";
+import { usePageJobEffects } from "./usePageJobEffects";
 import { EDITABLE_BOX_TYPES, normalizeBoxType } from "../utils/boxes";
 
 export interface PageDataProps {
@@ -30,7 +29,6 @@ export interface PageActions {
     onClearTranslationText: () => void;
 
     onAutoDetectBoxes: () => void;
-    onDetectMissingBoxes: () => void;
     onRefreshPageState: () => void;
 }
 
@@ -38,7 +36,6 @@ export interface PageActions {
 export interface PageWorkspaceResult {
     boxes: Box[];
     boxesByType: Record<BoxType, Box[]>;
-    runtimeProbeBoxes: Box[];
     handleChangeBoxesForType: (type: BoxType, next: Box[]) => void;
     activeBoxType: BoxType;
     setActiveBoxType: (type: BoxType) => void;
@@ -55,58 +52,13 @@ interface UsePageWorkspaceArgs {
     boxDetectionTask: string;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-        return value as Record<string, unknown>;
-    }
-    return null;
-}
-
-function readTrimmedString(
-    source: Record<string, unknown> | null,
-    keys: string[],
-): string | null {
-    if (!source) {
-        return null;
-    }
-    for (const key of keys) {
-        const raw = source[key];
-        if (typeof raw !== "string") {
-            continue;
-        }
-        const value = raw.trim();
-        if (value) {
-            return value;
-        }
-    }
-    return null;
-}
-
-function payloadMatchesPage(
-    payload: Record<string, unknown> | null,
-    volumeId: string,
-    filename: string,
-): boolean {
-    const nestedRequest = asRecord(payload?.request);
-    const candidates = [payload, nestedRequest];
-    for (const candidate of candidates) {
-        const currentVolume = readTrimmedString(candidate, ["volumeId", "volume_id"]);
-        const currentFilename = readTrimmedString(candidate, ["filename", "file_name"]);
-        if (currentVolume === volumeId && currentFilename === filename) {
-            return true;
-        }
-    }
-    return false;
-}
-
 export function usePageWorkspace({
-                                     ocrProfileId,
-                                     translationProfileId,
-                                     boxDetectionProfileId,
-                                     boxDetectionTask,
-                                 }: UsePageWorkspaceArgs): PageWorkspaceResult {
-    const {jobs} = useJobs();
-    const { volumeId, filename } = usePage();
+    ocrProfileId,
+    translationProfileId,
+    boxDetectionProfileId,
+    boxDetectionTask,
+}: UsePageWorkspaceArgs): PageWorkspaceResult {
+    const { jobs } = useJobs();
     const [activeBoxTypeByPage, setActiveBoxTypeByPage] = useState<
         Record<string, BoxType>
     >({});
@@ -124,7 +76,6 @@ export function usePageWorkspace({
         handleUpdateBoxText,
         handleClearTextField,
         handleAutoDetectBoxes,
-        handleDetectMissingBoxes,
         handleRefreshPageState,
     } = usePageBoxes();
 
@@ -171,144 +122,6 @@ export function usePageWorkspace({
     });
 
     const normalizedDetectionTask = normalizeBoxType(boxDetectionTask);
-
-    const runtimeProbeBoxes = useMemo(() => {
-        if (!volumeId || !filename) {
-            return [];
-        }
-
-        const runningJobs = jobs.filter(
-            (job) =>
-                job.type === "detect_missing_boxes" &&
-                (
-                    job.status === "queued" ||
-                    job.status === "running" ||
-                    job.status === "finished"
-                ) &&
-                payloadMatchesPage(
-                    asRecord(job.payload),
-                    volumeId,
-                    filename,
-                ),
-        );
-        if (runningJobs.length === 0) {
-            return [];
-        }
-        const latestJob = runningJobs.reduce((latest, current) =>
-            current.updated_at > latest.updated_at ? current : latest,
-        );
-        const metrics = asRecord(latestJob.metrics);
-        const runtime = asRecord(metrics?.missing_box_runtime);
-        const trialHistory = Array.isArray(runtime?.trial_history)
-            ? runtime?.trial_history
-            : [];
-        const trailProbeBoxes: Box[] = trialHistory
-            .slice(-20)
-            .reduce<Box[]>((acc, rawItem, index) => {
-                const item = asRecord(rawItem);
-                if (!item) {
-                    return acc;
-                }
-                const x = Number(item.x);
-                const y = Number(item.y);
-                const width = Number(item.width);
-                const height = Number(item.height);
-                if (
-                    !Number.isFinite(x) ||
-                    !Number.isFinite(y) ||
-                    !Number.isFinite(width) ||
-                    !Number.isFinite(height) ||
-                    width <= 0 ||
-                    height <= 0
-                ) {
-                    return acc;
-                }
-                const status = String(item.status || "attempting").trim();
-                const candidateIndex = Number(item.candidate_index ?? 0);
-                const candidatesTotal = Number(item.candidates_total ?? 0);
-                const attemptIndex = Number(item.attempt_index ?? 0);
-                const attemptsPerCandidate = Number(item.attempts_per_candidate ?? 0);
-                const probeLabel = [
-                    Number.isFinite(candidateIndex) && candidateIndex > 0
-                        ? `c${candidateIndex}/${Math.max(1, candidatesTotal)}`
-                        : null,
-                    Number.isFinite(attemptIndex) && attemptIndex > 0
-                        ? `a${attemptIndex}/${Math.max(1, attemptsPerCandidate)}`
-                        : null,
-                    status,
-                ]
-                    .filter(Boolean)
-                    .join(" ");
-                acc.push({
-                    id: -1000 - index,
-                    orderIndex: 0,
-                    x,
-                    y,
-                    width,
-                    height,
-                    type: "text" as const,
-                    text: "",
-                    translation: "",
-                    note: probeLabel,
-                });
-                return acc;
-            }, [])
-        ;
-        if (trailProbeBoxes.length > 0) {
-            return trailProbeBoxes;
-        }
-        const latestTrial = asRecord(runtime?.latest_trial);
-        if (!latestTrial) {
-            return [];
-        }
-
-        const x = Number(latestTrial.x);
-        const y = Number(latestTrial.y);
-        const width = Number(latestTrial.width);
-        const height = Number(latestTrial.height);
-        if (
-            !Number.isFinite(x) ||
-            !Number.isFinite(y) ||
-            !Number.isFinite(width) ||
-            !Number.isFinite(height) ||
-            width <= 0 ||
-            height <= 0
-        ) {
-            return [];
-        }
-
-        const status = String(latestTrial.status || "attempting").trim();
-        const candidateIndex = Number(latestTrial.candidate_index ?? 0);
-        const candidatesTotal = Number(latestTrial.candidates_total ?? 0);
-        const attemptIndex = Number(latestTrial.attempt_index ?? 0);
-        const attemptsPerCandidate = Number(latestTrial.attempts_per_candidate ?? 0);
-        const probeLabel = [
-            Number.isFinite(candidateIndex) && candidateIndex > 0
-                ? `c${candidateIndex}/${Math.max(1, candidatesTotal)}`
-                : null,
-            Number.isFinite(attemptIndex) && attemptIndex > 0
-                ? `a${attemptIndex}/${Math.max(1, attemptsPerCandidate)}`
-                : null,
-            status,
-        ]
-            .filter(Boolean)
-            .join(" ");
-
-        return [
-            {
-                id: -1,
-                orderIndex: 0,
-                x,
-                y,
-                width,
-                height,
-                type: "text" as const,
-                text: "",
-                translation: "",
-                note: probeLabel,
-            },
-        ];
-    }, [jobs, volumeId, filename]);
 
     const visibleBoxTypes = useMemo(() => {
         const next = new Set<BoxType>(["text", "panel"]);
@@ -383,9 +196,6 @@ export function usePageWorkspace({
                 boxDetectionTask || undefined,
             );
         },
-        onDetectMissingBoxes: () => {
-            void handleDetectMissingBoxes();
-        },
         onRefreshPageState: () => {
             void handleRefreshPageState();
         },
@@ -395,7 +205,6 @@ export function usePageWorkspace({
     return {
         boxes,
         boxesByType,
-        runtimeProbeBoxes,
         handleChangeBoxesForType,
         activeBoxType,
         setActiveBoxType,
