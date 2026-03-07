@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from config import AGENT_MCP_SERVER_URL
@@ -57,7 +57,8 @@ def build_agent_mcp_servers(
         name="mangayaku-tools",
         client_session_timeout_seconds=90,
     )
-    server._mangayaku_agent_run_id = resolved_run_id
+    server_runtime = cast(Any, server)
+    server_runtime._mangayaku_agent_run_id = resolved_run_id
     return [server]
 
 

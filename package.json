@@ -16,12 +16,14 @@
     "setup": "node scripts/setup.mjs",
     "lint:backend": "backend-python/.venv/bin/python -m ruff check --config backend-python/pyproject.toml backend-python",
     "lint:backend:fix": "backend-python/.venv/bin/python -m ruff check --config backend-python/pyproject.toml backend-python --fix",
+    "format:backend": "backend-python/.venv/bin/python -m ruff format --config backend-python/pyproject.toml backend-python",
+    "format:backend:check": "backend-python/.venv/bin/python -m ruff format --config backend-python/pyproject.toml backend-python --check",
     "lint:types": "pyright -p backend-python/pyrightconfig.json",
     "test:backend": "backend-python/.venv/bin/python -m pytest backend-python/tests -q",
     "typecheck:frontend": "npm --prefix frontend run typecheck",
     "lint:frontend": "npm --prefix frontend run lint",
-    "lint": "npm run lint:backend && npm run lint:types && npm run typecheck:frontend && npm run lint:frontend",
-    "lint:fix": "npm run lint:backend:fix && npm run lint:frontend"
+    "lint": "npm run lint:backend && npm run format:backend:check && npm run lint:types && npm run typecheck:frontend && npm run lint:frontend",
+    "lint:fix": "npm run lint:backend:fix && npm run format:backend && npm run lint:frontend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
