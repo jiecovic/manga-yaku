@@ -119,7 +119,11 @@ async def test_startup_is_idempotent() -> None:
         assert first_translate_db_worker_task is runtime._db_translate_worker_task
         assert first_utility_db_worker_task is runtime._db_utility_worker_task
         assert not runtime.STORE.shutdown_event.is_set()
-        mark_interrupted.assert_called_once()
+        mark_interrupted.assert_called_once_with(
+            workflow_type=runtime.AGENT_WORKFLOW_TYPE,
+            message="Interrupted by backend restart",
+            include_queued=True,
+        )
 
         await runtime.stop_jobs_runtime()
         assert not runtime.is_jobs_runtime_started()

@@ -48,10 +48,7 @@ from api.services.jobs_service import (
     get_training_log_path,
     list_job_public_records,
 )
-from infra.jobs.job_modes import (
-    AGENT_WORKFLOW_TYPE,
-)
-from infra.jobs.runtime import STORE, create_and_enqueue_memory_job
+from infra.jobs.runtime import STORE
 from infra.jobs.store import JobPublic
 from infra.training.catalog import resolve_prepared_dataset, resolve_training_sources
 
@@ -278,14 +275,12 @@ async def get_job_tasks(job_id: str) -> dict:
 async def resume_job(job_id: str) -> CreateJobResponse:
     """Resume job."""
     payload = get_resume_agent_payload(job_id=job_id, store=STORE)
-
-    new_job_id = create_and_enqueue_memory_job(
-        job_type=AGENT_WORKFLOW_TYPE,
-        payload=payload,
-        progress=0,
-        message="Queued (resume)",
+    req = CreateAgentTranslatePageJobRequest(**payload)
+    decision = create_agent_translate_page_job_record(
+        store=STORE,
+        req=req,
     )
-    return CreateJobResponse(jobId=new_job_id)
+    return CreateJobResponse(jobId=decision["job_id"])
 
 
 @router.post("/jobs/{job_id}/cancel")

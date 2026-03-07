@@ -126,6 +126,7 @@ async def start_jobs_runtime() -> None:
             mark_running_workflows_interrupted(
                 workflow_type=AGENT_WORKFLOW_TYPE,
                 message="Interrupted by backend restart",
+                include_queued=True,
             )
         except Exception:
             logger.exception(

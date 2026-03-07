@@ -92,8 +92,11 @@ def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
         run = get_workflow_run(job_id)
         if not run or str(run.get("workflow_type")) != AGENT_WORKFLOW_TYPE:
             raise HTTPException(status_code=404, detail="Job not found")
-        if str(run.get("status")) == "running":
-            raise HTTPException(status_code=409, detail="Workflow is marked running; cancel it first")
+        if str(run.get("status") or "").strip() in {"queued", "running"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Workflow is already active; cancel it first",
+            )
         payload = restore_agent_payload_from_workflow(run)
 
     if not payload.get("volumeId") or not payload.get("filename"):
@@ -154,6 +157,18 @@ def _append_training_cancel_log(*, job_id: str, store: JobStore) -> None:
         pass
 
 
+def _find_memory_job_by_workflow_run_id(*, workflow_run_id: str, store: JobStore):
+    normalized = str(workflow_run_id or "").strip()
+    if not normalized:
+        return None
+    for job in store.jobs.values():
+        payload = dict(job.payload or {})
+        current_workflow_run_id = str(payload.get("workflowRunId") or "").strip()
+        if current_workflow_run_id == normalized:
+            return job
+    return None
+
+
 def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
     """Cancel job."""
     job = store.get_job(job_id)
@@ -176,6 +191,16 @@ def cancel_job(*, job_id: str, store: JobStore) -> JobStatus:
     status = workflow_status_to_job_status(str(run.get("status") or "failed"))
     if status in (JobStatus.finished, JobStatus.failed, JobStatus.canceled):
         return status
+    linked_memory_job = _find_memory_job_by_workflow_run_id(
+        workflow_run_id=job_id,
+        store=store,
+    )
+    if linked_memory_job is not None and linked_memory_job.status not in (
+        JobStatus.finished,
+        JobStatus.failed,
+        JobStatus.canceled,
+    ):
+        store.update_job(linked_memory_job, status=JobStatus.canceled, message="Canceled")
     cancel_workflow_run(job_id, message="Canceled")
     cancel_pending_tasks(job_id)
     if str(run.get("workflow_type") or "").strip() == TRAIN_MODEL_JOB_TYPE:

@@ -137,6 +137,29 @@ def test_get_resume_agent_payload_strips_workflow_fields(store: JobStore) -> Non
     assert "workflowStage" not in payload
 
 
+@pytest.mark.parametrize("status", ["queued", "running"])
+def test_get_resume_agent_payload_rejects_active_persisted_workflow(
+    store: JobStore,
+    status: str,
+) -> None:
+    with (
+        patch(
+            "api.services.jobs_service.get_workflow_run",
+            return_value={
+                "id": "wf-active-1",
+                "workflow_type": "agent_translate_page",
+                "status": status,
+                "result_json": {"request": {"volumeId": "vol", "filename": "010.jpg"}},
+            },
+        ),
+        pytest.raises(HTTPException) as raised,
+    ):
+        get_resume_agent_payload(job_id="wf-active-1", store=store)
+
+    assert raised.value.status_code == 409
+    assert "already active" in str(raised.value.detail).lower()
+
+
 def test_cancel_job_marks_memory_job_canceled(store: JobStore) -> None:
     now = store.now()
     store.add_job(
@@ -157,6 +180,80 @@ def test_cancel_job_marks_memory_job_canceled(store: JobStore) -> None:
         raise AssertionError("Expected canceled job to remain in store")
     assert stored.status == JobStatus.canceled
     assert stored.message == "Canceled"
+
+
+def test_cancel_memory_hybrid_job_propagates_to_persisted_workflow(store: JobStore) -> None:
+    now = store.now()
+    store.add_job(
+        Job(
+            id="job-4a",
+            type="agent_translate_page",
+            status=JobStatus.running,
+            created_at=now,
+            updated_at=now,
+            payload={
+                "volumeId": "vol",
+                "filename": "003a.jpg",
+                "workflowRunId": "wf-4a",
+            },
+        )
+    )
+
+    with (
+        patch("api.services.jobs_service.cancel_workflow_run", return_value=True) as cancel_run_mock,
+        patch("api.services.jobs_service.cancel_pending_tasks") as cancel_tasks_mock,
+    ):
+        status = cancel_job(job_id="job-4a", store=store)
+
+    assert status == JobStatus.canceled
+    stored = store.get_job("job-4a")
+    if stored is None:
+        raise AssertionError("Expected canceled job to remain in store")
+    assert stored.status == JobStatus.canceled
+    assert stored.message == "Canceled"
+    cancel_run_mock.assert_called_once_with("wf-4a", message="Canceled")
+    cancel_tasks_mock.assert_called_once_with("wf-4a")
+
+
+def test_cancel_job_by_workflow_id_marks_linked_memory_agent_job_canceled(store: JobStore) -> None:
+    now = store.now()
+    store.add_job(
+        Job(
+            id="job-4b",
+            type="agent_translate_page",
+            status=JobStatus.running,
+            created_at=now,
+            updated_at=now,
+            payload={
+                "volumeId": "vol",
+                "filename": "003b.jpg",
+                "workflowRunId": "wf-4b",
+            },
+        )
+    )
+
+    with (
+        patch(
+            "api.services.jobs_service.get_workflow_run",
+            return_value={
+                "id": "wf-4b",
+                "workflow_type": "agent_translate_page",
+                "status": "running",
+            },
+        ),
+        patch("api.services.jobs_service.cancel_workflow_run", return_value=True) as cancel_run_mock,
+        patch("api.services.jobs_service.cancel_pending_tasks") as cancel_tasks_mock,
+    ):
+        status = cancel_job(job_id="wf-4b", store=store)
+
+    assert status == JobStatus.canceled
+    stored = store.get_job("job-4b")
+    if stored is None:
+        raise AssertionError("Expected linked memory job to remain in store")
+    assert stored.status == JobStatus.canceled
+    assert stored.message == "Canceled"
+    cancel_run_mock.assert_called_once_with("wf-4b", message="Canceled")
+    cancel_tasks_mock.assert_called_once_with("wf-4b")
 
 
 def test_delete_job_rejects_running_memory_job(store: JobStore) -> None:

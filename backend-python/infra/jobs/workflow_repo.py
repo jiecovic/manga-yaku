@@ -248,8 +248,10 @@ def mark_running_workflows_interrupted(
     *,
     workflow_type: str | None = None,
     message: str = "Interrupted by backend restart",
+    include_queued: bool = False,
 ) -> int:
     return store_mark_running_workflows_interrupted(
         workflow_type=workflow_type,
         message=message,
+        include_queued=include_queued,
     )

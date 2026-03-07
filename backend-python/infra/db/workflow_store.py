@@ -434,10 +434,14 @@ def mark_running_workflows_interrupted(
     *,
     workflow_type: str | None = None,
     message: str = "Interrupted by backend restart",
+    include_queued: bool = False,
 ) -> int:
     changed = 0
     with get_session() as session:
-        stmt = select(WorkflowRun).where(WorkflowRun.status == "running")
+        statuses = ["running"]
+        if include_queued:
+            statuses.append("queued")
+        stmt = select(WorkflowRun).where(WorkflowRun.status.in_(statuses))
         if workflow_type:
             stmt = stmt.where(WorkflowRun.workflow_type == workflow_type)
         rows = session.execute(stmt).scalars().all()
