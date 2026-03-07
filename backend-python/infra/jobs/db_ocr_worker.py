@@ -10,6 +10,7 @@ from typing import Any
 
 from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.selection import select_box_ocr_texts
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
 from infra.db.db_store import set_box_ocr_text_by_id
 from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE, OCR_PAGE_WORKFLOW_TYPE
@@ -249,24 +250,19 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
         }:
             box_had_failure[box_id] = True
 
+    selected_texts = select_box_ocr_texts(
+        by_box,
+        box_ids=sorted(processable_box_ids),
+        preferred_profile_ids=profile_order,
+    )
+
     updated = 0
     failures = 0
     volume_id = str(run.get("volume_id") or "").strip()
     filename = str(run.get("filename") or "").strip()
     try:
         for box_id in sorted(processable_box_ids):
-            per_profile = by_box.get(box_id, {})
-            chosen = ""
-            for profile_id in profile_order:
-                candidate = per_profile.get(profile_id, "")
-                if candidate:
-                    chosen = candidate
-                    break
-            if not chosen:
-                for candidate in per_profile.values():
-                    if candidate:
-                        chosen = candidate
-                        break
+            chosen = selected_texts.get(box_id, "")
             if chosen:
                 set_box_ocr_text_by_id(
                     volume_id,

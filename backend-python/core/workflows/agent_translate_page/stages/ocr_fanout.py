@@ -9,6 +9,7 @@ from typing import Any
 
 from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.selection import select_box_ocr_texts
 from core.usecases.ocr.task_runner import OcrTaskOutcome
 from infra.db.db_store import set_box_ocr_text_by_id
 from infra.db.workflow_store import create_task_run, update_task_run
@@ -205,23 +206,18 @@ async def run_ocr_fanout_stage(
         elif outcome.status == "error":
             error_candidates.setdefault(box_id, set()).add(outcome.profile_id)
 
-    preferred_profile = preferred_profile_id or ""
-    for box in text_boxes:
-        box_id = int(box.get("id") or 0)
-        per_box = candidates.get(box_id, {})
-        chosen = per_box.get(preferred_profile, "") if preferred_profile else ""
-        if not chosen:
-            for value in per_box.values():
-                if value:
-                    chosen = value
-                    break
-        if chosen:
-            set_box_ocr_text_by_id(
-                volume_id,
-                filename,
-                box_id=box_id,
-                ocr_text=chosen,
-            )
+    selected_texts = select_box_ocr_texts(
+        candidates,
+        box_ids=(int(box.get("id") or 0) for box in text_boxes),
+        preferred_profile_ids=[preferred_profile_id] if preferred_profile_id else [],
+    )
+    for box_id, chosen in selected_texts.items():
+        set_box_ocr_text_by_id(
+            volume_id,
+            filename,
+            box_id=box_id,
+            ocr_text=chosen,
+        )
 
     return OcrFanoutResult(
         candidates=candidates,
