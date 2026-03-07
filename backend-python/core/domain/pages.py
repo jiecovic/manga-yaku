@@ -7,10 +7,10 @@ from .page_ports import get_page_write_port
 
 
 def set_box_ocr_text_by_id(
-        volume_id: str,
-        filename: str,
-        box_id: int,
-        ocr_text: str,
+    volume_id: str,
+    filename: str,
+    box_id: int,
+    ocr_text: str,
 ) -> None:
     """
     Update the 'text' field of a box identified by its numeric id.
@@ -25,10 +25,10 @@ def set_box_ocr_text_by_id(
 
 
 def set_box_translation_by_id(
-        volume_id: str,
-        filename: str,
-        box_id: int,
-        translation: str,
+    volume_id: str,
+    filename: str,
+    box_id: int,
+    translation: str,
 ) -> None:
     """
     Update the 'translation' field of a box identified by its numeric id

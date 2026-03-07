@@ -88,7 +88,5 @@ def run_commit_stage(
         story_summary=story_summary if isinstance(story_summary, str) else None,
         open_threads=open_threads,
         glossary=glossary,
-        coverage_warning=(
-            str(commit.get("coverageWarning") or "").strip() or None
-        ),
+        coverage_warning=(str(commit.get("coverageWarning") or "").strip() or None),
     )

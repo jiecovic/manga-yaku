@@ -42,9 +42,7 @@ def _profiles_snapshot_from_registry() -> list[dict]:
 def test_unavailable_manga_ocr_is_hidden_from_provider_list() -> None:
     original_manga_enabled = bool(OCR_PROFILES.get("manga_ocr_default", {}).get("enabled", True))
     original_fast_enabled = bool(OCR_PROFILES.get("openai_fast_ocr", {}).get("enabled", True))
-    original_quality_enabled = bool(
-        OCR_PROFILES.get("openai_quality_ocr", {}).get("enabled", True)
-    )
+    original_quality_enabled = bool(OCR_PROFILES.get("openai_quality_ocr", {}).get("enabled", True))
     original_ultra_enabled = bool(OCR_PROFILES.get("openai_ultra_ocr", {}).get("enabled", True))
 
     try:

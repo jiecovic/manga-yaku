@@ -296,8 +296,7 @@ def apply_translation_payload(
     coverage_warning: str | None = None
     if missing_indices:
         coverage_warning = (
-            "Stage-1 omitted indices "
-            f"{sorted(missing_indices)}; preserving unmatched boxes"
+            f"Stage-1 omitted indices {sorted(missing_indices)}; preserving unmatched boxes"
         )
         logger.warning(
             append_correlation(

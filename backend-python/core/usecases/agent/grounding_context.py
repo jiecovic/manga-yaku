@@ -68,9 +68,7 @@ def build_grounding_message(
 
     text_boxes = list_text_boxes_for_page(page)
     ocr_filled_count = sum(1 for box in text_boxes if str(box.get("text") or "").strip())
-    translated_count = sum(
-        1 for box in text_boxes if str(box.get("translation") or "").strip()
-    )
+    translated_count = sum(1 for box in text_boxes if str(box.get("translation") or "").strip())
     summary_lines = [
         "Current active page grounding:",
         f"- volume_id: {volume_id}",
@@ -80,8 +78,8 @@ def build_grounding_message(
         f"- ocr_filled_boxes: {ocr_filled_count}",
         f"- translated_boxes: {translated_count}",
         (
-            f"Use list_text_boxes(filename=\"{filename}\") / "
-            f"get_text_box_detail(box_id=..., filename=\"{filename}\") "
+            f'Use list_text_boxes(filename="{filename}") / '
+            f'get_text_box_detail(box_id=..., filename="{filename}") '
             "for exact geometry and OCR/translation data."
         ),
     ]
@@ -93,8 +91,8 @@ def build_grounding_message(
                 "  - "
                 f"#{item['id']} "
                 f"bbox=({int(item['x'])},{int(item['y'])},{int(item['width'])},{int(item['height'])}) "
-                f"ocr=\"{_truncate(str(item['text']), max_chars=80)}\" "
-                f"tr=\"{_truncate(str(item['translation']), max_chars=80)}\""
+                f'ocr="{_truncate(str(item["text"]), max_chars=80)}" '
+                f'tr="{_truncate(str(item["translation"]), max_chars=80)}"'
             )
 
     content: list[dict[str, Any]] = [

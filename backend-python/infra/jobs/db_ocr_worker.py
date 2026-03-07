@@ -104,7 +104,9 @@ def _compose_result_json(
     return base
 
 
-def _profile_order_for_run(tasks: list[dict[str, Any]], request_payload: dict[str, Any]) -> list[str]:
+def _profile_order_for_run(
+    tasks: list[dict[str, Any]], request_payload: dict[str, Any]
+) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     raw = request_payload.get("profileIds")
@@ -150,9 +152,7 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
     tasks = list_task_runs(workflow_id, stage=_OCR_STAGE)
     total_tasks = len(tasks)
     queued_or_running = sum(
-        1
-        for task in tasks
-        if str(task.get("status") or "") in {"queued", "running"}
+        1 for task in tasks if str(task.get("status") or "") in {"queued", "running"}
     )
     done_tasks = total_tasks - queued_or_running
     request_payload = _extract_request_payload(run)
@@ -242,7 +242,11 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
             by_box.setdefault(box_id, {})[profile_id] = text.strip()
             continue
 
-        if task_status in {"failed", "timed_out"} or result_status in {"error", "invalid", "timed_out"}:
+        if task_status in {"failed", "timed_out"} or result_status in {
+            "error",
+            "invalid",
+            "timed_out",
+        }:
             box_had_failure[box_id] = True
 
     updated = 0
@@ -381,14 +385,13 @@ async def _run_claimed_task(
     prompt_file = resolve_ocr_prompt_version(profile_id)
 
     async with sem:
+
         def persist_attempt_event(event: dict[str, Any]) -> None:
             attempt = max(1, _to_int(event.get("attempt"), default=1))
             latency_ms = max(0, _to_int(event.get("latency_ms"), default=0))
             max_output_raw = event.get("max_output_tokens")
             max_output_tokens = (
-                _to_int(max_output_raw, default=0) or None
-                if max_output_raw is not None
-                else None
+                _to_int(max_output_raw, default=0) or None if max_output_raw is not None else None
             )
             append_task_attempt_event(
                 task_id=task_id,

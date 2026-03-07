@@ -5,9 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image
-
 from config import VOLUMES_ROOT, safe_join
+from PIL import Image
 
 
 def get_page_image_path(volume_id: str, filename: str) -> Path:
@@ -15,12 +14,12 @@ def get_page_image_path(volume_id: str, filename: str) -> Path:
 
 
 def crop_volume_image(
-        volume_id: str,
-        filename: str,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
+    volume_id: str,
+    filename: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
 ) -> Image.Image:
     """
     Load the page image for (volume_id, filename) and return a cropped PIL.Image.
@@ -86,5 +85,3 @@ def encode_image_data_url(
     image.save(buffer, format=image_format, quality=quality)
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/{image_format.lower()};base64,{encoded}"
-
-

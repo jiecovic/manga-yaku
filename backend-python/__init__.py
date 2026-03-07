@@ -2,4 +2,3 @@
 """
 MangaYaku Python backend package.
 """
-

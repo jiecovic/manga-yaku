@@ -18,7 +18,6 @@ import json
 from unittest.mock import patch
 
 import pytest
-
 from core.workflows.agent_translate_page.types import (
     AgentTranslateWorkflowSnapshot,
     WorkflowState,

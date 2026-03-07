@@ -17,7 +17,6 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
-
 from core.workflows.agent_translate_page.stages.commit import run_commit_stage
 from core.workflows.agent_translate_page.stages.translate import (
     TranslateStageError,
@@ -172,8 +171,7 @@ def test_run_translate_stage_success() -> None:
         for call in update_calls
     )
     assert any(
-        call.get("task_id") == "task-merge"
-        and call.get("error_detail") == "merge fallback applied"
+        call.get("task_id") == "task-merge" and call.get("error_detail") == "merge fallback applied"
         for call in update_calls
     )
 

@@ -11,9 +11,6 @@ import threading
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
-
 from api.schemas.agent_chat import (
     AgentConfigResponse,
     AgentMessagePublic,
@@ -35,6 +32,8 @@ from core.usecases.agent.turn_state import (
     sanitize_agent_reply_text,
     stale_context_warning_message,
 )
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from infra.db.agent_store import (
     add_agent_message,
     create_agent_session,
@@ -315,10 +314,7 @@ def _persist_agent_warning_message(
 @router.get("/agent/config", response_model=AgentConfigResponse)
 async def get_agent_config() -> AgentConfigResponse:
     """Return agent config."""
-    models = [
-        AgentModelPublic(id=model_id, label=model_id)
-        for model_id in AGENT_MODELS
-    ]
+    models = [AgentModelPublic(id=model_id, label=model_id) for model_id in AGENT_MODELS]
     default_model = AGENT_MODEL
     if default_model not in AGENT_MODELS and AGENT_MODELS:
         default_model = AGENT_MODELS[0]
@@ -474,9 +470,8 @@ async def create_agent_reply(
         )
     except Exception as exc:
         error_text = str(exc).strip()
-        request_id = (
-            str(getattr(exc, "request_id", "") or "").strip()
-            or _extract_request_id(error_text)
+        request_id = str(getattr(exc, "request_id", "") or "").strip() or _extract_request_id(
+            error_text
         )
         _log_agent_sdk_attempt(
             component="agent.chat.sync.sdk",
@@ -533,11 +528,7 @@ async def create_agent_reply(
         messages=payload,
         action_events=None,
         response_text=response_text,
-        error_detail=(
-            None
-            if response_text
-            else "Sync reply completed without final text"
-        ),
+        error_detail=(None if response_text else "Sync reply completed without final text"),
         latency_ms=round((time.monotonic() - reply_started_at) * 1000),
         finish_reason="completed" if response_text else "empty_output",
         phase="sync_reply",
@@ -590,6 +581,7 @@ async def stream_agent_reply(
             volume_id=session.volume_id,
             current_filename=runtime_active_filename,
         )
+
         def _corr(**extras: object) -> dict[str, object]:
             return normalize_correlation(
                 {
@@ -708,10 +700,9 @@ async def stream_agent_reply(
                     ).strip()
                 except Exception as retry_exc:
                     retry_error_text = str(retry_exc).strip()
-                    retry_request_id = (
-                        str(getattr(retry_exc, "request_id", "") or "").strip()
-                        or _extract_request_id(retry_error_text)
-                    )
+                    retry_request_id = str(
+                        getattr(retry_exc, "request_id", "") or ""
+                    ).strip() or _extract_request_id(retry_error_text)
                     _log_agent_sdk_attempt(
                         component="agent.chat.sync.sdk",
                         status="error",
@@ -910,9 +901,8 @@ async def stream_agent_reply(
             )
         except Exception as exc:
             error_text = str(exc).strip()
-            request_id = (
-                str(getattr(exc, "request_id", "") or "").strip()
-                or _extract_request_id(error_text)
+            request_id = str(getattr(exc, "request_id", "") or "").strip() or _extract_request_id(
+                error_text
             )
             provider_server_error = _is_provider_server_error(exc=exc, text=error_text)
             _log_agent_sdk_attempt(
@@ -938,10 +928,14 @@ async def stream_agent_reply(
                     )
                 )
             else:
-                logger.exception(append_correlation("agent stream failed", _corr(request_id=request_id)))
+                logger.exception(
+                    append_correlation("agent stream failed", _corr(request_id=request_id))
+                )
             if request_id:
                 log_fn = logger.warning if provider_server_error else logger.error
-                log_fn(append_correlation("agent stream provider error", _corr(request_id=request_id)))
+                log_fn(
+                    append_correlation("agent stream provider error", _corr(request_id=request_id))
+                )
             if not stop_event.is_set():
                 try:
                     logger.info(append_correlation("agent stream fallback sync", _corr()))
@@ -958,10 +952,9 @@ async def stream_agent_reply(
                             ).strip()
                         except Exception as fallback_attempt_exc:
                             fallback_attempt_text = str(fallback_attempt_exc).strip()
-                            fallback_attempt_request_id = (
-                                str(getattr(fallback_attempt_exc, "request_id", "") or "").strip()
-                                or _extract_request_id(fallback_attempt_text)
-                            )
+                            fallback_attempt_request_id = str(
+                                getattr(fallback_attempt_exc, "request_id", "") or ""
+                            ).strip() or _extract_request_id(fallback_attempt_text)
                             if not request_id and fallback_attempt_request_id:
                                 request_id = fallback_attempt_request_id
                             _log_agent_sdk_attempt(
@@ -975,7 +968,9 @@ async def stream_agent_reply(
                                 action_events=action_events,
                                 error_detail=fallback_attempt_text,
                                 request_id=fallback_attempt_request_id,
-                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                latency_ms=round(
+                                    (time.monotonic() - fallback_attempt_started_at) * 1000
+                                ),
                                 finish_reason=(
                                     "provider_error"
                                     if _is_provider_server_error(
@@ -994,7 +989,10 @@ async def stream_agent_reply(
                                 logger.warning(
                                     append_correlation(
                                         "agent stream fallback sync provider error; retrying once",
-                                        _corr(request_id=fallback_attempt_request_id, attempt=attempt + 1),
+                                        _corr(
+                                            request_id=fallback_attempt_request_id,
+                                            attempt=attempt + 1,
+                                        ),
                                     )
                                 )
                                 continue
@@ -1011,7 +1009,9 @@ async def stream_agent_reply(
                                 action_events=action_events,
                                 response_text=fallback_text,
                                 request_id=request_id,
-                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                latency_ms=round(
+                                    (time.monotonic() - fallback_attempt_started_at) * 1000
+                                ),
                                 finish_reason="completed",
                                 phase="stream_fallback_sync",
                                 attempt=attempt + 1,
@@ -1029,7 +1029,9 @@ async def stream_agent_reply(
                                 action_events=action_events,
                                 error_detail="Sync fallback attempt completed without final text",
                                 request_id=request_id,
-                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                latency_ms=round(
+                                    (time.monotonic() - fallback_attempt_started_at) * 1000
+                                ),
                                 finish_reason="empty_output",
                                 phase="stream_fallback_sync",
                                 attempt=attempt + 1,
@@ -1144,7 +1146,9 @@ async def stream_agent_reply(
                     fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
                     if fallback_actions:
                         fallback_meta["actions"] = fallback_actions[-40:]
-                    persisted_timeline = _persist_action_event_messages(session_id, fallback_actions)
+                    persisted_timeline = _persist_action_event_messages(
+                        session_id, fallback_actions
+                    )
                     fallback_message = add_agent_message(
                         session_id,
                         role="assistant",
@@ -1175,7 +1179,9 @@ async def stream_agent_reply(
                             if guard_reason == "provider_error_empty"
                             else None
                         ),
-                        finish_reason="provider_error" if guard_reason == "provider_error_empty" else "completed",
+                        finish_reason="provider_error"
+                        if guard_reason == "provider_error_empty"
+                        else "completed",
                         phase="stream_fallback_final_reply",
                     )
                     logger.info(
@@ -1188,10 +1194,9 @@ async def stream_agent_reply(
                     return
                 except Exception as fallback_exc:
                     fallback_error_text = str(fallback_exc).strip()
-                    fallback_request_id = (
-                        str(getattr(fallback_exc, "request_id", "") or "").strip()
-                        or _extract_request_id(fallback_error_text)
-                    )
+                    fallback_request_id = str(
+                        getattr(fallback_exc, "request_id", "") or ""
+                    ).strip() or _extract_request_id(fallback_error_text)
                     if _is_provider_server_error(exc=fallback_exc, text=fallback_error_text):
                         final_request_id = fallback_request_id or request_id
                         _log_agent_sdk_attempt(
@@ -1226,7 +1231,9 @@ async def stream_agent_reply(
                         fallback_meta: dict[str, object] = {"source": "agent_reply_fallback"}
                         if fallback_actions:
                             fallback_meta["actions"] = fallback_actions[-40:]
-                        persisted_timeline = _persist_action_event_messages(session_id, fallback_actions)
+                        persisted_timeline = _persist_action_event_messages(
+                            session_id, fallback_actions
+                        )
                         fallback_message = add_agent_message(
                             session_id,
                             role="assistant",
@@ -1248,7 +1255,11 @@ async def stream_agent_reply(
                             )
                         )
                         return
-                    logger.exception(append_correlation("agent stream fallback failed", _corr(request_id=fallback_request_id)))
+                    logger.exception(
+                        append_correlation(
+                            "agent stream fallback failed", _corr(request_id=fallback_request_id)
+                        )
+                    )
             loop.call_soon_threadsafe(
                 queue.put_nowait,
                 {"type": "error", "message": error_text},

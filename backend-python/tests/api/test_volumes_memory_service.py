@@ -15,14 +15,13 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
-
 from api.services.volumes_memory_service import (
     clear_page_memory,
     clear_volume_derived_state_payload,
     get_page_memory_payload,
     get_volume_memory_payload,
 )
+from fastapi import HTTPException
 
 
 def test_get_volume_memory_defaults_when_missing_context() -> None:
@@ -80,7 +79,9 @@ def test_clear_page_memory_clears_snapshot_only() -> None:
     with (
         patch("api.services.volumes_memory_service.get_volume", return_value=object()),
         patch("api.services.volumes_memory_service.list_page_filenames", return_value=["001.jpg"]),
-        patch("api.services.volumes_memory_service.clear_page_context_snapshot") as clear_snapshot_mock,
+        patch(
+            "api.services.volumes_memory_service.clear_page_context_snapshot"
+        ) as clear_snapshot_mock,
     ):
         clear_page_memory("vol-a", "001.jpg")
 

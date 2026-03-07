@@ -41,9 +41,7 @@ class _FakeSession:
         self._rows = rows
 
     def execute(self, _stmt: Any) -> _FakeExecuteResult:
-        filtered = [
-            row for row in self._rows if row.status == "running"
-        ]
+        filtered = [row for row in self._rows if row.status == "running"]
         return _FakeExecuteResult(filtered)
 
 

@@ -81,7 +81,11 @@ def _build_retry_override(base_cfg: dict[str, Any], *, attempt: int) -> dict[str
 
 def _extract_model_metadata(config: dict[str, Any]) -> tuple[str | None, int | None, str | None]:
     model_id = config.get("model")
-    max_tokens = config.get("max_output_tokens") or config.get("max_completion_tokens") or config.get("max_tokens")
+    max_tokens = (
+        config.get("max_output_tokens")
+        or config.get("max_completion_tokens")
+        or config.get("max_tokens")
+    )
     reasoning_effort = None
     reasoning = config.get("reasoning")
     if isinstance(reasoning, dict):

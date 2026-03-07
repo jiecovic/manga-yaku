@@ -129,9 +129,7 @@ async def run_translate_stage(
             token_usage = None
         raw_finish_reason = meta.get("finish_reason")
         finish_reason = (
-            str(raw_finish_reason).strip()
-            if isinstance(raw_finish_reason, str)
-            else finish_status
+            str(raw_finish_reason).strip() if isinstance(raw_finish_reason, str) else finish_status
         )
         model_for_event = str(meta.get("model_id") or "").strip() or resolved_model_id
         append_stage_attempt_event(
@@ -166,25 +164,19 @@ async def run_translate_stage(
                 model_id=model_id,
                 debug_id=workflow_run_id,
                 max_output_tokens=(
-                    int(max_output_tokens)
-                    if isinstance(max_output_tokens, int | float)
-                    else None
+                    int(max_output_tokens) if isinstance(max_output_tokens, int | float) else None
                 ),
                 reasoning_effort=(
                     str(reasoning_effort) if isinstance(reasoning_effort, str) else None
                 ),
-                temperature=(
-                    float(temperature) if isinstance(temperature, int | float) else None
-                ),
+                temperature=(float(temperature) if isinstance(temperature, int | float) else None),
                 merge_max_output_tokens=(
                     int(merge_max_output_tokens)
                     if isinstance(merge_max_output_tokens, int | float)
                     else None
                 ),
                 merge_reasoning_effort=(
-                    str(merge_reasoning_effort)
-                    if isinstance(merge_reasoning_effort, str)
-                    else None
+                    str(merge_reasoning_effort) if isinstance(merge_reasoning_effort, str) else None
                 ),
                 on_stage_event=on_agent_stage_event,
                 stop_event=stop_event,

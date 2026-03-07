@@ -427,7 +427,9 @@ def run_agent_translate_page(
         )
         stage2_result = {
             "characters": list(prior_characters) if isinstance(prior_characters, list) else [],
-            "open_threads": list(prior_open_threads) if isinstance(prior_open_threads, list) else [],
+            "open_threads": list(prior_open_threads)
+            if isinstance(prior_open_threads, list)
+            else [],
             "glossary": list(prior_glossary) if isinstance(prior_glossary, list) else [],
             "story_summary": str(prior_context_summary or "").strip(),
         }

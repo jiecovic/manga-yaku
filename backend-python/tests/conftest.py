@@ -9,6 +9,7 @@ How it is used:
 - Imported automatically by pytest before collecting/running tests.
 - Keeps the suite deterministic and independent of external services.
 """
+
 from __future__ import annotations
 
 import os

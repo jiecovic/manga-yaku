@@ -28,7 +28,7 @@ def normalize_translation_output(text: str) -> str:
 
     for left, right in quote_pairs:
         if s.startswith(left) and s.endswith(right):
-            inner = s[len(left):-len(right)].strip()
+            inner = s[len(left) : -len(right)].strip()
             if inner:
                 return inner
             return s

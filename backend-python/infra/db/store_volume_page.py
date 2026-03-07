@@ -25,9 +25,7 @@ def list_volumes() -> list[Volume]:
 
 def get_volume(volume_id: str) -> Volume | None:
     with get_session() as session:
-        return session.execute(
-            select(Volume).where(Volume.id == volume_id)
-        ).scalar_one_or_none()
+        return session.execute(select(Volume).where(Volume.id == volume_id)).scalar_one_or_none()
 
 
 def volume_name_exists(name: str) -> bool:
@@ -53,9 +51,7 @@ def create_volume(volume_id: str, name: str, *, next_index: int = 1) -> Volume:
 
 def update_volume_next_index(volume_id: str, next_index: int) -> None:
     with get_session() as session:
-        volume = session.execute(
-            select(Volume).where(Volume.id == volume_id)
-        ).scalar_one_or_none()
+        volume = session.execute(select(Volume).where(Volume.id == volume_id)).scalar_one_or_none()
         if volume is None:
             return
         volume.next_index = max(1, int(next_index))
@@ -63,9 +59,9 @@ def update_volume_next_index(volume_id: str, next_index: int) -> None:
 
 def delete_volume(volume_id: str) -> None:
     with get_session() as session:
-        page_ids = session.execute(
-            select(Page.id).where(Page.volume_id == volume_id)
-        ).scalars().all()
+        page_ids = (
+            session.execute(select(Page.id).where(Page.volume_id == volume_id)).scalars().all()
+        )
         if page_ids:
             session.execute(delete(Box).where(Box.page_id.in_(page_ids)))
             session.execute(delete(Page).where(Page.id.in_(page_ids)))
@@ -74,27 +70,34 @@ def delete_volume(volume_id: str) -> None:
 
 def list_page_filenames(volume_id: str) -> list[str]:
     with get_session() as session:
-        return session.execute(
-            select(Page.filename)
-            .where(Page.volume_id == volume_id)
-            .order_by(Page.page_index.asc().nulls_last(), Page.filename.asc())
-        ).scalars().all()
+        return (
+            session.execute(
+                select(Page.filename)
+                .where(Page.volume_id == volume_id)
+                .order_by(Page.page_index.asc().nulls_last(), Page.filename.asc())
+            )
+            .scalars()
+            .all()
+        )
 
 
 def list_pages(volume_id: str) -> list[Page]:
     with get_session() as session:
-        return session.execute(
-            select(Page)
-            .where(Page.volume_id == volume_id)
-            .order_by(Page.page_index.asc().nulls_last(), Page.filename.asc())
-        ).scalars().all()
+        return (
+            session.execute(
+                select(Page)
+                .where(Page.volume_id == volume_id)
+                .order_by(Page.page_index.asc().nulls_last(), Page.filename.asc())
+            )
+            .scalars()
+            .all()
+        )
 
 
 def get_page_index(volume_id: str, filename: str) -> float | None:
     with get_session() as session:
         return session.execute(
-            select(Page.page_index)
-            .where(
+            select(Page.page_index).where(
                 Page.volume_id == volume_id,
                 Page.filename == filename,
             )
@@ -138,8 +141,7 @@ def get_or_create_page(
     if page is None:
         if page_index is None:
             max_index = session.execute(
-                select(func.max(Page.page_index))
-                .where(Page.volume_id == volume_id)
+                select(func.max(Page.page_index)).where(Page.volume_id == volume_id)
             ).scalar_one_or_none()
             page_index = (max_index or 0) + 1.0
         page = Page(
@@ -175,10 +177,7 @@ def load_page(volume_id: str, filename: str) -> dict[str, Any]:
             .order_by(Box.type.asc(), Box.order_index.asc(), Box.box_id.asc())
         ).all()
 
-        boxes = [
-            box_row_to_dict(box, text_content, run)
-            for box, text_content, run in rows
-        ]
+        boxes = [box_row_to_dict(box, text_content, run) for box, text_content, run in rows]
 
         return page_to_dict(boxes)
 
@@ -246,6 +245,5 @@ def ensure_page(
 def get_max_page_index(volume_id: str) -> float | None:
     with get_session() as session:
         return session.execute(
-            select(func.max(Page.page_index))
-            .where(Page.volume_id == volume_id)
+            select(func.max(Page.page_index)).where(Page.volume_id == volume_id)
         ).scalar_one_or_none()

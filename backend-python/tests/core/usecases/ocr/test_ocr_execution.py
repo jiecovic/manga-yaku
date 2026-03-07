@@ -17,7 +17,6 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.task_runner import OcrTaskOutcome
 

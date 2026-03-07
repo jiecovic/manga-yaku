@@ -14,11 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Request
-from pydantic import BaseModel
-
 from infra.http import cors_headers_for_stream as build_cors_headers
 from infra.logging.ansi import strip_ansi
 from infra.logging.correlation import append_correlation
+from pydantic import BaseModel
 
 
 class JobStatus(str, Enum):

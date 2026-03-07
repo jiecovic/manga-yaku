@@ -81,9 +81,7 @@ def upsert_volume_context(
         context.active_characters = normalize_json_blob(active_characters)
         context.open_threads = normalize_json_blob(open_threads)
         context.glossary = normalize_json_blob(glossary)
-        context.last_page_index = (
-            float(last_page_index) if last_page_index is not None else None
-        )
+        context.last_page_index = float(last_page_index) if last_page_index is not None else None
         context.updated_at = now
 
 
@@ -132,9 +130,12 @@ def upsert_page_context(
 
 def clear_volume_context(volume_id: str) -> bool:
     with get_session() as session:
-        deleted = session.execute(
-            delete(VolumeContext).where(VolumeContext.volume_id == volume_id)
-        ).rowcount or 0
+        deleted = (
+            session.execute(
+                delete(VolumeContext).where(VolumeContext.volume_id == volume_id)
+            ).rowcount
+            or 0
+        )
         return deleted > 0
 
 
@@ -149,7 +150,7 @@ def clear_page_context_snapshot(volume_id: str, filename: str) -> bool:
         if page is None:
             return False
 
-        deleted = session.execute(
-            delete(PageContext).where(PageContext.page_id == page.id)
-        ).rowcount or 0
+        deleted = (
+            session.execute(delete(PageContext).where(PageContext.page_id == page.id)).rowcount or 0
+        )
         return deleted > 0

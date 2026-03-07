@@ -7,8 +7,6 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
-
 from infra.db.db import TaskRun, WorkflowRun, get_session
 from infra.db.workflow_store import (
     append_task_attempt_event as store_append_task_attempt_event,
@@ -24,6 +22,7 @@ from infra.db.workflow_store import update_task_run as store_update_task_run
 from infra.db.workflow_store import (
     update_workflow_run as store_update_workflow_run,
 )
+from sqlalchemy import select
 
 
 def _utc_now() -> datetime:

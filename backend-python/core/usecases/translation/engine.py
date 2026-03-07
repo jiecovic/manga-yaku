@@ -54,9 +54,7 @@ _has_cloud_openai = bool(OPENAI_API_KEY) and _has_openai_sdk
 _local_cfg = TRANSLATION_PROFILES["local_llm_default"].get("config", {})
 _local_base_url = _local_cfg.get("base_url", "") if isinstance(_local_cfg, dict) else ""
 _has_local_openai = (
-    _has_openai_sdk
-    and bool(_local_base_url)
-    and is_openai_base_url_reachable(_local_base_url)
+    _has_openai_sdk and bool(_local_base_url) and is_openai_base_url_reachable(_local_base_url)
 )
 
 mark_translation_availability(
@@ -177,7 +175,9 @@ def _build_series_context(volume_id: str) -> str:
     if isinstance(open_threads, list):
         lines = [str(item).strip() for item in open_threads if str(item).strip()]
         if lines:
-            parts.append("open threads:\n- " + "\n- ".join(_clip_context(line) for line in lines[:8]))
+            parts.append(
+                "open threads:\n- " + "\n- ".join(_clip_context(line) for line in lines[:8])
+            )
 
     glossary = snapshot.get("glossary")
     if isinstance(glossary, list):
@@ -251,9 +251,11 @@ def _build_page_context(
 
     return "\n\n".join(parts)
 
+
 # =====================================================================
 # PROMPTS
 # =====================================================================
+
 
 def _load_profile_prompt_bundle(profile: TranslationProfile) -> PromptBundle:
     """
@@ -268,6 +270,7 @@ def _load_profile_prompt_bundle(profile: TranslationProfile) -> PromptBundle:
 # =====================================================================
 # CORE PROVIDER FUNCTIONS
 # =====================================================================
+
 
 def _get_openai_client_for_profile(profile: TranslationProfile):
     """
@@ -323,7 +326,7 @@ def _run_openai_translate(
             context=log_context,
             result_validator=_json_translation_validator if expect_json else None,
         )
-        raw = (resp.choices[0].message.content or "")
+        raw = resp.choices[0].message.content or ""
         return raw.strip() if expect_json else normalize_translation_output(raw)
 
     input_payload = [
@@ -367,13 +370,14 @@ def _run_openai_translate(
             context=log_context,
             result_validator=_json_translation_validator if expect_json else None,
         )
-        raw = (chat_resp.choices[0].message.content or "")
+        raw = chat_resp.choices[0].message.content or ""
         return raw.strip() if expect_json else normalize_translation_output(raw)
 
 
 # =====================================================================
 # HIGH-LEVEL TRANSLATION ENTRY
 # =====================================================================
+
 
 def run_translate_box_with_context(
     profile_id: str,

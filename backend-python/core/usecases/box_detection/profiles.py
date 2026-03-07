@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 import yaml
-
 from config import MODELS_ROOT, PROJECT_ROOT, TRAINING_RUNS_ROOT, safe_join
 
 
@@ -18,6 +17,7 @@ class BoxDetectionProfile(TypedDict, total=False):
     Configuration for a box-detection backend (e.g. YOLO).
     Very similar in spirit to the OCR/translation profiles.
     """
+
     id: str
     label: str
     description: str

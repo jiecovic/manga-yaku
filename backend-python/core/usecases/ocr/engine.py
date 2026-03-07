@@ -97,15 +97,15 @@ def _validate_ocr_response_text(text: str) -> tuple[bool, str | None]:
 
 
 def _run_llm_ocr_box_chat_fallback(
-        client: Any,
-        cfg: dict[str, Any],
-        *,
-        profile_id: str,
-        system_prompt: str,
-        user_template: str,
-        data_url: str,
-        volume_id: str,
-        filename: str,
+    client: Any,
+    cfg: dict[str, Any],
+    *,
+    profile_id: str,
+    system_prompt: str,
+    user_template: str,
+    data_url: str,
+    volume_id: str,
+    filename: str,
 ) -> str:
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
@@ -133,13 +133,14 @@ def _run_llm_ocr_box_chat_fallback(
     text = resp.choices[0].message.content or ""
     return text.strip()
 
+
 def _run_manga_ocr_box(
-        volume_id: str,
-        filename: str,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
+    volume_id: str,
+    filename: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
 ) -> str:
     if _manga_ocr is None:
         raise RuntimeError(f"manga-ocr is not available: {_manga_ocr_error!r}")
@@ -171,13 +172,13 @@ def _load_ocr_prompt_bundle(profile: OcrProfile) -> PromptBundle:
 
 
 def _run_llm_ocr_box(
-        profile: OcrProfile,
-        volume_id: str,
-        filename: str,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
+    profile: OcrProfile,
+    volume_id: str,
+    filename: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
 ) -> str:
     """
     LLM OCR via Responses API with image input.
@@ -188,7 +189,9 @@ def _run_llm_ocr_box(
     client = _get_openai_client_for_ocr_profile(profile)
     bundle = _load_ocr_prompt_bundle(profile)
     system_prompt = bundle["system"]
-    user_template = bundle["user_template"] or "Transcribe the text from this crop. Plain text only."
+    user_template = (
+        bundle["user_template"] or "Transcribe the text from this crop. Plain text only."
+    )
 
     crop = crop_volume_image(volume_id, filename, x, y, width, height)
 
@@ -276,18 +279,19 @@ def _run_llm_ocr_box(
 # Public entry
 # -------------------------------------------------------------------
 
+
 def run_ocr_box(
-        profile_id: str,
-        volume_id: str,
-        filename: str,
-        box_id: int | None,
-        x: float,
-        y: float,
-        width: float,
-        height: float,
-        *,
-        persist: bool = True,
-        config_override: dict[str, Any] | None = None,
+    profile_id: str,
+    volume_id: str,
+    filename: str,
+    box_id: int | None,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    *,
+    persist: bool = True,
+    config_override: dict[str, Any] | None = None,
 ) -> str:
     profile = get_ocr_profile(profile_id)
     if config_override:

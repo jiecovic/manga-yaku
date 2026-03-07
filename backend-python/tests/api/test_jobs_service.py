@@ -15,8 +15,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
-
 from api.services.jobs_service import (
     cancel_job,
     delete_job,
@@ -26,6 +24,7 @@ from api.services.jobs_service import (
     get_training_log_path,
 )
 from api.services.jobs_workflow_helpers import workflow_run_to_job_public
+from fastapi import HTTPException
 from infra.jobs.store import Job, JobStatus, JobStore
 
 
@@ -200,7 +199,9 @@ def test_cancel_memory_hybrid_job_propagates_to_persisted_workflow(store: JobSto
     )
 
     with (
-        patch("api.services.jobs_service.cancel_workflow_run", return_value=True) as cancel_run_mock,
+        patch(
+            "api.services.jobs_service.cancel_workflow_run", return_value=True
+        ) as cancel_run_mock,
         patch("api.services.jobs_service.cancel_pending_tasks") as cancel_tasks_mock,
     ):
         status = cancel_job(job_id="job-4a", store=store)
@@ -241,7 +242,9 @@ def test_cancel_job_by_workflow_id_marks_linked_memory_agent_job_canceled(store:
                 "status": "running",
             },
         ),
-        patch("api.services.jobs_service.cancel_workflow_run", return_value=True) as cancel_run_mock,
+        patch(
+            "api.services.jobs_service.cancel_workflow_run", return_value=True
+        ) as cancel_run_mock,
         patch("api.services.jobs_service.cancel_pending_tasks") as cancel_tasks_mock,
     ):
         status = cancel_job(job_id="wf-4b", store=store)

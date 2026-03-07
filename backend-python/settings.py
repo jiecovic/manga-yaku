@@ -93,4 +93,3 @@ def load_settings() -> Settings:
 
 
 settings = load_settings()
-

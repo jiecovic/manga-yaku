@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
-
 from api.schemas.box_detection import BoxDetectionProfileInfo
 from core.usecases.box_detection.engine import detect_boxes_for_page
 from core.usecases.box_detection.profiles import list_box_detection_profiles_for_api
+from fastapi import APIRouter, HTTPException, Query
 from infra.db.db_store import load_page
 
 router = APIRouter(tags=["box-detection"])
@@ -28,11 +27,7 @@ def _normalize_task_name(raw: str) -> str | None:
 
 def _extract_tasks(profile: dict) -> list[str]:
     classes = profile.get("classes") or []
-    tasks = {
-        task
-        for name in classes
-        if (task := _normalize_task_name(str(name)))
-    }
+    tasks = {task for name in classes if (task := _normalize_task_name(str(name)))}
     return sorted(tasks)
 
 
@@ -47,11 +42,11 @@ def list_box_detection_profiles() -> list[BoxDetectionProfileInfo]:
 
 @router.post("/pages/{volume_id}/{filename}/auto-detect")
 def auto_detect_boxes_for_page(
-        volume_id: str,
-        filename: str,
-        profile_id: str | None = Query(None),
-        task: str | None = Query(None),
-        replace_existing: bool = Query(True),
+    volume_id: str,
+    filename: str,
+    profile_id: str | None = Query(None),
+    task: str | None = Query(None),
+    replace_existing: bool = Query(True),
 ):
     """
     Run YOLO text box detection on a single page.

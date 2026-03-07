@@ -33,9 +33,7 @@ def _extract_profile_runtime_metadata(profile_id: str) -> tuple[str | None, int 
     cfg = dict(profile.get("config", {}) or {})
     model_id = cfg.get("model")
     max_tokens = (
-        cfg.get("max_output_tokens")
-        or cfg.get("max_completion_tokens")
-        or cfg.get("max_tokens")
+        cfg.get("max_output_tokens") or cfg.get("max_completion_tokens") or cfg.get("max_tokens")
     )
     return (str(model_id) if model_id else None, _to_int(max_tokens))
 

@@ -53,9 +53,7 @@ def append_stage_attempt_event(
 
     raw_finish_reason = meta.get("finish_reason")
     finish_reason = (
-        str(raw_finish_reason).strip()
-        if isinstance(raw_finish_reason, str)
-        else ""
+        str(raw_finish_reason).strip() if isinstance(raw_finish_reason, str) else ""
     ) or ("error" if error_detail else "completed")
 
     model_for_event = str(meta.get("model_id") or "").strip() or fallback_model_id

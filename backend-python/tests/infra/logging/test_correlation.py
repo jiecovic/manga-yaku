@@ -60,8 +60,7 @@ def test_append_correlation_preserves_generic_correlation_fields() -> None:
     )
 
     assert message == (
-        "Unhandled exception | component=api.errors "
-        "method=GET path=/api/logs/llm-calls"
+        "Unhandled exception | component=api.errors method=GET path=/api/logs/llm-calls"
     )
 
 

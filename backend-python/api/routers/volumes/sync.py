@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-
 from api.schemas.volumes import (
     MissingPage,
     MissingVolume,
@@ -17,6 +15,7 @@ from api.services.volumes_helpers import (
     unique_volume_name,
 )
 from config import VOLUMES_ROOT
+from fastapi import APIRouter
 from infra.db.db_store import (
     create_volume as create_volume_record,
 )
@@ -90,8 +89,7 @@ async def list_missing_pages() -> list[MissingPage]:
         filenames = list_page_filenames(record.id)
         if not volume_dir.exists():
             missing.extend(
-                MissingPage(volumeId=record.id, filename=filename)
-                for filename in filenames
+                MissingPage(volumeId=record.id, filename=filename) for filename in filenames
             )
             continue
         for filename in filenames:
@@ -125,10 +123,7 @@ async def import_missing_pages() -> dict:
         if not pages:
             next_index = 1.0
         else:
-            max_index = max(
-                page.page_index or float(idx + 1)
-                for idx, page in enumerate(pages)
-            )
+            max_index = max(page.page_index or float(idx + 1) for idx, page in enumerate(pages))
             next_index = max_index + 1.0
 
         for entry in new_entries:

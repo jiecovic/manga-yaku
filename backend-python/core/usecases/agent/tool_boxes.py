@@ -60,7 +60,6 @@ def list_text_boxes_tool(
     }
 
 
-
 def get_text_box_detail_tool(
     *,
     volume_id: str,
@@ -93,7 +92,6 @@ def get_text_box_detail_tool(
         "filename": resolved_filename,
         "box": target,
     }
-
 
 
 def update_text_box_fields_tool(

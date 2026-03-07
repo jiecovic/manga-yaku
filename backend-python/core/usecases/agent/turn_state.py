@@ -302,11 +302,14 @@ def sanitize_agent_reply_text(
     resolved_filename = _coerce_filename(active_filename)
 
     if not text:
-        if should_force_no_text_reply(
-            messages=messages,
-            active_filename=resolved_filename,
-            text_box_count=active_text_box_count,
-        ) and resolved_filename:
+        if (
+            should_force_no_text_reply(
+                messages=messages,
+                active_filename=resolved_filename,
+                text_box_count=active_text_box_count,
+            )
+            and resolved_filename
+        ):
             return no_text_boxes_reply(resolved_filename), "empty_output_no_boxes"
         if resolved_filename:
             return (

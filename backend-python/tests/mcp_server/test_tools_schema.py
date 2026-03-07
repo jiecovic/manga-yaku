@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
-
 from mcp_server.tools import register_tools
 
 

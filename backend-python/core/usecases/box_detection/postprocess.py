@@ -50,16 +50,12 @@ def filter_contained_boxes(
     )
     filtered: list[dict[str, float]] = []
     for candidate in sorted_boxes:
-        cand_area = float(candidate.get("width", 0.0)) * float(
-            candidate.get("height", 0.0)
-        )
+        cand_area = float(candidate.get("width", 0.0)) * float(candidate.get("height", 0.0))
         if cand_area <= 0.0:
             continue
         drop = False
         for kept in filtered:
-            kept_area = float(kept.get("width", 0.0)) * float(
-                kept.get("height", 0.0)
-            )
+            kept_area = float(kept.get("width", 0.0)) * float(kept.get("height", 0.0))
             if kept_area <= 0.0:
                 continue
             inter = _intersection_area(candidate, kept)

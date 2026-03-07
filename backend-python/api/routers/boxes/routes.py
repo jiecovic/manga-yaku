@@ -3,9 +3,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
-
 from api.schemas.boxes import Box, BoxPage, BoxTextPatch
+from fastapi import APIRouter, HTTPException
 from infra.db.db_store import (
     load_page,
     save_page,

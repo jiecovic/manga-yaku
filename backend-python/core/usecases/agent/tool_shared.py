@@ -11,7 +11,6 @@ def coerce_filename(value: str | None) -> str | None:
     return text or None
 
 
-
 def list_text_boxes_for_page(page: dict[str, Any]) -> list[dict[str, Any]]:
     raw_boxes = page.get("boxes") if isinstance(page, dict) else []
     if not isinstance(raw_boxes, list):
@@ -44,11 +43,9 @@ def list_text_boxes_for_page(page: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-
 def find_text_box_by_id(text_boxes: list[dict[str, Any]], box_id: int) -> dict[str, Any] | None:
     target_box_id = int(box_id)
     return next((item for item in text_boxes if int(item["id"]) == target_box_id), None)
-
 
 
 def resolve_read_page_filename(
@@ -69,7 +66,6 @@ def resolve_read_page_filename(
         "error": "filename is required when no active page is selected",
         "volume_id": volume_id,
     }
-
 
 
 def resolve_active_page_filename(

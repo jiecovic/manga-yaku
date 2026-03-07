@@ -13,7 +13,6 @@ How it is tested:
 from __future__ import annotations
 
 import pytest
-
 from core.domain import page_ports
 from core.domain.pages import set_box_ocr_text_by_id, set_box_translation_by_id
 

@@ -110,9 +110,7 @@ def update_translation_profile_settings(updates: list[dict[str, Any]]) -> list[d
             else:
                 effort = str(effort).strip().lower()
                 if effort not in REASONING_CHOICES:
-                    raise ValueError(
-                        f"reasoning_effort must be one of {REASONING_CHOICES}"
-                    )
+                    raise ValueError(f"reasoning_effort must be one of {REASONING_CHOICES}")
                 current["reasoning_effort"] = effort
 
         if "temperature" in update:
@@ -129,15 +127,11 @@ def update_translation_profile_settings(updates: list[dict[str, Any]]) -> list[d
                 current["temperature"] = temperature
 
     available_profiles = [
-        pid
-        for pid, profile in TRANSLATION_PROFILES.items()
-        if profile.get("enabled", True)
+        pid for pid, profile in TRANSLATION_PROFILES.items() if profile.get("enabled", True)
     ]
     if available_profiles:
         enabled = [
-            pid
-            for pid in available_profiles
-            if resolved.get(pid, {}).get("single_box_enabled")
+            pid for pid in available_profiles if resolved.get(pid, {}).get("single_box_enabled")
         ]
         if not enabled:
             raise ValueError(

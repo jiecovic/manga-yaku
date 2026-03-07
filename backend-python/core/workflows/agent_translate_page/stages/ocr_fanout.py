@@ -121,11 +121,7 @@ async def run_ocr_fanout_stage(
             return None
 
         profile = get_ocr_profile(spec.profile_id)
-        sem = (
-            remote_sem
-            if profile.get("provider") in {"llm_ocr", "llm_ocr_chat"}
-            else local_sem
-        )
+        sem = remote_sem if profile.get("provider") in {"llm_ocr", "llm_ocr_chat"} else local_sem
         async with sem:
             if is_canceled():
                 update_task_run(
@@ -180,9 +176,7 @@ async def run_ocr_fanout_stage(
             )
 
             run_ctx.ocr_tasks_done += 1
-            progress = 20 + int(
-                (run_ctx.ocr_tasks_done / max(run_ctx.ocr_tasks_total, 1)) * 50
-            )
+            progress = 20 + int((run_ctx.ocr_tasks_done / max(run_ctx.ocr_tasks_total, 1)) * 50)
             emit_workflow_progress(
                 run_ctx,
                 state=state,

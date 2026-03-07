@@ -16,7 +16,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from core.workflows.agent_translate_page.helpers import (
     apply_translation_payload,
     build_translation_boxes,

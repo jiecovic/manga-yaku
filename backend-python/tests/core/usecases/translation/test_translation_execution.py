@@ -17,7 +17,6 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from core.usecases.translation.execution import (
     resolve_translation_prompt_version,
     run_translation_task_async,

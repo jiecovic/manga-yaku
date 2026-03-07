@@ -16,4 +16,3 @@ class BoxDetectionProfileInfo(BaseModel):
     enabled: bool = True
     classes: list[str] = []
     tasks: list[str] = []
-

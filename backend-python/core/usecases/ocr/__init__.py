@@ -1,4 +1,5 @@
 """Public exports for OCR usecases."""
+
 from .profiles import (
     OCR_PROFILES,
     OcrProfile,

@@ -57,7 +57,6 @@ def normalize_profile_ids(
     return out
 
 
-
 def resolve_enabled_ocr_profiles(profile_ids: list[str]) -> list[str]:
     """Return only enabled OCR profiles."""
     valid_profiles: list[str] = []
@@ -70,7 +69,6 @@ def resolve_enabled_ocr_profiles(profile_ids: list[str]) -> list[str]:
             continue
         valid_profiles.append(profile_id)
     return valid_profiles
-
 
 
 def _create_ocr_workflow_with_tasks(
@@ -176,7 +174,6 @@ def _create_ocr_workflow_with_tasks(
     return workflow_run_id
 
 
-
 def create_ocr_box_workflow(data: OcrBoxWorkflowInput) -> str:
     """Create one persisted OCR workflow for a single box."""
     volume_id = str(data.volume_id or "").strip()
@@ -230,7 +227,6 @@ def create_ocr_box_workflow(data: OcrBoxWorkflowInput) -> str:
         processable_boxes=1,
         queued_tasks=queued_tasks,
     )
-
 
 
 def create_ocr_page_workflow(data: OcrPageWorkflowInput) -> str:

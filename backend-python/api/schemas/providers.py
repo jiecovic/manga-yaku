@@ -24,4 +24,3 @@ class TranslationProvider(BaseModel):
     description: str | None = None
     kind: str = "remote"
     enabled: bool = True
-

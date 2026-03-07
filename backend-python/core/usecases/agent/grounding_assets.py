@@ -5,9 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PIL import ImageDraw
-
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
+from PIL import ImageDraw
 
 
 def build_page_overlay_data_url(

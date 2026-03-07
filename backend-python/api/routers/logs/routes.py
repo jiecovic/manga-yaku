@@ -6,8 +6,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
-
 from api.schemas.logs import (
     LlmCallLogDetailResponse,
     LlmCallLogItem,
@@ -17,6 +15,7 @@ from api.schemas.logs import (
     LogListResponse,
 )
 from config import safe_join
+from fastapi import APIRouter, HTTPException
 from infra.db.llm_call_log_store import (
     clear_llm_call_logs,
     delete_llm_call_log,
@@ -59,9 +58,7 @@ def _to_llm_log_item(raw: dict) -> LlmCallLogItem:
         status=str(raw.get("status") or ""),
         model_id=str(raw.get("model_id")) if raw.get("model_id") else None,
         job_id=str(raw.get("job_id")) if raw.get("job_id") else None,
-        workflow_run_id=(
-            str(raw.get("workflow_run_id")) if raw.get("workflow_run_id") else None
-        ),
+        workflow_run_id=(str(raw.get("workflow_run_id")) if raw.get("workflow_run_id") else None),
         task_run_id=str(raw.get("task_run_id")) if raw.get("task_run_id") else None,
         session_id=str(raw.get("session_id")) if raw.get("session_id") else None,
         volume_id=str(raw.get("volume_id")) if raw.get("volume_id") else None,
@@ -70,21 +67,11 @@ def _to_llm_log_item(raw: dict) -> LlmCallLogItem:
         box_id=_optional_int(raw.get("box_id")),
         profile_id=str(raw.get("profile_id")) if raw.get("profile_id") else None,
         attempt=int(raw["attempt"]) if raw.get("attempt") is not None else None,
-        latency_ms=(
-            int(raw["latency_ms"]) if raw.get("latency_ms") is not None else None
-        ),
-        finish_reason=(
-            str(raw.get("finish_reason")) if raw.get("finish_reason") else None
-        ),
-        input_tokens=(
-            int(raw["input_tokens"]) if raw.get("input_tokens") is not None else None
-        ),
-        output_tokens=(
-            int(raw["output_tokens"]) if raw.get("output_tokens") is not None else None
-        ),
-        total_tokens=(
-            int(raw["total_tokens"]) if raw.get("total_tokens") is not None else None
-        ),
+        latency_ms=(int(raw["latency_ms"]) if raw.get("latency_ms") is not None else None),
+        finish_reason=(str(raw.get("finish_reason")) if raw.get("finish_reason") else None),
+        input_tokens=(int(raw["input_tokens"]) if raw.get("input_tokens") is not None else None),
+        output_tokens=(int(raw["output_tokens"]) if raw.get("output_tokens") is not None else None),
+        total_tokens=(int(raw["total_tokens"]) if raw.get("total_tokens") is not None else None),
         error_detail=str(raw.get("error_detail")) if raw.get("error_detail") else None,
         has_payload=bool(raw.get("has_payload")),
         created_at=int(raw.get("created_at") or 0),
@@ -162,8 +149,7 @@ async def list_agent_translate_logs() -> LogListResponse:
             LogFileInfo(
                 name=item.name,
                 size=stat.st_size,
-                updated_at=item.stat().st_mtime_ns
-                // 1_000_000_000,
+                updated_at=item.stat().st_mtime_ns // 1_000_000_000,
             )
         )
 

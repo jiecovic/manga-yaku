@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
-
 from infra.db.db_store import get_max_page_index, list_pages, volume_name_exists
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -104,15 +103,10 @@ def resolve_insert_index(
         if target_idx is None:
             raise HTTPException(status_code=400, detail="insert_after not found")
         target_index = pages[target_idx].page_index or float(target_idx + 1)
-        next_index = (
-            pages[target_idx + 1].page_index
-            if target_idx + 1 < len(pages)
-            else None
-        )
+        next_index = pages[target_idx + 1].page_index if target_idx + 1 < len(pages) else None
         if next_index is None:
             return target_index + 1.0
         return (target_index + next_index) / 2.0
 
     max_index = get_max_page_index(volume_id)
     return (max_index or float(len(pages))) + 1.0
-

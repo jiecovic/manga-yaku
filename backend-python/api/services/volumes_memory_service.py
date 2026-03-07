@@ -6,7 +6,6 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException
-
 from infra.db.db_store import (
     clear_page_context_snapshot,
     clear_volume_context,

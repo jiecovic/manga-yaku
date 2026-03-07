@@ -13,10 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PIL import Image
-
 from config import TRAINING_PREPARED_ROOT
 from infra.jobs.exceptions import JobCanceled
+from PIL import Image
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_TARGETS = {"frame", "text", "face", "body"}
@@ -112,17 +111,13 @@ def _write_image(
         try:
             os.link(src, dst)
         except OSError as exc:
-            raise DatasetBuildError(
-                f"Hardlink failed for {src.name}: {exc}"
-            ) from exc
+            raise DatasetBuildError(f"Hardlink failed for {src.name}: {exc}") from exc
         return
 
     raise DatasetBuildError(f"Unsupported link mode: {link_mode}")
 
 
-def _choose_split(
-    rng: random.Random, val_split: float, test_split: float
-) -> str:
+def _choose_split(rng: random.Random, val_split: float, test_split: float) -> str:
     roll = rng.random()
     if roll < val_split:
         return "val"
@@ -226,12 +221,8 @@ def _prepare_manga109s(
                 except KeyError:
                     continue
 
-                xc, yc, bw, bh = _xyminmax_to_yolo(
-                    xmin, ymin, xmax, ymax, img_w, img_h
-                )
-                label_lines.append(
-                    f"{class_map[tag]} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}"
-                )
+                xc, yc, bw, bh = _xyminmax_to_yolo(xmin, ymin, xmax, ymax, img_w, img_h)
+                label_lines.append(f"{class_map[tag]} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
 
             out_name = f"m109_{book_title}_{idx:03d}.jpg"
             out_img = out_dir / "images" / split / out_name
@@ -294,9 +285,7 @@ def prepare_dataset(
     selected_targets = targets or ["text"]
     invalid_targets = [tag for tag in selected_targets if tag not in ALLOWED_TARGETS]
     if invalid_targets:
-        raise DatasetBuildError(
-            "Unsupported targets: " + ", ".join(sorted(invalid_targets))
-        )
+        raise DatasetBuildError("Unsupported targets: " + ", ".join(sorted(invalid_targets)))
 
     if val_split <= 0 or val_split >= 1:
         raise DatasetBuildError("valSplit must be between 0 and 1")
@@ -305,9 +294,7 @@ def prepare_dataset(
     if val_split + test_split >= 1:
         raise DatasetBuildError("valSplit + testSplit must be less than 1")
     if link_mode not in ALLOWED_LINK_MODES:
-        raise DatasetBuildError(
-            "linkMode must be one of: " + ", ".join(sorted(ALLOWED_LINK_MODES))
-        )
+        raise DatasetBuildError("linkMode must be one of: " + ", ".join(sorted(ALLOWED_LINK_MODES)))
 
     dataset_id = _sanitize_dataset_id(dataset_id or _default_dataset_id())
     out_dir = TRAINING_PREPARED_ROOT / dataset_id
@@ -326,9 +313,7 @@ def prepare_dataset(
     try:
         _raise_if_canceled(is_canceled)
         stats = BuildStats()
-        total_volumes = sum(
-            _count_manga109s_volumes(source_dir) for source_dir in source_dirs
-        )
+        total_volumes = sum(_count_manga109s_volumes(source_dir) for source_dir in source_dirs)
         if total_volumes == 0:
             raise DatasetBuildError("No volumes found for selected sources")
 

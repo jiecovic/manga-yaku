@@ -122,9 +122,7 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
     tasks = list_task_runs(workflow_id, stage=_TRANSLATE_STAGE)
     total_tasks = len(tasks)
     queued_or_running = sum(
-        1
-        for task in tasks
-        if str(task.get("status") or "") in {"queued", "running"}
+        1 for task in tasks if str(task.get("status") or "") in {"queued", "running"}
     )
 
     if bool(run.get("cancel_requested")) or str(run.get("status") or "") == "canceled":
@@ -180,9 +178,7 @@ def _update_workflow_progress_after_task(workflow_id: str) -> None:
     result_status = str(result_payload.get("status") or "")
     translation = str(result_payload.get("translation") or "").strip()
     error_text = str(
-        result_payload.get("error_message")
-        or task.get("error_code")
-        or "Translation failed"
+        result_payload.get("error_message") or task.get("error_code") or "Translation failed"
     ).strip()
     if not error_text:
         error_text = "Translation failed"
@@ -294,9 +290,7 @@ async def _run_claimed_task(
         latency_ms = max(0, _to_int(event.get("latency_ms"), default=0))
         max_output_raw = event.get("max_output_tokens")
         max_output_tokens = (
-            _to_int(max_output_raw, default=0) or None
-            if max_output_raw is not None
-            else None
+            _to_int(max_output_raw, default=0) or None if max_output_raw is not None else None
         )
         append_task_attempt_event(
             task_id=task_id,

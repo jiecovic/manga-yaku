@@ -8,8 +8,6 @@ import os
 import time
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-
 from api.schemas.settings import (
     AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
@@ -36,6 +34,7 @@ from core.usecases.translation.profile_settings import (
     list_translation_profiles_with_settings,
     update_translation_profile_settings,
 )
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from infra.logging.correlation import append_correlation
 
 router = APIRouter(tags=["settings"])
@@ -53,9 +52,7 @@ def _build_options() -> dict[str, Any]:
         "agent.translate.include_prior_open_threads": {"type": "boolean"},
         "agent.translate.include_prior_glossary": {"type": "boolean"},
         "agent.translate.merge.max_output_tokens": {"min": 128, "max": 4096},
-        "agent.translate.merge.reasoning_effort": {
-            "choices": ["low", "medium", "high"]
-        },
+        "agent.translate.merge.reasoning_effort": {"choices": ["low", "medium", "high"]},
         "agent.chat.max_turns": {"min": 1, "max": 200},
         "agent.chat.max_output_tokens": {"min": 128, "max": 64000},
         "ocr.parallelism.local": {"min": 1, "max": 32},

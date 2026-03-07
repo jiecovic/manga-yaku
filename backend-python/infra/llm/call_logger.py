@@ -21,9 +21,7 @@ _TRUE = {"1", "true", "yes", "on"}
 _LOG_MODE = os.getenv("MANGAYAKU_LLM_LOG_MODE", "full").strip().lower()
 if _LOG_MODE not in {"off", "errors_only", "full"}:
     _LOG_MODE = "full"
-_LOG_INCLUDE_IMAGES = (
-    os.getenv("MANGAYAKU_LLM_LOG_INCLUDE_IMAGES", "0").strip().lower() in _TRUE
-)
+_LOG_INCLUDE_IMAGES = os.getenv("MANGAYAKU_LLM_LOG_INCLUDE_IMAGES", "0").strip().lower() in _TRUE
 
 
 def _truncate_text(value: str, *, limit: int = 8000) -> str:
@@ -270,9 +268,7 @@ def _safe_write_log(
         redacted_params = _redact_value(params)
         serialized_response = _redact_value(_serialize_response(response))
         response_excerpt = (
-            _extract_response_text_excerpt(api, response)
-            if response is not None
-            else ""
+            _extract_response_text_excerpt(api, response) if response is not None else ""
         )
         input_tokens, output_tokens, total_tokens = _extract_usage(api, response)
         finish_reason = finish_reason_override or _extract_finish_reason(api, response)

@@ -41,21 +41,15 @@ AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-5.4")
 AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
 AGENT_MAX_OUTPUT_TOKENS = int(os.getenv("AGENT_MAX_OUTPUT_TOKENS", "2048"))
 AGENT_MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "18"))
-AGENT_TRANSLATE_MAX_OUTPUT_TOKENS = int(
-    os.getenv("AGENT_TRANSLATE_MAX_OUTPUT_TOKENS", "2048")
-)
+AGENT_TRANSLATE_MAX_OUTPUT_TOKENS = int(os.getenv("AGENT_TRANSLATE_MAX_OUTPUT_TOKENS", "2048"))
 AGENT_MAX_MESSAGE_CHARS = int(os.getenv("AGENT_MAX_MESSAGE_CHARS", "2000"))
 AGENT_REASONING_EFFORT = os.getenv("AGENT_REASONING_EFFORT", "medium").strip().lower()
 AGENT_GROUNDING_MODE = os.getenv("AGENT_GROUNDING_MODE", "lazy").strip().lower()
-AGENT_MCP_SERVER_URL = os.getenv(
-    "AGENT_MCP_SERVER_URL", "http://127.0.0.1:8101/api/mcp/"
-).strip()
-AGENT_TRANSLATE_REASONING_EFFORT = os.getenv(
-    "AGENT_TRANSLATE_REASONING_EFFORT", "low"
-).strip().lower()
-AGENT_TRANSLATE_TIMEOUT_SECONDS = int(
-    os.getenv("AGENT_TRANSLATE_TIMEOUT_SECONDS", "300")
+AGENT_MCP_SERVER_URL = os.getenv("AGENT_MCP_SERVER_URL", "http://127.0.0.1:8101/api/mcp/").strip()
+AGENT_TRANSLATE_REASONING_EFFORT = (
+    os.getenv("AGENT_TRANSLATE_REASONING_EFFORT", "low").strip().lower()
 )
+AGENT_TRANSLATE_TIMEOUT_SECONDS = int(os.getenv("AGENT_TRANSLATE_TIMEOUT_SECONDS", "300"))
 AGENT_PROMPT_FILE = os.getenv("AGENT_PROMPT_FILE", "agent_default.yml")
 TRANSLATION_SOURCE_LANGUAGE = (
     os.getenv("TRANSLATION_SOURCE_LANGUAGE", "Japanese").strip() or "Japanese"
@@ -78,6 +72,7 @@ AGENT_MODELS = [
 # -----------------------------
 # Security helpers
 # -----------------------------
+
 
 def safe_join(root: Path, *parts: str) -> Path:
     """

@@ -4,9 +4,6 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import JSONResponse
-
 from api.schemas.volumes import (
     CreateVolumeRequest,
     PageInfo,
@@ -21,6 +18,8 @@ from api.services.volumes_helpers import (
     sanitize_volume_id,
 )
 from config import VOLUMES_ROOT, safe_join
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import JSONResponse
 from infra.db.db import check_db
 from infra.db.db_store import (
     create_volume as create_volume_record,
@@ -37,6 +36,8 @@ from infra.db.db_store import (
 )
 
 router = APIRouter(tags=["library"])
+
+
 @router.get("/health")
 async def health():
     """Handle health."""

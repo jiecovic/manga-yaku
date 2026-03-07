@@ -278,13 +278,16 @@ def set_box_order_for_type(
         if page is None:
             return False
 
-        boxes = session.execute(
-            select(Box)
-            .where(
-                Box.page_id == page.id,
-                Box.type == normalized,
+        boxes = (
+            session.execute(
+                select(Box).where(
+                    Box.page_id == page.id,
+                    Box.type == normalized,
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         by_id = {int(box.box_id): box for box in boxes}
         if not ordered_ids:
             return False

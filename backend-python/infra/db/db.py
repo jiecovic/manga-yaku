@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import uuid4
 
+from config import DATABASE_URL
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -25,8 +26,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-from config import DATABASE_URL
-
 Base = declarative_base()
 
 
@@ -38,9 +37,7 @@ class Volume(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
     next_index = Column(Integer, nullable=False, default=1)
 
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_volumes_name"),
-    )
+    __table_args__ = (UniqueConstraint("name", name="uq_volumes_name"),)
 
     pages = relationship(
         "Page",
@@ -140,9 +137,7 @@ class PageContext(Base):
 
     page = relationship("Page", back_populates="context_snapshot")
 
-    __table_args__ = (
-        Index("ix_page_context_volume_created", "volume_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_page_context_volume_created", "volume_id", "created_at"),)
 
 
 class Box(Base):
@@ -257,9 +252,7 @@ class AgentSession(Base):
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (
-        Index("ix_agent_sessions_volume_created", "volume_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_agent_sessions_volume_created", "volume_id", "created_at"),)
 
 
 class AgentMessage(Base):

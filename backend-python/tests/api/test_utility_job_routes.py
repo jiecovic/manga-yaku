@@ -6,7 +6,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from api.routers.jobs import routes as jobs_routes
 from api.schemas.jobs import (
     CreateBoxDetectionJobRequest,

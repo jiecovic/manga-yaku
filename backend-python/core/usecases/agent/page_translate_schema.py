@@ -250,8 +250,7 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
                     "addressee_id": str(raw.get("addressee_id") or "").strip(),
                     "speaker_gender": speaker_gender,
                     "speaker_visual_cues": str(raw.get("speaker_visual_cues") or "").strip(),
-                    "referent_id": str(raw.get("referent_id") or "unknown").strip()
-                    or "unknown",
+                    "referent_id": str(raw.get("referent_id") or "unknown").strip() or "unknown",
                     "referent_gender": referent_gender,
                     "translation": str(raw.get("translation") or "").strip(),
                 }

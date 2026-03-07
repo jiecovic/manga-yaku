@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from infra.jobs.exceptions import JobCanceled
 from infra.training.dataset_builder import prepare_dataset
 
@@ -39,11 +38,13 @@ def test_prepare_dataset_cleans_partial_output_on_cancel() -> None:
             ),
         ):
             with pytest.raises(JobCanceled):
-                prepare_dataset(
-                    dataset_id="dataset-a",
-                    source_dirs=[Path("/tmp/source")],
-                    is_canceled=cancel_cb,
-                ),
+                (
+                    prepare_dataset(
+                        dataset_id="dataset-a",
+                        source_dirs=[Path("/tmp/source")],
+                        is_canceled=cancel_cb,
+                    ),
+                )
             assert not out_dir.exists()
 
     assert seen_cancel_cb is cancel_cb

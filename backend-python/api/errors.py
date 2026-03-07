@@ -18,6 +18,7 @@ Why this exists:
 - Prevents leaking raw exception internals to clients.
 - Provides explicit user-facing messaging for common infra failures (DB down).
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,9 +27,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import OperationalError
-
 from infra.logging.correlation import append_correlation
+from sqlalchemy.exc import OperationalError
 
 logger = logging.getLogger(__name__)
 

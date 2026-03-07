@@ -14,7 +14,6 @@ How it is tested:
 from __future__ import annotations
 
 import pytest
-
 from core.workflows.agent_translate_page.state_machine import is_terminal, transition
 from core.workflows.agent_translate_page.types import WorkflowEvent, WorkflowState
 

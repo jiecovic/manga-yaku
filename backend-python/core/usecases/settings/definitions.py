@@ -119,6 +119,4 @@ SETTING_SPECS: dict[str, SettingSpec] = {
 }
 
 
-DEFAULT_SETTINGS: dict[str, Any] = {
-    key: spec.default for key, spec in SETTING_SPECS.items()
-}
+DEFAULT_SETTINGS: dict[str, Any] = {key: spec.default for key, spec in SETTING_SPECS.items()}

@@ -7,9 +7,6 @@ import asyncio
 import io
 from typing import Any
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.fastmcp.utilities.types import Image
-
 from core.usecases.agent.tool_boxes import (
     get_text_box_detail_tool,
     list_text_boxes_tool,
@@ -36,6 +33,8 @@ from core.usecases.agent.tool_pages import (
 from core.usecases.agent.tool_shared import coerce_filename
 from core.usecases.box_detection.profiles import list_box_detection_profiles_for_api
 from infra.images.image_ops import load_volume_image, resize_for_llm
+from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.fastmcp.utilities.types import Image
 
 from .context import get_tool_context_from_request, set_runtime_active_filename
 
@@ -84,7 +83,9 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     async def _run_in_thread(fn: Any, /, *args: Any, **kwargs: Any) -> Any:
         return await asyncio.to_thread(fn, *args, **kwargs)
 
-    @mcp.tool(name="get_runtime_context", description="Return active volume/page context for this run")
+    @mcp.tool(
+        name="get_runtime_context", description="Return active volume/page context for this run"
+    )
     def get_runtime_context(ctx: Context) -> dict[str, Any]:
         resolved = _resolve_tool_context(ctx)
         return {
@@ -108,7 +109,9 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             filename=filename,
         )
         if str(result.get("status") or "").strip().lower() == "ok":
-            set_runtime_active_filename(resolved.agent_run_id or "", str(result.get("filename") or ""))
+            set_runtime_active_filename(
+                resolved.agent_run_id or "", str(result.get("filename") or "")
+            )
             result["active_filename"] = str(result.get("filename") or "").strip() or None
             result["agent_run_id"] = resolved.agent_run_id
         return result
@@ -129,7 +132,9 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             offset=offset,
         )
         if str(result.get("status") or "").strip().lower() == "ok":
-            set_runtime_active_filename(resolved.agent_run_id or "", str(result.get("filename") or ""))
+            set_runtime_active_filename(
+                resolved.agent_run_id or "", str(result.get("filename") or "")
+            )
             result["active_filename"] = str(result.get("filename") or "").strip() or None
             result["agent_run_id"] = resolved.agent_run_id
         return result
@@ -291,7 +296,10 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             note=note,
         )
 
-    @mcp.tool(name="set_text_box_note", description="Set or replace note for one text box on the active page")
+    @mcp.tool(
+        name="set_text_box_note",
+        description="Set or replace note for one text box on the active page",
+    )
     async def set_text_box_note(
         box_id: int,
         note: str,
@@ -377,7 +385,9 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     async def list_ocr_profiles() -> dict[str, Any]:
         return await _run_in_thread(list_ocr_profiles_tool)
 
-    @mcp.tool(name="list_box_detection_profiles", description="List available box detection profiles")
+    @mcp.tool(
+        name="list_box_detection_profiles", description="List available box detection profiles"
+    )
     async def list_box_detection_profiles() -> dict[str, Any]:
         profiles_raw = list_box_detection_profiles_for_api()
         profiles = [

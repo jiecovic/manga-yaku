@@ -6,9 +6,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from packaging.version import InvalidVersion, Version
-
 from config import TRAINING_PREPARED_ROOT, TRAINING_SOURCES_ROOT, safe_join
+from packaging.version import InvalidVersion, Version
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -67,11 +66,7 @@ def _count_volume_dirs(root: Path) -> int:
 def _count_images(root: Path) -> int:
     if not root.is_dir():
         return 0
-    return sum(
-        1
-        for p in root.rglob("*")
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTS
-    )
+    return sum(1 for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
 
 
 def _stats_for_source(source_type: str, source_dir: Path) -> dict | None:
@@ -113,12 +108,7 @@ def _build_source_public(source_dir: Path) -> dict | None:
     source_type = detect_source_type(source_dir, manifest)
     label = source_dir.name
     if manifest:
-        label = (
-            manifest.get("label")
-            or manifest.get("name")
-            or manifest.get("id")
-            or label
-        )
+        label = manifest.get("label") or manifest.get("name") or manifest.get("id") or label
 
     description = None
     if manifest and isinstance(manifest.get("description"), str):
@@ -167,9 +157,7 @@ def _build_prepared_dataset(dataset_dir: Path) -> dict:
     if manifest:
         dataset_id = str(manifest.get("dataset_id") or dataset_id)
         created_at = (
-            str(manifest["created_at"])
-            if isinstance(manifest.get("created_at"), str)
-            else None
+            str(manifest["created_at"]) if isinstance(manifest.get("created_at"), str) else None
         )
         raw_targets = manifest.get("targets")
         if isinstance(raw_targets, list):
@@ -185,15 +173,9 @@ def _build_prepared_dataset(dataset_dir: Path) -> dict:
             else None
         )
         image_mode = (
-            str(manifest["image_mode"])
-            if isinstance(manifest.get("image_mode"), str)
-            else None
+            str(manifest["image_mode"]) if isinstance(manifest.get("image_mode"), str) else None
         )
-        seed = (
-            int(manifest["seed"])
-            if isinstance(manifest.get("seed"), int)
-            else None
-        )
+        seed = int(manifest["seed"]) if isinstance(manifest.get("seed"), int) else None
         stats_data = manifest.get("stats")
         if isinstance(stats_data, dict):
             stats = {
@@ -252,8 +234,7 @@ def detect_model_families() -> tuple[str, list[str]]:
                     continue
                 prefix = f"yolo{entry.name}"
                 if any(
-                    p.suffix == ".yaml" and p.name.startswith(prefix)
-                    for p in entry.glob("*.yaml")
+                    p.suffix == ".yaml" and p.name.startswith(prefix) for p in entry.glob("*.yaml")
                 ):
                     name = f"yolo{entry.name}"
                     if name in allowed:

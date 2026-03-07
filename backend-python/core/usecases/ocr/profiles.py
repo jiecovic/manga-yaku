@@ -35,14 +35,11 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "prompt_file": "ocr_default.yml",
         },
     },
-
     "openai_fast_ocr": {
         "id": "openai_fast_ocr",
         "label": "LLM OCR (fast)",
         "description": "Fast LLM OCR",
-        "llm_hint": (
-            "Fast; ok for simple bubbles."
-        ),
+        "llm_hint": ("Fast; ok for simple bubbles."),
         "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,
@@ -53,14 +50,11 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "prompt_file": "ocr_default.yml",
         },
     },
-
     "openai_quality_ocr": {
         "id": "openai_quality_ocr",
         "label": "LLM OCR (quality)",
         "description": "Higher-accuracy LLM OCR",
-        "llm_hint": (
-            "More accurate; slower/costlier."
-        ),
+        "llm_hint": ("More accurate; slower/costlier."),
         "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,
@@ -71,14 +65,11 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "prompt_file": "ocr_default.yml",
         },
     },
-
     "openai_ultra_ocr": {
         "id": "openai_ultra_ocr",
         "label": "LLM OCR (ultra)",
         "description": "Highest-accuracy LLM OCR",
-        "llm_hint": (
-            "Best accuracy; highest cost."
-        ),
+        "llm_hint": ("Best accuracy; highest cost."),
         "provider": "llm_ocr",
         "kind": "remote",
         "enabled": True,

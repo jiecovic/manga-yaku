@@ -7,9 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, func, select
-
 from infra.logging.artifacts import agent_debug_dir
+from sqlalchemy import delete, func, select
 
 from .db import (
     AgentSession,
@@ -111,25 +110,23 @@ def clear_volume_derived_data(volume_id: str) -> dict[str, int]:
             )
 
         page_ids = list(
-            session.execute(
-                select(Page.id).where(Page.volume_id == volume_key)
-            ).scalars().all()
+            session.execute(select(Page.id).where(Page.volume_id == volume_key)).scalars().all()
         )
         stats["pages_touched"] = len(page_ids)
 
         workflow_ids = list(
-            session.execute(
-                select(WorkflowRun.id).where(WorkflowRun.volume_id == volume_key)
-            ).scalars().all()
+            session.execute(select(WorkflowRun.id).where(WorkflowRun.volume_id == volume_key))
+            .scalars()
+            .all()
         )
         workflow_id_text = [str(item) for item in workflow_ids]
 
         task_ids: list[Any] = []
         if workflow_ids:
             task_ids = list(
-                session.execute(
-                    select(TaskRun.id).where(TaskRun.workflow_id.in_(workflow_ids))
-                ).scalars().all()
+                session.execute(select(TaskRun.id).where(TaskRun.workflow_id.in_(workflow_ids)))
+                .scalars()
+                .all()
             )
         stats["task_runs_deleted"] = len(task_ids)
         stats["task_attempt_events_deleted"] = _count_task_attempt_events(session, task_ids)

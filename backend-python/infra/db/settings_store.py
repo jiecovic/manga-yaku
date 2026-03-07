@@ -17,9 +17,7 @@ def _utc_now() -> datetime:
 
 def list_settings(scope: str = "global") -> dict[str, Any]:
     with get_session() as session:
-        rows = session.execute(
-            select(AppSetting).where(AppSetting.scope == scope)
-        ).scalars().all()
+        rows = session.execute(select(AppSetting).where(AppSetting.scope == scope)).scalars().all()
         return {row.key: row.value for row in rows}
 
 

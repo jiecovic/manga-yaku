@@ -112,7 +112,11 @@ def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
 
     workflow_type = str(run.get("workflow_type") or "").strip()
     job_type = workflow_type if workflow_type in PERSISTED_WORKFLOW_TYPES else AGENT_WORKFLOW_TYPE
-    metrics = result.get("metrics") if isinstance(result, dict) and isinstance(result.get("metrics"), dict) else None
+    metrics = (
+        result.get("metrics")
+        if isinstance(result, dict) and isinstance(result.get("metrics"), dict)
+        else None
+    )
     warnings = (
         list(result.get("warnings"))
         if isinstance(result, dict) and isinstance(result.get("warnings"), list)
@@ -178,11 +182,7 @@ def restore_agent_payload_from_workflow(run: dict) -> dict:
     if not payload.get("ocrProfiles"):
         tasks = list_task_runs(str(run.get("id")), stage=OCR_TASK_STAGE)
         profile_ids = sorted(
-            {
-                str(task.get("profile_id")).strip()
-                for task in tasks
-                if task.get("profile_id")
-            }
+            {str(task.get("profile_id")).strip() for task in tasks if task.get("profile_id")}
         )
         if profile_ids:
             payload["ocrProfiles"] = profile_ids

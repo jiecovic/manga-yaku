@@ -19,9 +19,14 @@ def test_translate_stage_prompt_discourages_forced_gendered_pronouns() -> None:
     )
 
     assert "Do not introduce gendered pronouns" in system_prompt
-    assert "\"that person\"" in system_prompt
+    assert '"that person"' in system_prompt
     assert "not as permission to force a gendered pronoun" in system_prompt
-    assert "First identify the page-local cast from the image before translating lines" in system_prompt
-    assert "Page-local entity resolution from Mode 0 takes precedence over prior lore" in system_prompt
+    assert (
+        "First identify the page-local cast from the image before translating lines"
+        in system_prompt
+    )
+    assert (
+        "Page-local entity resolution from Mode 0 takes precedence over prior lore" in system_prompt
+    )
     assert "referent_id and referent_gender" in system_prompt
     assert "emit attribution fields first and translation last" in system_prompt

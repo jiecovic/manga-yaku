@@ -21,7 +21,6 @@ def list_volume_pages_tool(volume_id: str) -> dict[str, Any]:
     }
 
 
-
 def set_active_page_tool(
     *,
     volume_id: str,
@@ -57,7 +56,6 @@ def set_active_page_tool(
             current_filename=resolved_filename,
         ),
     }
-
 
 
 def shift_active_page_tool(

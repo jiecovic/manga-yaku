@@ -114,9 +114,7 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
                 else:
                     effort = str(effort).strip().lower()
                     if effort not in REASONING_CHOICES:
-                        raise ValueError(
-                            f"reasoning_effort must be one of {REASONING_CHOICES}"
-                        )
+                        raise ValueError(f"reasoning_effort must be one of {REASONING_CHOICES}")
                     current["reasoning_effort"] = effort
 
             if "temperature" in update:
@@ -138,16 +136,10 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
             current["temperature"] = None
 
     available_profiles = [
-        pid
-        for pid, profile in OCR_PROFILES.items()
-        if profile.get("enabled", True)
+        pid for pid, profile in OCR_PROFILES.items() if profile.get("enabled", True)
     ]
     if available_profiles:
-        enabled = [
-            pid
-            for pid in available_profiles
-            if resolved.get(pid, {}).get("agent_enabled")
-        ]
+        enabled = [pid for pid in available_profiles if resolved.get(pid, {}).get("agent_enabled")]
         if not enabled:
             raise ValueError("At least one OCR profile must be enabled for the agent.")
 

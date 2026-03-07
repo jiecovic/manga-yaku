@@ -79,9 +79,7 @@ def create_agent_session(
     now = _utc_now()
     session_title = title.strip() if title and title.strip() else "Session"
     with get_session() as session:
-        volume = session.execute(
-            select(Volume).where(Volume.id == volume_id)
-        ).scalar_one_or_none()
+        volume = session.execute(select(Volume).where(Volume.id == volume_id)).scalar_one_or_none()
         if volume is None:
             raise ValueError("Volume not found")
 

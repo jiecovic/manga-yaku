@@ -185,10 +185,7 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             filename = str(output_dict.get("filename") or "").strip()
             if status == "ok":
                 updated_fields = output_dict.get("updated_fields")
-                updated_note = (
-                    isinstance(updated_fields, dict)
-                    and bool(updated_fields.get("note"))
-                )
+                updated_note = isinstance(updated_fields, dict) and bool(updated_fields.get("note"))
                 if updated_note and box_id is not None and filename:
                     return f"updated note for box #{box_id} on {filename}"
                 if box_id is not None and filename:
@@ -220,7 +217,11 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             started_now = bool(output_dict.get("started_now"))
             reused = bool(output_dict.get("resource_reused"))
             if status == "already_translated":
-                if filename and isinstance(translated_count, int) and isinstance(text_box_count, int):
+                if (
+                    filename
+                    and isinstance(translated_count, int)
+                    and isinstance(text_box_count, int)
+                ):
                     return (
                         f"page {filename} was already translated "
                         f"({translated_count}/{text_box_count} boxes)"
@@ -230,7 +231,9 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
                 return "page was already translated"
             if status == "completed":
                 if filename and isinstance(updated, int) and isinstance(total, int):
-                    return f"page workflow completed for {filename} ({updated}/{total} boxes updated)"
+                    return (
+                        f"page workflow completed for {filename} ({updated}/{total} boxes updated)"
+                    )
                 if filename:
                     return f"page workflow completed for {filename}"
                 return "page workflow completed"

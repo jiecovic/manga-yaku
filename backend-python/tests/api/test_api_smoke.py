@@ -16,11 +16,10 @@ import asyncio
 import json
 from unittest.mock import patch
 
-from fastapi.responses import JSONResponse
-
 from api.routers.jobs.routes import list_jobs
 from api.routers.training.routes import list_training_models
 from api.routers.volumes.routes import health
+from fastapi.responses import JSONResponse
 
 
 def test_health() -> None:

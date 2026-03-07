@@ -48,6 +48,4 @@ def test_agent_workflow_state_machine_imports_cleanly() -> None:
 
 
 def test_jobs_runtime_imports_cleanly() -> None:
-    _assert_imports_clean(
-        "from infra.jobs.runtime import STORE; print(type(STORE).__name__)"
-    )
+    _assert_imports_clean("from infra.jobs.runtime import STORE; print(type(STORE).__name__)")

@@ -96,8 +96,16 @@ def test_persist_action_event_messages_persists_full_observable_sequence() -> No
             "sess-1",
             [
                 {"type": "activity", "message": "Agents SDK runtime active (MCP tools)"},
-                {"type": "tool_called", "message": 'ocr_text_box({"box_id": 3})', "tool": "ocr_text_box"},
-                {"type": "tool_output", "message": "ocr_text_box -> completed", "tool": "ocr_text_box"},
+                {
+                    "type": "tool_called",
+                    "message": 'ocr_text_box({"box_id": 3})',
+                    "tool": "ocr_text_box",
+                },
+                {
+                    "type": "tool_output",
+                    "message": "ocr_text_box -> completed",
+                    "tool": "ocr_text_box",
+                },
                 {"type": "page_switch", "message": "Switched to 006.jpg", "filename": "006.jpg"},
             ],
         )

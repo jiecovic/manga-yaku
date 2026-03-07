@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-
 from api.schemas.volumes import (
     ClearMemoryResponse,
     ClearVolumeDerivedDataResponse,
@@ -22,6 +20,7 @@ from api.services.volumes_memory_service import (
 from api.services.volumes_memory_service import (
     clear_volume_memory as clear_volume_memory_data,
 )
+from fastapi import APIRouter
 
 router = APIRouter(tags=["library"])
 

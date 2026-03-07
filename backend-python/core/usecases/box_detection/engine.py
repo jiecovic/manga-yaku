@@ -9,12 +9,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
-
 from config import PROJECT_ROOT, VOLUMES_ROOT, safe_join
 from core.usecases.settings.service import resolve_detection_settings
 from infra.db.db_store import create_detection_run, replace_boxes_for_type
 from infra.logging.correlation import append_correlation
+from PIL import Image
 
 from .postprocess import filter_contained_boxes, resolve_containment_threshold
 from .profiles import (
@@ -56,6 +55,7 @@ CancelCallback = Callable[[], bool]
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_page_image(volume_id: str, filename: str) -> Image.Image:
     """
@@ -189,9 +189,7 @@ def _resolve_allowed_classes(
         return None
 
     matches = [
-        idx
-        for idx, name in enumerate(class_names)
-        if _normalize_task(str(name)) == normalized
+        idx for idx, name in enumerate(class_names) if _normalize_task(str(name)) == normalized
     ]
     if not matches:
         raise ValueError(
@@ -210,8 +208,6 @@ def resolve_detection_thresholds(profile: BoxDetectionProfile) -> tuple[float, f
     if detection_settings.iou_threshold is not None:
         iou_th = detection_settings.iou_threshold
     return conf_th, iou_th
-
-
 
 
 def _run_yolo_on_image(
@@ -309,9 +305,7 @@ def _run_yolo_on_image(
 
         ordered: list[dict[str, float]] = []
         for row_boxes in rows_boxes:
-            row_boxes.sort(
-                key=lambda bx: -(bx["x"] + bx["width"] / 2.0)
-            )
+            row_boxes.sort(key=lambda bx: -(bx["x"] + bx["width"] / 2.0))
             ordered.extend(row_boxes)
 
         return ordered
@@ -326,16 +320,8 @@ def _run_yolo_on_image(
         is_spread = img_h > 0 and (img_w / img_h) >= spread_ratio
         if is_spread:
             mid_x = img_w / 2.0
-            right_boxes = [
-                bx
-                for bx in boxes_out
-                if (bx["x"] + bx["width"] / 2.0) >= mid_x
-            ]
-            left_boxes = [
-                bx
-                for bx in boxes_out
-                if (bx["x"] + bx["width"] / 2.0) < mid_x
-            ]
+            right_boxes = [bx for bx in boxes_out if (bx["x"] + bx["width"] / 2.0) >= mid_x]
+            left_boxes = [bx for bx in boxes_out if (bx["x"] + bx["width"] / 2.0) < mid_x]
             if right_boxes and left_boxes:
                 boxes_out = sort_boxes_reading(right_boxes) + sort_boxes_reading(left_boxes)
             else:
@@ -352,14 +338,15 @@ def _run_yolo_on_image(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def detect_boxes_for_page(
-        volume_id: str,
-        filename: str,
-        profile_id: str | None = None,
-        *,
-        task: str | None = None,
-        replace_existing: bool = True,
-        is_canceled: CancelCallback | None = None,
+    volume_id: str,
+    filename: str,
+    profile_id: str | None = None,
+    *,
+    task: str | None = None,
+    replace_existing: bool = True,
+    is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run detection for a single page.
@@ -472,12 +459,12 @@ def detect_boxes_for_page(
 
 
 def detect_text_boxes_for_page(
-        volume_id: str,
-        filename: str,
-        profile_id: str | None = None,
-        *,
-        replace_existing: bool = True,
-        is_canceled: CancelCallback | None = None,
+    volume_id: str,
+    filename: str,
+    profile_id: str | None = None,
+    *,
+    replace_existing: bool = True,
+    is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
     return detect_boxes_for_page(
         volume_id=volume_id,

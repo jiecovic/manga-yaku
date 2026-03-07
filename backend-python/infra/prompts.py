@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 import yaml
-from jinja2 import Template
-
 from config import PROJECT_ROOT
+from jinja2 import Template
 
 _override_dir = os.getenv("MANGAYAKU_PROMPTS_DIR")
 if _override_dir:
@@ -99,4 +98,3 @@ def render_prompt_bundle(
         "system": system_rendered,
         "user_template": user_rendered,
     }
-

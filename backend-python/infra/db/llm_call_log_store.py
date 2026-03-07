@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import desc
-
 from infra.logging.artifacts import llm_calls_dir, write_json_artifact
+from sqlalchemy import desc
 
 from .db import LlmCallLog, get_session
 
@@ -76,30 +75,20 @@ def _row_to_dict(row: LlmCallLog) -> dict[str, Any]:
         "payload_path": row.payload_path,
         "has_payload": bool(row.payload_path),
         "session_id": (
-            str(params_snapshot.get("session_id"))
-            if params_snapshot.get("session_id")
-            else None
+            str(params_snapshot.get("session_id")) if params_snapshot.get("session_id") else None
         ),
         "volume_id": (
-            str(params_snapshot.get("volume_id"))
-            if params_snapshot.get("volume_id")
-            else None
+            str(params_snapshot.get("volume_id")) if params_snapshot.get("volume_id") else None
         ),
         "filename": (
-            str(params_snapshot.get("filename"))
-            if params_snapshot.get("filename")
-            else None
+            str(params_snapshot.get("filename")) if params_snapshot.get("filename") else None
         ),
         "request_id": (
-            str(params_snapshot.get("request_id"))
-            if params_snapshot.get("request_id")
-            else None
+            str(params_snapshot.get("request_id")) if params_snapshot.get("request_id") else None
         ),
         "box_id": _optional_int(params_snapshot.get("box_id")),
         "profile_id": (
-            str(params_snapshot.get("profile_id"))
-            if params_snapshot.get("profile_id")
-            else None
+            str(params_snapshot.get("profile_id")) if params_snapshot.get("profile_id") else None
         ),
         "created_at": created_unix,
     }
@@ -182,11 +171,7 @@ def list_llm_call_logs(
             query = query.filter(LlmCallLog.component == component)
         if status:
             query = query.filter(LlmCallLog.status == status)
-        rows = (
-            query.order_by(desc(LlmCallLog.created_at))
-            .limit(safe_limit)
-            .all()
-        )
+        rows = query.order_by(desc(LlmCallLog.created_at)).limit(safe_limit).all()
         return [_row_to_dict(row) for row in rows]
 
 
