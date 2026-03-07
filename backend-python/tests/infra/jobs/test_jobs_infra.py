@@ -18,11 +18,11 @@ import json
 from unittest.mock import patch
 
 import pytest
-from core.workflows.agent_translate_page.types import (
-    AgentTranslateWorkflowSnapshot,
+from core.workflows.page_translation.types import (
+    PageTranslationWorkflowSnapshot,
     WorkflowState,
 )
-from infra.jobs.handlers.agent import AgentTranslatePageJobHandler
+from infra.jobs.handlers.page_translation import PageTranslationJobHandler
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.jobs.worker import job_worker
 
@@ -119,7 +119,7 @@ async def test_canceled_agent_job_ignores_late_progress() -> None:
     async def _fake_workflow(*, on_progress, **_: object) -> dict[str, object]:
         store.update_job(job, status=JobStatus.canceled, progress=100, message="Canceled")
         on_progress(
-            AgentTranslateWorkflowSnapshot(
+            PageTranslationWorkflowSnapshot(
                 state=WorkflowState.ocr_running,
                 stage="ocr_running",
                 progress=55,
@@ -131,9 +131,9 @@ async def test_canceled_agent_job_ignores_late_progress() -> None:
         )
         return {"state": "canceled", "message": "Canceled"}
 
-    handler = AgentTranslatePageJobHandler()
+    handler = PageTranslationJobHandler()
     with patch(
-        "infra.jobs.handlers.agent.run_agent_translate_page_workflow",
+        "infra.jobs.handlers.page_translation.run_page_translation_workflow",
         side_effect=_fake_workflow,
     ):
         await handler.run(job, store)

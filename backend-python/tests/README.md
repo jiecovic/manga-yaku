@@ -16,8 +16,8 @@ State machine and workflow stages:
 
 ```bash
 pytest -q \
-  tests/core/agent_translate_page/test_agent_state_machine.py \
-  tests/core/agent_translate_page/test_agent_workflow_stages.py
+  tests/core/page_translation/test_agent_state_machine.py \
+  tests/core/page_translation/test_agent_workflow_stages.py
 ```
 
 OCR and translation execution:
@@ -43,13 +43,13 @@ pytest -q \
 
 - `api/test_api_smoke.py`
   - smoke-level router contract checks without full ASGI lifespan boot.
-- `core/agent_translate_page/test_agent_state_machine.py`
+- `core/page_translation/test_agent_state_machine.py`
   - workflow status transitions and cancellation semantics.
-- `core/agent_translate_page/test_agent_workflow_stages.py`
+- `core/page_translation/test_agent_workflow_stages.py`
   - detect/ocr/translate/commit stage behavior and wiring.
-- `core/agent_translate_page/test_agent_workflow_helpers.py`
-  - helper utilities used by agent workflow orchestration.
-- `core/agent_translate_page/test_agent_page_translate_helpers.py`
+- `core/page_translation/test_agent_workflow_helpers.py`
+  - helper utilities used by page-translation workflow orchestration.
+- `core/page_translation/test_agent_page_translate_helpers.py`
   - stage result normalization and OCR no-text consensus guard logic.
 - `core/usecases/test_retry_policies.py`
   - retry-policy behavior for failure/transient conditions.

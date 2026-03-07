@@ -42,7 +42,7 @@ def test_jobs_routes_imports_cleanly() -> None:
 
 def test_agent_workflow_state_machine_imports_cleanly() -> None:
     _assert_imports_clean(
-        "from core.workflows.agent_translate_page.state_machine import transition; "
+        "from core.workflows.page_translation.state_machine import transition; "
         "print(transition.__name__)"
     )
 

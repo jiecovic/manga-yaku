@@ -1,5 +1,5 @@
 # backend-python/tests/api/test_agent_translate_page_creation.py
-"""Unit tests for agent translate-page job creation dedupe/idempotency behavior."""
+"""Unit tests for page-translation job creation dedupe/idempotency behavior."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from unittest.mock import patch
 import pytest
 from api.routers.jobs import routes as jobs_routes
 from api.schemas.jobs import CreateAgentTranslatePageJobRequest
-from api.services.jobs_creation_service import create_agent_translate_page_job as create_job_record
+from api.services.jobs_creation_service import create_page_translation_job as create_job_record
 from fastapi import HTTPException
-from infra.jobs.agent_translate_creation import (
-    create_agent_translate_page_job as create_shared_job_record,
+from infra.jobs.page_translation_creation import (
+    create_page_translation_job as create_shared_job_record,
 )
 from starlette.requests import Request
 
@@ -42,7 +42,7 @@ def _request_scope(*, idempotency_key: str | None = None) -> Request:
 
 def test_reuses_active_persisted_run_for_same_page() -> None:
     with patch(
-        "infra.jobs.agent_translate_creation.find_latest_active_workflow_run",
+        "infra.jobs.page_translation_creation.find_latest_active_workflow_run",
         return_value={"id": "wf-123"},
     ):
         result = create_shared_job_record(payload=_request().model_dump())
@@ -54,15 +54,15 @@ def test_reuses_active_persisted_run_for_same_page() -> None:
 def test_claimed_idempotency_key_finalizes_new_job() -> None:
     with (
         patch(
-            "infra.jobs.agent_translate_creation.claim_idempotency_key",
+            "infra.jobs.page_translation_creation.claim_idempotency_key",
             return_value={"status": "claimed", "resource_id": None},
         ) as claim_mock,
         patch(
-            "infra.jobs.agent_translate_creation.finalize_idempotency_key",
+            "infra.jobs.page_translation_creation.finalize_idempotency_key",
             side_effect=lambda **kwargs: kwargs["resource_id"],
         ) as finalize_mock,
         patch(
-            "infra.jobs.agent_translate_creation.create_workflow_run_with_task",
+            "infra.jobs.page_translation_creation.create_workflow_run_with_task",
             return_value="wf-new-1",
         ) as create_mock,
     ):
@@ -81,18 +81,18 @@ def test_claimed_idempotency_key_finalizes_new_job() -> None:
 def test_cleans_up_new_workflow_when_idempotency_finalize_conflicts() -> None:
     with (
         patch(
-            "infra.jobs.agent_translate_creation.claim_idempotency_key",
+            "infra.jobs.page_translation_creation.claim_idempotency_key",
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "infra.jobs.agent_translate_creation.create_workflow_run_with_task",
+            "infra.jobs.page_translation_creation.create_workflow_run_with_task",
             return_value="wf-temp-1",
         ),
         patch(
-            "infra.jobs.agent_translate_creation.finalize_idempotency_key",
+            "infra.jobs.page_translation_creation.finalize_idempotency_key",
             side_effect=ValueError("conflict"),
         ),
-        patch("infra.jobs.agent_translate_creation.delete_workflow_run") as delete_mock,
+        patch("infra.jobs.page_translation_creation.delete_workflow_run") as delete_mock,
     ):
         result = create_shared_job_record(
             payload=_request().model_dump(),
@@ -105,7 +105,7 @@ def test_cleans_up_new_workflow_when_idempotency_finalize_conflicts() -> None:
 
 def test_idempotency_key_replay_returns_existing_resource() -> None:
     with patch(
-        "infra.jobs.agent_translate_creation.claim_idempotency_key",
+        "infra.jobs.page_translation_creation.claim_idempotency_key",
         return_value={"status": "replay", "resource_id": "wf-777"},
     ):
         result = create_shared_job_record(
@@ -119,7 +119,7 @@ def test_idempotency_key_replay_returns_existing_resource() -> None:
 
 def test_idempotency_key_conflict_returns_conflict_status() -> None:
     with patch(
-        "infra.jobs.agent_translate_creation.claim_idempotency_key",
+        "infra.jobs.page_translation_creation.claim_idempotency_key",
         return_value={"status": "conflict", "resource_id": "wf-1"},
     ):
         result = create_shared_job_record(
@@ -133,7 +133,7 @@ def test_idempotency_key_conflict_returns_conflict_status() -> None:
 
 def test_idempotency_key_in_progress_returns_in_progress_status() -> None:
     with patch(
-        "infra.jobs.agent_translate_creation.claim_idempotency_key",
+        "infra.jobs.page_translation_creation.claim_idempotency_key",
         return_value={"status": "in_progress", "resource_id": None},
     ):
         result = create_shared_job_record(
@@ -147,9 +147,9 @@ def test_idempotency_key_in_progress_returns_in_progress_status() -> None:
 
 def test_force_rerun_skips_idempotency_claim() -> None:
     with (
-        patch("infra.jobs.agent_translate_creation.claim_idempotency_key") as claim_mock,
+        patch("infra.jobs.page_translation_creation.claim_idempotency_key") as claim_mock,
         patch(
-            "infra.jobs.agent_translate_creation.create_workflow_run_with_task",
+            "infra.jobs.page_translation_creation.create_workflow_run_with_task",
             return_value="wf-force-1",
         ),
     ):
@@ -165,7 +165,7 @@ def test_force_rerun_skips_idempotency_claim() -> None:
 def test_service_maps_conflict_to_http_409() -> None:
     with (
         patch(
-            "api.services.jobs_creation_service.enqueue_agent_translate_page_operation",
+            "api.services.jobs_creation_service.enqueue_page_translation_operation",
             return_value={
                 "job_id": None,
                 "queued": False,
@@ -185,7 +185,7 @@ def test_service_maps_conflict_to_http_409() -> None:
 
 def test_service_returns_job_id_for_shared_helper_success() -> None:
     with patch(
-        "api.services.jobs_creation_service.enqueue_agent_translate_page_operation",
+        "api.services.jobs_creation_service.enqueue_page_translation_operation",
         return_value={
             "job_id": "job-123",
             "queued": True,
@@ -205,7 +205,7 @@ async def test_route_skips_queue_put_for_reused_job() -> None:
     req = CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg")
     with (
         patch(
-            "api.routers.jobs.routes.create_agent_translate_page_job_record",
+            "api.routers.jobs.routes.create_page_translation_job_record",
             return_value={"job_id": "wf-123", "queued": False},
         ) as service_mock,
         patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,
@@ -222,7 +222,7 @@ async def test_route_returns_new_job_id_without_manual_queue_step() -> None:
     req = CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg")
     with (
         patch(
-            "api.routers.jobs.routes.create_agent_translate_page_job_record",
+            "api.routers.jobs.routes.create_page_translation_job_record",
             return_value={"job_id": "wf-new-1", "queued": True},
         ) as service_mock,
         patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,

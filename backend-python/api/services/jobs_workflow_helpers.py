@@ -10,7 +10,7 @@ from infra.db.workflow_store import (
     update_task_run,
 )
 from infra.jobs.job_modes import (
-    AGENT_WORKFLOW_TYPE,
+    PAGE_TRANSLATION_WORKFLOW_TYPE,
     PERSISTED_WORKFLOW_TYPES,
 )
 from infra.jobs.store import Job, JobPublic, JobStatus, JobStore
@@ -105,7 +105,11 @@ def workflow_run_to_job_public(run: dict, *, store: JobStore) -> JobPublic:
     updated_ts = updated_at.timestamp() if hasattr(updated_at, "timestamp") else created_ts
 
     workflow_type = str(run.get("workflow_type") or "").strip()
-    job_type = workflow_type if workflow_type in PERSISTED_WORKFLOW_TYPES else AGENT_WORKFLOW_TYPE
+    job_type = (
+        workflow_type
+        if workflow_type in PERSISTED_WORKFLOW_TYPES
+        else PAGE_TRANSLATION_WORKFLOW_TYPE
+    )
     metrics = (
         result.get("metrics")
         if isinstance(result, dict) and isinstance(result.get("metrics"), dict)
@@ -161,8 +165,8 @@ def combined_jobs(store: JobStore) -> list[JobPublic]:
     return jobs
 
 
-def restore_agent_payload_from_workflow(run: dict) -> dict:
-    """Handle restore agent payload from workflow."""
+def restore_page_translation_payload_from_workflow(run: dict) -> dict:
+    """Restore the page-translation request payload from a persisted workflow row."""
     result_json = run.get("result_json") if isinstance(run.get("result_json"), dict) else {}
     payload = extract_request_payload_from_result(result_json)
     payload.setdefault("volumeId", run.get("volume_id"))

@@ -12,11 +12,11 @@ from threading import Event
 from typing import Any, TypeVar
 from uuid import uuid4
 
-from infra.jobs.db_agent_worker import run_agent_db_worker
 from infra.jobs.db_ocr_worker import run_ocr_db_worker
+from infra.jobs.db_page_translation_worker import run_page_translation_db_worker
 from infra.jobs.db_translate_worker import run_translate_db_worker
 from infra.jobs.db_utility_worker import run_utility_db_worker
-from infra.jobs.job_modes import AGENT_WORKFLOW_TYPE
+from infra.jobs.job_modes import PAGE_TRANSLATION_WORKFLOW_TYPE
 from infra.jobs.store import Job, JobStatus, JobStore
 from infra.jobs.worker import job_worker
 from infra.jobs.workflow_repo import mark_running_workflows_interrupted
@@ -29,7 +29,7 @@ STORE = JobStore()
 
 _worker_started = False
 _worker_task: asyncio.Task | None = None
-_db_agent_worker_task: asyncio.Task | None = None
+_db_page_translation_worker_task: asyncio.Task | None = None
 _db_ocr_worker_task: asyncio.Task | None = None
 _db_translate_worker_task: asyncio.Task | None = None
 _db_utility_worker_task: asyncio.Task | None = None
@@ -59,13 +59,13 @@ async def _run_ocr_db_worker_supervisor(shutdown_event: Event) -> None:
             backoff_seconds = min(backoff_seconds * 2, max_backoff_seconds)
 
 
-async def _run_agent_db_worker_supervisor(shutdown_event: Event) -> None:
-    base_corr = {"component": "jobs.runtime.agent_supervisor"}
+async def _run_page_translation_db_worker_supervisor(shutdown_event: Event) -> None:
+    base_corr = {"component": "jobs.runtime.page_translation_supervisor"}
     backoff_seconds = 1.0
     max_backoff_seconds = 10.0
     while not shutdown_event.is_set():
         try:
-            await run_agent_db_worker(
+            await run_page_translation_db_worker(
                 shutdown_event,
                 log_store=STORE.logs,
                 signal_store=STORE,
@@ -76,7 +76,7 @@ async def _run_agent_db_worker_supervisor(shutdown_event: Event) -> None:
         except Exception:
             logger.exception(
                 append_correlation(
-                    "Agent DB worker crashed; restarting",
+                    "Page-translation DB worker crashed; restarting",
                     base_corr,
                     backoff_seconds=round(backoff_seconds, 1),
                 )
@@ -140,7 +140,7 @@ def _cancel_running_memory_jobs() -> None:
 
 
 async def start_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_agent_worker_task, _db_ocr_worker_task
+    global _worker_started, _worker_task, _db_page_translation_worker_task, _db_ocr_worker_task
     global _db_translate_worker_task
     global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
@@ -153,7 +153,7 @@ async def start_jobs_runtime() -> None:
 
         try:
             mark_running_workflows_interrupted(
-                workflow_type=AGENT_WORKFLOW_TYPE,
+                workflow_type=PAGE_TRANSLATION_WORKFLOW_TYPE,
                 message="Interrupted by backend restart",
                 include_queued=True,
             )
@@ -162,7 +162,7 @@ async def start_jobs_runtime() -> None:
                 append_correlation(
                     "Failed to mark running workflows interrupted at startup",
                     {"component": "jobs.runtime.startup"},
-                    workflow_type=AGENT_WORKFLOW_TYPE,
+                    workflow_type=PAGE_TRANSLATION_WORKFLOW_TYPE,
                 )
             )
 
@@ -174,9 +174,9 @@ async def start_jobs_runtime() -> None:
         )
 
         _worker_task = asyncio.create_task(job_worker(STORE), name="jobs-worker")
-        _db_agent_worker_task = asyncio.create_task(
-            _run_agent_db_worker_supervisor(STORE.shutdown_event),
-            name="jobs-db-agent-supervisor",
+        _db_page_translation_worker_task = asyncio.create_task(
+            _run_page_translation_db_worker_supervisor(STORE.shutdown_event),
+            name="jobs-db-page-translation-supervisor",
         )
         _db_ocr_worker_task = asyncio.create_task(
             _run_ocr_db_worker_supervisor(STORE.shutdown_event),
@@ -193,7 +193,7 @@ async def start_jobs_runtime() -> None:
 
 
 async def stop_jobs_runtime() -> None:
-    global _worker_started, _worker_task, _db_agent_worker_task, _db_ocr_worker_task
+    global _worker_started, _worker_task, _db_page_translation_worker_task, _db_ocr_worker_task
     global _db_translate_worker_task
     global _db_utility_worker_task, _runtime_loop
     async with _runtime_lock:
@@ -207,7 +207,7 @@ async def stop_jobs_runtime() -> None:
             task
             for task in (
                 _worker_task,
-                _db_agent_worker_task,
+                _db_page_translation_worker_task,
                 _db_ocr_worker_task,
                 _db_translate_worker_task,
                 _db_utility_worker_task,
@@ -220,7 +220,7 @@ async def stop_jobs_runtime() -> None:
             await asyncio.gather(*tasks, return_exceptions=True)
 
         _worker_task = None
-        _db_agent_worker_task = None
+        _db_page_translation_worker_task = None
         _db_ocr_worker_task = None
         _db_translate_worker_task = None
         _db_utility_worker_task = None

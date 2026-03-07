@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Final
 
 # Workflow/job type ids.
-AGENT_WORKFLOW_TYPE: Final[str] = "agent_translate_page"
+PAGE_TRANSLATION_WORKFLOW_TYPE: Final[str] = "agent_translate_page"
 OCR_PAGE_WORKFLOW_TYPE: Final[str] = "ocr_page"
 OCR_BOX_WORKFLOW_TYPE: Final[str] = "ocr_box"
 TRANSLATE_BOX_WORKFLOW_TYPE: Final[str] = "translate_box"
@@ -32,5 +32,7 @@ UTILITY_WORKFLOW_TYPES: Final[tuple[str, ...]] = (
 
 # Any workflow with persisted state in workflow/task tables.
 PERSISTED_WORKFLOW_TYPES: Final[frozenset[str]] = frozenset(
-    DB_TASK_WORKFLOW_TYPES | frozenset(UTILITY_WORKFLOW_TYPES) | frozenset({AGENT_WORKFLOW_TYPE})
+    DB_TASK_WORKFLOW_TYPES
+    | frozenset(UTILITY_WORKFLOW_TYPES)
+    | frozenset({PAGE_TRANSLATION_WORKFLOW_TYPE})
 )

@@ -17,26 +17,26 @@ from core.usecases.ocr.workflow_creation import (
 )
 from core.usecases.settings.service import get_setting_value
 from core.usecases.translation.profiles import get_translation_profile
-from infra.jobs.agent_translate_creation import (
-    AgentTranslatePageEnqueueDecision,
-    create_agent_translate_page_job,
-)
 from infra.jobs.job_modes import (
     BOX_DETECTION_JOB_TYPE,
     PREPARE_DATASET_JOB_TYPE,
     TRAIN_MODEL_JOB_TYPE,
 )
+from infra.jobs.page_translation_creation import (
+    PageTranslationEnqueueDecision,
+    create_page_translation_job,
+)
 from infra.jobs.translate_workflow_creation import create_translate_workflow_with_task
 from infra.jobs.utility_workflow_creation import create_persisted_utility_workflow
 
 
-def enqueue_agent_translate_page_operation(
+def enqueue_page_translation_operation(
     payload: dict[str, Any],
     *,
     idempotency_key: str | None = None,
-) -> AgentTranslatePageEnqueueDecision:
-    """Create or reuse the persisted agent translate-page workflow."""
-    return create_agent_translate_page_job(
+) -> PageTranslationEnqueueDecision:
+    """Create or reuse the persisted page-translation workflow."""
+    return create_page_translation_job(
         payload=payload,
         idempotency_key=idempotency_key,
     )

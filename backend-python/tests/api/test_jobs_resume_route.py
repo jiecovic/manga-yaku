@@ -1,5 +1,5 @@
 # backend-python/tests/api/test_jobs_resume_route.py
-"""Route tests for agent job resume creation."""
+"""Route tests for page-translation resume creation."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from api.routers.jobs import routes as jobs_routes
 async def test_resume_route_reuses_shared_agent_creation_helper() -> None:
     with (
         patch(
-            "api.routers.jobs.routes.get_resume_agent_payload",
+            "api.routers.jobs.routes.get_resume_page_translation_payload",
             return_value={
                 "volumeId": "vol-a",
                 "filename": "001.jpg",
@@ -21,7 +21,7 @@ async def test_resume_route_reuses_shared_agent_creation_helper() -> None:
             },
         ) as payload_mock,
         patch(
-            "api.routers.jobs.routes.create_agent_translate_page_job_record",
+            "api.routers.jobs.routes.create_page_translation_job_record",
             return_value={"job_id": "wf-resume-1", "queued": True},
         ) as create_mock,
         patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,

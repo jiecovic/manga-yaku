@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from core.usecases.agent.page_translate_prompts import build_translate_stage_prompt_payload
+from core.usecases.page_translation.prompts import build_translate_stage_prompt_payload
 
 
 def test_translate_stage_prompt_discourages_forced_gendered_pronouns() -> None:

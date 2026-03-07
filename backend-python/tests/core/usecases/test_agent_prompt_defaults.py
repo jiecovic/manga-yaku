@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from core.usecases.agent.engine import _load_system_prompt
-from core.workflows.agent_translate_page.types import AgentTranslatePageRequest
+from core.workflows.page_translation.types import PageTranslationRequest
 
 
 def test_load_system_prompt_renders_shared_language_defaults() -> None:
@@ -19,7 +19,7 @@ def test_load_system_prompt_renders_shared_language_defaults() -> None:
 
 
 def test_agent_translate_request_uses_shared_language_defaults() -> None:
-    request = AgentTranslatePageRequest.from_payload(
+    request = PageTranslationRequest.from_payload(
         {
             "volumeId": "vol-a",
             "filename": "001.jpg",

@@ -19,12 +19,12 @@ from infra.jobs.job_modes import TRAIN_MODEL_JOB_TYPE
 from infra.jobs.store import JobPublic, JobStatus, JobStore
 
 from .jobs_workflow_helpers import (
-    AGENT_WORKFLOW_TYPE,
+    PAGE_TRANSLATION_WORKFLOW_TYPE,
     PERSISTED_WORKFLOW_TYPES,
     cancel_pending_tasks,
     combined_jobs,
     extract_workflow_run_id,
-    restore_agent_payload_from_workflow,
+    restore_page_translation_payload_from_workflow,
     workflow_run_to_job_public,
     workflow_status_to_job_status,
 )
@@ -78,27 +78,30 @@ def get_job_tasks_payload(*, job_id: str, store: JobStore) -> dict[str, Any]:
     }
 
 
-def get_resume_agent_payload(*, job_id: str, store: JobStore) -> dict:
-    """Return resume agent payload."""
+def get_resume_page_translation_payload(*, job_id: str, store: JobStore) -> dict:
+    """Return the saved page-translation request payload for a rerun."""
     payload: dict
 
     memory_job = store.get_job(job_id)
     if memory_job is not None:
-        if memory_job.type != AGENT_WORKFLOW_TYPE:
-            raise HTTPException(status_code=400, detail="Only agent jobs support resume")
+        if memory_job.type != PAGE_TRANSLATION_WORKFLOW_TYPE:
+            raise HTTPException(
+                status_code=400,
+                detail="Only page-translation workflows support resume",
+            )
         if memory_job.status in (JobStatus.queued, JobStatus.running):
             raise HTTPException(status_code=409, detail="Job is already active")
         payload = dict(memory_job.payload or {})
     else:
         run = get_workflow_run(job_id)
-        if not run or str(run.get("workflow_type")) != AGENT_WORKFLOW_TYPE:
+        if not run or str(run.get("workflow_type")) != PAGE_TRANSLATION_WORKFLOW_TYPE:
             raise HTTPException(status_code=404, detail="Job not found")
         if str(run.get("status") or "").strip() in {"queued", "running"}:
             raise HTTPException(
                 status_code=409,
                 detail="Workflow is already active; cancel it first",
             )
-        payload = restore_agent_payload_from_workflow(run)
+        payload = restore_page_translation_payload_from_workflow(run)
 
     if not payload.get("volumeId") or not payload.get("filename"):
         raise HTTPException(status_code=400, detail="Cannot resume: missing workflow input payload")

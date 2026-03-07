@@ -9,24 +9,24 @@ import time
 from typing import Any
 
 from api.schemas.settings import (
-    AgentTranslateSettingsResponse,
     OcrProfileSettingsResponse,
+    PageTranslationSettingsResponse,
     SettingsResponse,
     TranslationProfileSettingsResponse,
-    UpdateAgentTranslateSettingsRequest,
     UpdateOcrProfileSettingsRequest,
+    UpdatePageTranslationSettingsRequest,
     UpdateSettingsRequest,
     UpdateTranslationProfileSettingsRequest,
 )
 from config import AGENT_MODELS
-from core.usecases.agent.settings import (
-    agent_translate_defaults,
-    resolve_agent_translate_settings,
-    update_agent_translate_settings,
-)
 from core.usecases.ocr.profile_settings import (
     list_ocr_profiles_with_settings,
     update_ocr_profile_settings,
+)
+from core.usecases.page_translation.settings import (
+    page_translation_defaults,
+    resolve_page_translation_settings,
+    update_page_translation_settings,
 )
 from core.usecases.settings.definitions import DEFAULT_SETTINGS
 from core.usecases.settings.service import resolve_settings, update_settings
@@ -149,13 +149,13 @@ async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
 
 @router.get(
     "/settings/agent-translate",
-    response_model=AgentTranslateSettingsResponse,
+    response_model=PageTranslationSettingsResponse,
 )
-async def get_agent_translate_settings() -> AgentTranslateSettingsResponse:
-    """Return agent translate settings."""
-    value = resolve_agent_translate_settings()
-    defaults = agent_translate_defaults()
-    return AgentTranslateSettingsResponse(
+async def get_page_translation_settings() -> PageTranslationSettingsResponse:
+    """Return page-translation settings."""
+    value = resolve_page_translation_settings()
+    defaults = page_translation_defaults()
+    return PageTranslationSettingsResponse(
         value=value,
         defaults=defaults,
         options={
@@ -167,20 +167,20 @@ async def get_agent_translate_settings() -> AgentTranslateSettingsResponse:
 
 @router.put(
     "/settings/agent-translate",
-    response_model=AgentTranslateSettingsResponse,
+    response_model=PageTranslationSettingsResponse,
 )
-async def put_agent_translate_settings(
-    req: UpdateAgentTranslateSettingsRequest,
-) -> AgentTranslateSettingsResponse:
-    """Update agent translate settings."""
+async def put_page_translation_settings(
+    req: UpdatePageTranslationSettingsRequest,
+) -> PageTranslationSettingsResponse:
+    """Update page-translation settings."""
     try:
-        value = update_agent_translate_settings(req.model_dump(exclude_unset=True))
+        value = update_page_translation_settings(req.model_dump(exclude_unset=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return AgentTranslateSettingsResponse(
+    return PageTranslationSettingsResponse(
         value=value,
-        defaults=agent_translate_defaults(),
+        defaults=page_translation_defaults(),
         options={
             "models": AGENT_MODELS,
             "reasoning_effort": ["low", "medium", "high"],

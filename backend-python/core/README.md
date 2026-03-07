@@ -10,7 +10,7 @@ Contains:
 ## Workflow execution model
 
 - Workflow policy and stage transitions live in
-  `core/workflows/agent_translate_page`.
+  `core/workflows/page_translation`.
 - The runner decides stage order, cancellation behavior, and completion rules.
 - DB workers do execution for queued OCR/translate tasks, but do not own
   business workflow policy.

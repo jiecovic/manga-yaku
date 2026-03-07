@@ -10,7 +10,7 @@ from core.usecases.agent.tool_shared import (
     resolve_active_page_filename,
 )
 from infra.db.db_store import load_page
-from infra.jobs.operations import enqueue_agent_translate_page_operation
+from infra.jobs.operations import enqueue_page_translation_operation
 from infra.jobs.workflow_runtime import wait_for_workflow_snapshot
 
 _TOOL_AGENT_PAGE_WAIT_TIMEOUT_SECONDS = 45.0
@@ -29,7 +29,7 @@ def translate_active_page_tool(
     model_id: str | None = None,
     force_rerun: bool = False,
 ) -> dict[str, object]:
-    """Run page translation through the persisted agent workflow."""
+    """Run page translation through the persisted page-translation workflow."""
     if not volume_id:
         return {"error": "No active volume selected"}
 
@@ -64,7 +64,7 @@ def translate_active_page_tool(
             "message": "Page already has translations; use force_rerun=true to overwrite them",
         }
 
-    decision = enqueue_agent_translate_page_operation(
+    decision = enqueue_page_translation_operation(
         {
             "volumeId": volume_id,
             "filename": resolved_filename,

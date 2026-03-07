@@ -20,7 +20,7 @@ from api.services.jobs_service import (
     delete_job,
     get_job_public,
     get_job_tasks_payload,
-    get_resume_agent_payload,
+    get_resume_page_translation_payload,
     get_training_log_path,
 )
 from api.services.jobs_workflow_helpers import workflow_run_to_job_public
@@ -111,7 +111,7 @@ def test_workflow_run_projection_surfaces_metrics_and_warnings(store: JobStore) 
     assert public.warnings == ["gpu busy"]
 
 
-def test_get_resume_agent_payload_strips_workflow_fields(store: JobStore) -> None:
+def test_get_resume_page_translation_payload_strips_workflow_fields(store: JobStore) -> None:
     now = store.now()
     store.add_job(
         Job(
@@ -129,7 +129,7 @@ def test_get_resume_agent_payload_strips_workflow_fields(store: JobStore) -> Non
         )
     )
 
-    payload = get_resume_agent_payload(job_id="job-3", store=store)
+    payload = get_resume_page_translation_payload(job_id="job-3", store=store)
     assert payload["volumeId"] == "vol"
     assert payload["filename"] == "002.jpg"
     assert "workflowRunId" not in payload
@@ -137,7 +137,7 @@ def test_get_resume_agent_payload_strips_workflow_fields(store: JobStore) -> Non
 
 
 @pytest.mark.parametrize("status", ["queued", "running"])
-def test_get_resume_agent_payload_rejects_active_persisted_workflow(
+def test_get_resume_page_translation_payload_rejects_active_persisted_workflow(
     store: JobStore,
     status: str,
 ) -> None:
@@ -153,7 +153,7 @@ def test_get_resume_agent_payload_rejects_active_persisted_workflow(
         ),
         pytest.raises(HTTPException) as raised,
     ):
-        get_resume_agent_payload(job_id="wf-active-1", store=store)
+        get_resume_page_translation_payload(job_id="wf-active-1", store=store)
 
     assert raised.value.status_code == 409
     assert "already active" in str(raised.value.detail).lower()

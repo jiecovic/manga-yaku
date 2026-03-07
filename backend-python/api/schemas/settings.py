@@ -24,8 +24,8 @@ class UpdateSettingsRequest(BaseModel):
     values: dict[str, Any]
 
 
-class AgentTranslateSettings(BaseModel):
-    """Persisted runtime knobs for the agent translate-page LLM."""
+class PageTranslationSettings(BaseModel):
+    """Persisted runtime knobs for the page-translation LLM."""
 
     model_id: str
     max_output_tokens: int | None = None
@@ -33,16 +33,16 @@ class AgentTranslateSettings(BaseModel):
     temperature: float | None = None
 
 
-class AgentTranslateSettingsResponse(BaseModel):
-    """Response envelope for agent translate-page settings."""
+class PageTranslationSettingsResponse(BaseModel):
+    """Response envelope for page-translation settings."""
 
-    value: AgentTranslateSettings
-    defaults: AgentTranslateSettings
+    value: PageTranslationSettings
+    defaults: PageTranslationSettings
     options: dict[str, Any]
 
 
-class UpdateAgentTranslateSettingsRequest(BaseModel):
-    """Partial update payload for agent translate-page settings."""
+class UpdatePageTranslationSettingsRequest(BaseModel):
+    """Partial update payload for page-translation settings."""
 
     model_id: str | None = None
     max_output_tokens: int | None = None

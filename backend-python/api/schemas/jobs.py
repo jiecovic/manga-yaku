@@ -56,7 +56,7 @@ class CreateTranslatePageJobRequest(BaseModel):
 
 
 class CreateAgentTranslatePageJobRequest(BaseModel):
-    """Create the staged agent translate-page workflow job."""
+    """Create the staged page-translation workflow job."""
 
     volumeId: str
     filename: str

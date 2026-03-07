@@ -20,7 +20,7 @@ See also:
 
 The important split is:
 
-- Workflow policy is owned by `core/workflows/agent_translate_page/*`.
+- Workflow policy is owned by `core/workflows/page_translation/*`.
   This includes stage order, transition rules, cancellation behavior, and
   completion/failure semantics.
 - Workers in `infra/jobs/*` execute queued task units and persist status/results.
@@ -38,7 +38,7 @@ Source of truth: `infra/jobs/job_modes.py`.
   persisted in `workflow_runs` + `task_runs`, consumed by the DB utility worker.
 - `workflow-orchestrator`:
   `agent_translate_page`
-  persisted in `workflow_runs` + `task_runs`, consumed by the DB agent worker.
+  persisted in `workflow_runs` + `task_runs`, consumed by the DB page-translation worker.
 
 ## Agent translate submission semantics
 

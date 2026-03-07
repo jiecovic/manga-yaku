@@ -19,15 +19,15 @@ from api.schemas.jobs import (
     JobsCapabilitiesResponse,
 )
 from api.services.jobs_creation_service import (
-    create_agent_translate_page_job as create_agent_translate_page_job_record,
-)
-from api.services.jobs_creation_service import (
     create_box_detection_workflow,
     create_ocr_box_workflow,
     create_ocr_page_workflow,
     create_prepare_dataset_workflow,
     create_train_model_workflow,
     create_translate_box_workflow,
+)
+from api.services.jobs_creation_service import (
+    create_page_translation_job as create_page_translation_job_record,
 )
 from api.services.jobs_service import (
     cancel_job as cancel_job_record,
@@ -41,7 +41,7 @@ from api.services.jobs_service import (
 from api.services.jobs_service import (
     get_job_public,
     get_job_tasks_payload,
-    get_resume_agent_payload,
+    get_resume_page_translation_payload,
     get_training_log_path,
     list_job_public_records,
 )
@@ -54,12 +54,12 @@ from infra.training.catalog import resolve_prepared_dataset, resolve_training_so
 router = APIRouter(tags=["jobs"])
 
 _TRANSLATE_PAGE_DISABLED_REASON = (
-    "Standalone translation page jobs are not supported. Use the agent translate page workflow."
+    "Standalone translation page jobs are not supported. Use the page-translation workflow."
 )
 # Job mode boundary:
 # - DB task workflows are persisted and executed by DB workers.
 # - Utility jobs are persisted single-task workflows executed by the DB utility worker.
-# - Agent translate page is a persisted workflow executed by a DB worker.
+# - Page translation is a persisted workflow executed by a DB worker.
 
 _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     ocr_page=JobCapability(enabled=True),
@@ -121,8 +121,8 @@ async def create_agent_translate_page_job(
     req: CreateAgentTranslatePageJobRequest,
     request: Request,
 ) -> CreateJobResponse:
-    """Create agent translate page job."""
-    decision = create_agent_translate_page_job_record(
+    """Create the persisted page-translation workflow job."""
+    decision = create_page_translation_job_record(
         req=req,
         idempotency_key=request.headers.get("Idempotency-Key"),
     )
@@ -275,9 +275,9 @@ async def get_job_tasks(job_id: str) -> dict:
 @router.post("/jobs/{job_id}/resume", response_model=CreateJobResponse)
 async def resume_job(job_id: str) -> CreateJobResponse:
     """Resume job."""
-    payload = get_resume_agent_payload(job_id=job_id, store=STORE)
+    payload = get_resume_page_translation_payload(job_id=job_id, store=STORE)
     req = CreateAgentTranslatePageJobRequest(**payload)
-    decision = create_agent_translate_page_job_record(
+    decision = create_page_translation_job_record(
         req=req,
     )
     _notify_jobs_changed()

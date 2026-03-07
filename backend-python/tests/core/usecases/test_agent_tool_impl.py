@@ -616,7 +616,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_agent_translate_page_operation",
+            "core.usecases.agent.tool_jobs_translate_page.enqueue_page_translation_operation",
             return_value={
                 "job_id": "job-123",
                 "queued": True,
@@ -656,7 +656,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
 def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_agent_translate_page_operation",
+            "core.usecases.agent.tool_jobs_translate_page.enqueue_page_translation_operation",
             return_value={
                 "job_id": "wf-999",
                 "queued": False,
@@ -715,7 +715,7 @@ def test_translate_active_page_short_circuits_when_page_already_translated() -> 
             return_value=page,
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_agent_translate_page_operation",
+            "core.usecases.agent.tool_jobs_translate_page.enqueue_page_translation_operation",
         ) as create_job_mock,
     ):
         result = translate_active_page_tool(

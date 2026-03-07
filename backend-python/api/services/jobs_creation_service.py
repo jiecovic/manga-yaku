@@ -16,30 +16,30 @@ from api.schemas.jobs import (
 )
 from fastapi import HTTPException
 from infra.jobs.operations import (
-    enqueue_agent_translate_page_operation,
     enqueue_box_detection_operation,
     enqueue_ocr_box_operation,
     enqueue_ocr_page_operation,
+    enqueue_page_translation_operation,
     enqueue_prepare_dataset_operation,
     enqueue_train_model_operation,
     enqueue_translate_box_operation,
 )
 
 
-class AgentTranslatePageEnqueueResult(TypedDict):
-    """Result tuple for creating/reusing an agent translate page job."""
+class PageTranslationEnqueueResult(TypedDict):
+    """Result tuple for creating/reusing a page-translation workflow."""
 
     job_id: str
     queued: bool
 
 
-def create_agent_translate_page_job(
+def create_page_translation_job(
     *,
     req: CreateAgentTranslatePageJobRequest,
     idempotency_key: str | None = None,
-) -> AgentTranslatePageEnqueueResult:
-    """Create or reuse an agent translate-page job."""
-    decision = enqueue_agent_translate_page_operation(
+) -> PageTranslationEnqueueResult:
+    """Create or reuse a page-translation workflow."""
+    decision = enqueue_page_translation_operation(
         req.model_dump(),
         idempotency_key=idempotency_key,
     )
