@@ -3,20 +3,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
-from dataclasses import dataclass
 from threading import Event
-from typing import Any, cast
+from typing import Any
 
 from config import (
-    AGENT_GROUNDING_MODE,
     AGENT_MODEL,
     AGENT_PROMPT_FILE,
-    AGENT_REASONING_EFFORT,
-    AGENT_TEMPERATURE,
-    DATA_DIR,
     TRANSLATION_SOURCE_LANGUAGE,
     TRANSLATION_TARGET_LANGUAGE,
 )
@@ -24,25 +17,23 @@ from core.usecases.agent.chat_runtime_settings import (
     resolve_agent_chat_max_output_tokens,
     resolve_agent_chat_max_turns,
 )
-from core.usecases.agent.grounding_context import (
-    build_grounding_message,
-    resolve_active_filename,
-    should_use_visual_grounding,
+from core.usecases.agent.engine_sdk_runtime import (
+    build_sdk_agent as _build_sdk_agent_impl,
 )
-from core.usecases.agent.mcp_runtime import (
-    build_agent_mcp_servers,
-    cleanup_mcp_servers,
-    connect_mcp_servers,
+from core.usecases.agent.engine_sdk_runtime import (
+    build_sdk_input as _build_sdk_input_impl,
 )
-from core.usecases.agent.streaming import (
-    extract_sdk_result_text,
-    run_sdk_stream_events,
+from core.usecases.agent.engine_sdk_runtime import (
+    build_sdk_session as _build_sdk_session_impl,
 )
-from core.usecases.agent.tool_shared import coerce_filename
-from core.usecases.agent.turn_state import (
-    build_turn_state_message,
-    get_active_page_revision,
-    get_active_page_text_box_count,
+from core.usecases.agent.engine_sdk_runtime import (
+    run_agent_chat_sdk as _run_agent_chat_sdk_impl,
+)
+from core.usecases.agent.engine_sdk_runtime import (
+    run_agent_chat_stream_sdk as _run_agent_chat_stream_sdk_impl,
+)
+from core.usecases.agent.engine_sdk_runtime import (
+    sdk_use_sqlite_session as _sdk_use_sqlite_session_impl,
 )
 from infra.llm import (
     build_response_params,
@@ -51,7 +42,7 @@ from infra.llm import (
     has_openai_sdk,
     openai_responses_create,
 )
-from infra.logging.correlation import append_correlation, normalize_correlation
+from infra.logging.correlation import normalize_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 # Optional Agents SDK imports.
@@ -73,12 +64,6 @@ except Exception as exc:  # pragma: no cover - optional dependency path
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class AgentToolContext:
-    volume_id: str
-    current_filename: str | None
 
 
 def _resolve_agent_chat_max_turns() -> int:
@@ -103,29 +88,11 @@ def _load_system_prompt() -> str:
 
 
 def _sdk_use_sqlite_session() -> bool:
-    raw = os.getenv("AGENT_SDK_USE_SQLITE_SESSION", "0").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    return _sdk_use_sqlite_session_impl()
 
 
 def _build_sdk_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    input_payload: list[dict[str, Any]] = []
-    for msg in messages:
-        role = str(msg.get("role") or "user").strip().lower()
-        text = str(msg.get("content") or "").strip()
-        if not text:
-            continue
-        if role not in {"system", "user", "assistant", "tool"}:
-            role = "user"
-        content_type = "input_text"
-        if role in {"assistant", "tool"}:
-            content_type = "output_text"
-        input_payload.append(
-            {
-                "role": role,
-                "content": [{"type": content_type, "text": text}],
-            }
-        )
-    return input_payload
+    return _build_sdk_input_impl(messages)
 
 
 def _build_repair_conversation_excerpt(messages: list[dict[str, Any]]) -> str:
@@ -152,41 +119,23 @@ def _build_repair_action_excerpt(action_events: list[dict[str, str]]) -> str:
 
 
 def _build_sdk_agent(model_id: str, *, mcp_servers: list[Any]) -> Any:
-    if Agent is None or ModelSettings is None:
-        raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
-
-    settings: dict[str, Any] = {
-        "max_tokens": _resolve_agent_chat_max_output_tokens(),
-        "parallel_tool_calls": False,
-    }
-    if str(model_id).startswith("gpt-5"):
-        effort = AGENT_REASONING_EFFORT
-        if effort not in {"low", "medium", "high"}:
-            effort = "medium"
-        settings["reasoning"] = {"effort": effort}
-    else:
-        settings["temperature"] = AGENT_TEMPERATURE
-
-    return Agent(
-        name="MangaYaku Chat",
-        instructions=_load_system_prompt(),
-        model=model_id,
-        model_settings=ModelSettings(**settings),
-        mcp_servers=list(mcp_servers),
+    return _build_sdk_agent_impl(
+        model_id,
+        mcp_servers=mcp_servers,
+        agent_cls=Agent,
+        model_settings_cls=ModelSettings,
+        load_system_prompt=_load_system_prompt,
+        resolve_max_output_tokens=_resolve_agent_chat_max_output_tokens,
+        agents_import_error=_agents_import_error,
     )
 
 
 def _build_sdk_session(session_id: str | None) -> Any:
-    # We already persist chat history in our own DB, so keep SDK session off by
-    # default to avoid duplicated/conflated turn state. Enable only when needed.
-    if not _sdk_use_sqlite_session():
-        return None
-    if SQLiteSession is None or not session_id:
-        return None
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    db_path = DATA_DIR / "agent_sdk_sessions.sqlite3"
-    session_key = f"chat:{session_id}"
-    return SQLiteSession(session_id=session_key, db_path=str(db_path))
+    return _build_sdk_session_impl(
+        session_id,
+        use_sqlite_session=_sdk_use_sqlite_session(),
+        sqlite_session_cls=SQLiteSession,
+    )
 
 
 def run_agent_chat_repair(
@@ -206,13 +155,6 @@ def run_agent_chat_repair(
         "model": resolved_model,
         "max_output_tokens": _resolve_agent_chat_max_output_tokens(),
     }
-    if str(resolved_model).startswith("gpt-5"):
-        effort = AGENT_REASONING_EFFORT
-        if effort not in {"low", "medium", "high"}:
-            effort = "medium"
-        cfg["reasoning"] = {"effort": effort}
-    else:
-        cfg["temperature"] = AGENT_TEMPERATURE
 
     conversation_excerpt = _build_repair_conversation_excerpt(messages)
     action_excerpt = _build_repair_action_excerpt(action_events)
@@ -278,98 +220,20 @@ def _run_agent_chat_sdk(
     current_filename: str | None,
     session_id: str | None,
 ) -> str:
-    if Runner is None:
-        raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
-    runner_cls = cast(Any, Runner)
-
-    resolved_model = model_id or AGENT_MODEL
-    volume_value = str(volume_id or "").strip()
-    requested_filename = coerce_filename(current_filename)
-    fallback_filename = coerce_filename(current_filename)
-    active_filename = None
-    if volume_value:
-        active_filename = resolve_active_filename(
-            volume_id=volume_value,
-            requested_filename=requested_filename,
-            fallback_filename=fallback_filename,
-        )
-    active_text_box_count = get_active_page_text_box_count(
-        volume_id=volume_value,
-        current_filename=active_filename,
+    return _run_agent_chat_sdk_impl(
+        messages,
+        model_id=model_id,
+        volume_id=volume_id,
+        current_filename=current_filename,
+        session_id=session_id,
+        runner_cls=Runner,
+        agent_builder=_build_sdk_agent,
+        session_builder=_build_sdk_session,
+        input_builder=_build_sdk_input,
+        resolve_max_turns=_resolve_agent_chat_max_turns,
+        logger=logger,
+        agents_import_error=_agents_import_error,
     )
-    active_page_revision = get_active_page_revision(
-        volume_id=volume_value,
-        current_filename=active_filename,
-    )
-
-    session = _build_sdk_session(session_id)
-    run_context = AgentToolContext(
-        volume_id=volume_value,
-        current_filename=active_filename,
-    )
-    mcp_servers = build_agent_mcp_servers(
-        volume_id=volume_value,
-        active_filename=active_filename,
-    )
-
-    input_items = _build_sdk_input(messages)
-    input_items.append(
-        build_turn_state_message(
-            volume_id=volume_value,
-            active_filename=active_filename,
-            text_box_count=active_text_box_count,
-            page_revision=active_page_revision,
-        )
-    )
-    if volume_value and active_filename:
-        grounding = build_grounding_message(
-            volume_id=volume_value,
-            filename=active_filename,
-            page_revision=active_page_revision,
-            include_images=should_use_visual_grounding(
-                messages,
-                grounding_mode_setting=AGENT_GROUNDING_MODE,
-            ),
-            grounding_mode_setting=AGENT_GROUNDING_MODE,
-        )
-        if grounding:
-            input_items.append(grounding)
-
-    sdk_input = cast(Any, input_items)
-
-    async def run_once() -> str:
-        connected_servers, failed_servers = await connect_mcp_servers(mcp_servers)
-        if not connected_servers:
-            raise RuntimeError("No MCP tool servers are available for this agent run")
-        for server_name, exc in failed_servers:
-            logger.warning(
-                append_correlation(
-                    f"mcp server unavailable during sync run: {server_name}: {exc}",
-                    {
-                        "component": "agent.chat.sdk",
-                        "session_id": session_id,
-                        "volume_id": volume_value,
-                        "filename": active_filename,
-                        "model_id": resolved_model,
-                    },
-                )
-            )
-
-        max_turns = _resolve_agent_chat_max_turns()
-        agent = _build_sdk_agent(resolved_model, mcp_servers=connected_servers)
-        try:
-            result = await runner_cls.run(
-                agent,
-                input=sdk_input,
-                context=run_context,
-                session=session,
-                max_turns=max_turns,
-            )
-            return extract_sdk_result_text(result).strip()
-        finally:
-            await cleanup_mcp_servers(connected_servers)
-
-    return asyncio.run(run_once())
 
 
 def run_agent_chat(
@@ -398,100 +262,19 @@ def _run_agent_chat_stream_sdk(
     session_id: str | None,
     stop_event: Event | None = None,
 ):
-    runner_cls = Runner
-    if runner_cls is None:
-        raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
-
-    resolved_model = model_id or AGENT_MODEL
-    volume_value = str(volume_id or "").strip()
-    requested_filename = coerce_filename(current_filename)
-    fallback_filename = coerce_filename(current_filename)
-    active_filename = None
-    if volume_value:
-        active_filename = resolve_active_filename(
-            volume_id=volume_value,
-            requested_filename=requested_filename,
-            fallback_filename=fallback_filename,
-        )
-    active_text_box_count = get_active_page_text_box_count(
-        volume_id=volume_value,
-        current_filename=active_filename,
-    )
-    active_page_revision = get_active_page_revision(
-        volume_id=volume_value,
-        current_filename=active_filename,
-    )
-
-    session = _build_sdk_session(session_id)
-    run_context = AgentToolContext(
-        volume_id=volume_value,
-        current_filename=active_filename,
-    )
-    mcp_servers = build_agent_mcp_servers(
-        volume_id=volume_value,
-        active_filename=active_filename,
-    )
-    agent = _build_sdk_agent(resolved_model, mcp_servers=mcp_servers)
-
-    input_items = _build_sdk_input(messages)
-    input_items.append(
-        build_turn_state_message(
-            volume_id=volume_value,
-            active_filename=active_filename,
-            text_box_count=active_text_box_count,
-            page_revision=active_page_revision,
-        )
-    )
-    runtime_event = "Agents SDK runtime active (MCP tools)"
-    grounding_event: str | None = None
-    max_turns = _resolve_agent_chat_max_turns()
-    if volume_value and active_filename:
-        include_images = should_use_visual_grounding(
-            messages,
-            grounding_mode_setting=AGENT_GROUNDING_MODE,
-        )
-        grounding = build_grounding_message(
-            volume_id=volume_value,
-            filename=active_filename,
-            page_revision=active_page_revision,
-            include_images=include_images,
-            grounding_mode_setting=AGENT_GROUNDING_MODE,
-        )
-        if grounding:
-            input_items.append(grounding)
-            mode_label = "full" if include_images else "lightweight"
-            rev_label = active_page_revision or "unknown"
-            grounding_event = (
-                f"Loaded {mode_label} grounding for page {active_filename} (rev {rev_label})"
-            )
-        else:
-            grounding_event = f"Failed to load grounding assets for page {active_filename}"
-    elif volume_value:
-        grounding_event = "No active page selected; running without page grounding"
-    else:
-        grounding_event = "No active volume selected; running chat-only context"
-    sdk_input = cast(Any, input_items)
-
-    yield {"type": "activity", "message": runtime_event}
-    if grounding_event:
-        yield {"type": "activity", "message": grounding_event}
-
-    yield from run_sdk_stream_events(
-        runner_cls=runner_cls,
-        agent=agent,
-        sdk_input=sdk_input,
-        run_context=run_context,
-        session=session,
-        mcp_servers=mcp_servers,
+    yield from _run_agent_chat_stream_sdk_impl(
+        messages,
+        model_id=model_id,
+        volume_id=volume_id,
+        current_filename=current_filename,
+        session_id=session_id,
         stop_event=stop_event,
-        max_turns=max_turns,
-        correlation={
-            "component": "agent.chat.stream.sdk",
-            "session_id": session_id,
-            "volume_id": volume_value,
-            "filename": active_filename,
-            "model_id": resolved_model,
-        },
+        runner_cls=Runner,
+        agent_builder=_build_sdk_agent,
+        session_builder=_build_sdk_session,
+        input_builder=_build_sdk_input,
+        resolve_max_turns=_resolve_agent_chat_max_turns,
+        agents_import_error=_agents_import_error,
     )
 
 
