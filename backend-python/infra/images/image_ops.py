@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import VOLUMES_ROOT, safe_join
 from PIL import Image
+
+from config import VOLUMES_ROOT, safe_join
 
 
 def get_page_image_path(volume_id: str, filename: str) -> Path:

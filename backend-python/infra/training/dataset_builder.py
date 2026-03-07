@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import TRAINING_PREPARED_ROOT
 from PIL import Image
+
+from config import TRAINING_PREPARED_ROOT
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_TARGETS = {"frame", "text", "face", "body"}

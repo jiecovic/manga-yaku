@@ -3,9 +3,10 @@
 
 from pathlib import Path
 
-from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+
+from config import VOLUMES_ROOT, safe_join
 
 router = APIRouter(tags=["images"])
 

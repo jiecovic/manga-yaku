@@ -6,8 +6,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from config import TRAINING_PREPARED_ROOT, TRAINING_SOURCES_ROOT, safe_join
 from packaging.version import InvalidVersion, Version
+
+from config import TRAINING_PREPARED_ROOT, TRAINING_SOURCES_ROOT, safe_join
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 

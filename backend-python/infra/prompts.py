@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 import yaml
-from config import PROJECT_ROOT
 from jinja2 import Template
+
+from config import PROJECT_ROOT
 
 _override_dir = os.getenv("MANGAYAKU_PROMPTS_DIR")
 if _override_dir:

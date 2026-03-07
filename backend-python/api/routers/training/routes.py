@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from fastapi import APIRouter, HTTPException
+
 from api.schemas.training import (
     PrepareDatasetRequest,
     PrepareDatasetResponse,
@@ -11,7 +13,6 @@ from api.schemas.training import (
     TrainingModelsResponse,
     TrainingSourcePublic,
 )
-from fastapi import APIRouter, HTTPException
 from infra.training.catalog import (
     detect_model_families,
     resolve_training_sources,

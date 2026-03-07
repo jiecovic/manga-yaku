@@ -1,9 +1,10 @@
 # backend-python/api/routers/translation/routes.py
 """HTTP routes for translation endpoints."""
 
+from fastapi import APIRouter
+
 from api.schemas.providers import TranslationProvider
 from core.usecases.translation.profiles import list_translation_profiles_for_api
-from fastapi import APIRouter
 
 router = APIRouter(tags=["translation"])
 

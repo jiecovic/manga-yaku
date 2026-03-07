@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 import yaml
+
 from config import MODELS_ROOT, PROJECT_ROOT, TRAINING_RUNS_ROOT, safe_join
 
 
