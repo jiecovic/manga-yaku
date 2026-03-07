@@ -15,8 +15,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import unittest
 from unittest.mock import patch
+
+import pytest
 
 from core.workflows.agent_translate_page.types import (
     AgentTranslateWorkflowSnapshot,
@@ -64,94 +65,90 @@ async def _run_unknown_job() -> Job:
     return stored
 
 
-class JobStoreTests(unittest.TestCase):
-    def test_format_sse_sanitizes_nonfinite(self) -> None:
-        store = JobStore()
-        payload = {
-            "value": float("nan"),
-            "items": [float("inf"), 1.0],
-            "nested": {"neg_inf": float("-inf")},
-        }
-        data = store.format_sse(payload)
-        self.assertTrue(data.startswith("data: "))
-        json_text = data.replace("data: ", "", 1).strip()
-        parsed = json.loads(json_text)
-        self.assertIsNone(parsed["value"])
-        self.assertIsNone(parsed["items"][0])
-        self.assertEqual(parsed["items"][1], 1.0)
-        self.assertIsNone(parsed["nested"]["neg_inf"])
-
-    def test_update_job_does_not_resurrect_removed_job(self) -> None:
-        store = JobStore()
-        now = store.now()
-        job = Job(
-            id="deleted-job",
-            type="box_detection",
-            status=JobStatus.canceled,
-            created_at=now,
-            updated_at=now,
-            payload={},
-        )
-        store.add_job(job)
-        self.assertTrue(store.remove_job(job.id))
-
-        store.update_job(job, progress=90, message="Should stay gone")
-
-        self.assertIsNone(store.get_job(job.id))
+def test_format_sse_sanitizes_nonfinite() -> None:
+    store = JobStore()
+    payload = {
+        "value": float("nan"),
+        "items": [float("inf"), 1.0],
+        "nested": {"neg_inf": float("-inf")},
+    }
+    data = store.format_sse(payload)
+    assert data.startswith("data: ")
+    json_text = data.replace("data: ", "", 1).strip()
+    parsed = json.loads(json_text)
+    assert parsed["value"] is None
+    assert parsed["items"][0] is None
+    assert parsed["items"][1] == 1.0
+    assert parsed["nested"]["neg_inf"] is None
 
 
-class AgentJobHandlerTests(unittest.TestCase):
-    def test_canceled_agent_job_ignores_late_progress(self) -> None:
-        async def _run() -> None:
-            store = JobStore()
-            now = store.now()
-            job = Job(
-                id="agent-job",
-                type="agent_translate_page",
-                status=JobStatus.running,
-                created_at=now,
-                updated_at=now,
-                payload={"volumeId": "vol", "filename": "001.jpg"},
-                progress=10,
-                message="Running",
+def test_update_job_does_not_resurrect_removed_job() -> None:
+    store = JobStore()
+    now = store.now()
+    job = Job(
+        id="deleted-job",
+        type="box_detection",
+        status=JobStatus.canceled,
+        created_at=now,
+        updated_at=now,
+        payload={},
+    )
+    store.add_job(job)
+    assert store.remove_job(job.id)
+
+    store.update_job(job, progress=90, message="Should stay gone")
+
+    assert store.get_job(job.id) is None
+
+
+@pytest.mark.asyncio
+async def test_canceled_agent_job_ignores_late_progress() -> None:
+    store = JobStore()
+    now = store.now()
+    job = Job(
+        id="agent-job",
+        type="agent_translate_page",
+        status=JobStatus.running,
+        created_at=now,
+        updated_at=now,
+        payload={"volumeId": "vol", "filename": "001.jpg"},
+        progress=10,
+        message="Running",
+    )
+    store.add_job(job)
+
+    async def _fake_workflow(*, on_progress, **_: object) -> dict[str, object]:
+        store.update_job(job, status=JobStatus.canceled, progress=100, message="Canceled")
+        on_progress(
+            AgentTranslateWorkflowSnapshot(
+                state=WorkflowState.ocr_running,
+                stage="ocr_running",
+                progress=55,
+                message="Late progress",
+                detection_profile_id=None,
+                detected_boxes=3,
+                workflow_run_id="wf-1",
             )
-            store.add_job(job)
+        )
+        return {"state": "canceled", "message": "Canceled"}
 
-            async def _fake_workflow(*, on_progress, **_: object) -> dict[str, object]:
-                store.update_job(job, status=JobStatus.canceled, progress=100, message="Canceled")
-                on_progress(
-                    AgentTranslateWorkflowSnapshot(
-                        state=WorkflowState.ocr_running,
-                        stage="ocr_running",
-                        progress=55,
-                        message="Late progress",
-                        detection_profile_id=None,
-                        detected_boxes=3,
-                        workflow_run_id="wf-1",
-                    )
-                )
-                return {"state": "canceled", "message": "Canceled"}
+    handler = AgentTranslatePageJobHandler()
+    with patch(
+        "infra.jobs.handlers.agent.run_agent_translate_page_workflow",
+        side_effect=_fake_workflow,
+    ):
+        await handler.run(job, store)
 
-            handler = AgentTranslatePageJobHandler()
-            with patch(
-                "infra.jobs.handlers.agent.run_agent_translate_page_workflow",
-                side_effect=_fake_workflow,
-            ):
-                await handler.run(job, store)
-
-            stored = store.get_job(job.id)
-            if stored is None:
-                raise AssertionError("Expected canceled job to remain in store")
-            self.assertEqual(stored.status, JobStatus.canceled)
-            self.assertEqual(stored.progress, 100)
-            self.assertEqual(stored.message, "Canceled")
-            self.assertNotIn("workflowRunId", stored.payload)
-
-        asyncio.run(_run())
+    stored = store.get_job(job.id)
+    if stored is None:
+        raise AssertionError("Expected canceled job to remain in store")
+    assert stored.status == JobStatus.canceled
+    assert stored.progress == 100
+    assert stored.message == "Canceled"
+    assert "workflowRunId" not in stored.payload
 
 
-class JobWorkerTests(unittest.TestCase):
-    def test_unknown_job_type_fails(self) -> None:
-        result_job = asyncio.run(_run_unknown_job())
-        self.assertEqual(result_job.status, JobStatus.failed)
-        self.assertIn("Unknown job type", result_job.error or "")
+def test_unknown_job_type_fails() -> None:
+    result_job = asyncio.run(_run_unknown_job())
+    assert result_job.status == JobStatus.failed
+    assert "Unknown job type" in (result_job.error or "")
