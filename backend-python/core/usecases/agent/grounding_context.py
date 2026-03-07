@@ -67,12 +67,18 @@ def build_grounding_message(
         return None
 
     text_boxes = list_text_boxes_for_page(page)
+    ocr_filled_count = sum(1 for box in text_boxes if str(box.get("text") or "").strip())
+    translated_count = sum(
+        1 for box in text_boxes if str(box.get("translation") or "").strip()
+    )
     summary_lines = [
         "Current active page grounding:",
         f"- volume_id: {volume_id}",
         f"- filename: {filename}",
         f"- page_revision: {page_revision or 'unknown'}",
         f"- text_boxes: {len(text_boxes)}",
+        f"- ocr_filled_boxes: {ocr_filled_count}",
+        f"- translated_boxes: {translated_count}",
         (
             f"Use list_text_boxes(filename=\"{filename}\") / "
             f"get_text_box_detail(box_id=..., filename=\"{filename}\") "

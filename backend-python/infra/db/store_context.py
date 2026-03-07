@@ -37,6 +37,8 @@ def get_page_context_snapshot(volume_id: str, filename: str) -> dict[str, Any] |
             "created_at": context.created_at,
             "updated_at": context.updated_at,
         }
+
+
 def get_volume_context(volume_id: str) -> dict[str, Any] | None:
     with get_session() as session:
         context = session.execute(
@@ -61,7 +63,7 @@ def upsert_volume_context(
     active_characters: list[dict[str, Any]] | None,
     open_threads: list[str] | None,
     glossary: list[dict[str, Any]] | None,
-    last_page_index: float | None,
+    last_page_index: float | None = None,
 ) -> None:
     with get_session() as session:
         context = session.execute(
@@ -126,6 +128,8 @@ def upsert_page_context(
         if glossary_snapshot is not None:
             context.glossary_snapshot = normalize_json_blob(glossary_snapshot)
         context.updated_at = now
+
+
 def clear_volume_context(volume_id: str) -> bool:
     with get_session() as session:
         deleted = session.execute(

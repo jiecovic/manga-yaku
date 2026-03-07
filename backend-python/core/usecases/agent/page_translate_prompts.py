@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 import yaml
+
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 _MAX_MERGE_SUMMARY_CHARS = 2_400
@@ -73,6 +74,14 @@ def _compact_stage1_for_merge(stage1_result: dict[str, Any]) -> dict[str, Any]:
                     "speaker_visual_cues": _truncate_text(
                         str(raw_box.get("speaker_visual_cues") or ""),
                         max_chars=180,
+                    ),
+                    "referent_id": _truncate_text(
+                        str(raw_box.get("referent_id") or "unknown"),
+                        max_chars=48,
+                    ),
+                    "referent_gender": _truncate_text(
+                        str(raw_box.get("referent_gender") or "unknown"),
+                        max_chars=16,
                     ),
                     "translation": _truncate_text(
                         str(raw_box.get("translation") or ""),

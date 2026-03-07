@@ -8,6 +8,8 @@ import json
 import logging
 import re
 import threading
+import time
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -23,7 +25,11 @@ from api.schemas.agent_chat import (
     UpdateAgentSessionRequest,
 )
 from config import AGENT_MAX_MESSAGE_CHARS, AGENT_MODEL, AGENT_MODELS
-from core.usecases.agent.engine import run_agent_chat, run_agent_chat_stream
+from core.usecases.agent.engine import (
+    run_agent_chat,
+    run_agent_chat_repair,
+    run_agent_chat_stream,
+)
 from core.usecases.agent.turn_state import (
     get_active_page_text_box_count,
     sanitize_agent_reply_text,
@@ -37,6 +43,7 @@ from infra.db.agent_store import (
     list_agent_sessions,
     update_agent_session,
 )
+from infra.db.llm_call_log_store import create_llm_call_log
 from infra.http import cors_headers_for_stream
 from infra.logging.correlation import append_correlation, normalize_correlation
 
@@ -72,6 +79,122 @@ def _provider_error_fallback_reply(
     )
 
 
+def _truncate_text(value: str, *, limit: int = 2000) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def _sanitize_agent_log_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, val in value.items():
+            lowered = str(key).strip().lower()
+            if lowered == "image_url" and isinstance(val, str) and val.startswith("data:image/"):
+                out[key] = f"<redacted:data-url:{len(val)}>"
+                continue
+            out[key] = _sanitize_agent_log_payload(val)
+        return out
+    if isinstance(value, list):
+        return [_sanitize_agent_log_payload(item) for item in value]
+    if isinstance(value, str):
+        if value.startswith("data:image/"):
+            return f"<redacted:data-url:{len(value)}>"
+        return _truncate_text(value, limit=12000)
+    return value
+
+
+def _build_agent_request_excerpt(messages: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for item in messages[-6:]:
+        role = str(item.get("role") or "user").strip().lower()
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        lines.append(f"{role}: {content}")
+    return _truncate_text("\n\n".join(lines), limit=8000)
+
+
+def _log_agent_sdk_attempt(
+    *,
+    component: str,
+    status: str,
+    session_id: str,
+    volume_id: str,
+    filename: str | None,
+    model_id: str,
+    messages: list[dict[str, Any]],
+    action_events: list[dict[str, str]] | None,
+    response_text: str | None = None,
+    error_detail: str | None = None,
+    request_id: str | None = None,
+    latency_ms: int | None = None,
+    finish_reason: str | None = None,
+    attempt: int | None = None,
+    phase: str | None = None,
+) -> None:
+    try:
+        payload = _sanitize_agent_log_payload(
+            {
+                "phase": phase,
+                "session_id": session_id,
+                "volume_id": volume_id,
+                "filename": filename,
+                "model_id": model_id,
+                "request_id": request_id,
+                "messages": messages,
+                "action_events": action_events or [],
+                "response_text": response_text or "",
+                "error_detail": error_detail,
+            }
+        )
+        params_snapshot = normalize_correlation(
+            {
+                "component": component,
+                "session_id": session_id,
+                "volume_id": volume_id,
+                "filename": filename,
+                "model_id": model_id,
+                "request_id": request_id,
+            }
+        )
+        if phase:
+            params_snapshot["phase"] = phase
+
+        create_llm_call_log(
+            provider="openai",
+            api="responses_agents_sdk",
+            component=component,
+            status=status,
+            model_id=model_id,
+            latency_ms=latency_ms,
+            finish_reason=finish_reason,
+            error_detail=_truncate_text(error_detail or "", limit=8000) or None,
+            params_snapshot=params_snapshot,
+            request_excerpt=_build_agent_request_excerpt(messages),
+            response_excerpt=_truncate_text(response_text or "", limit=8000) or None,
+            payload=payload,
+            attempt=attempt,
+        )
+    except Exception:
+        logger.exception(
+            append_correlation(
+                "failed to persist agent sdk call log",
+                normalize_correlation(
+                    {
+                        "component": component,
+                        "session_id": session_id,
+                        "volume_id": volume_id,
+                        "filename": filename,
+                        "model_id": model_id,
+                        "request_id": request_id,
+                    }
+                ),
+            )
+        )
+
+
 def _is_provider_server_error(*, exc: Exception | None = None, text: str | None = None) -> bool:
     if exc is not None:
         err_type = str(getattr(exc, "type", "") or "").strip().lower()
@@ -80,6 +203,43 @@ def _is_provider_server_error(*, exc: Exception | None = None, text: str | None 
             return True
     lowered = str(text or "").strip().lower()
     return "server_error" in lowered
+
+
+def _try_text_repair_reply(
+    *,
+    messages: list[dict[str, Any]],
+    action_events: list[dict[str, str]],
+    session_id: str,
+    volume_id: str,
+    filename: str | None,
+    model_id: str,
+) -> str:
+    try:
+        repaired = run_agent_chat_repair(
+            messages,
+            action_events=action_events,
+            model_id=model_id,
+            volume_id=volume_id,
+            current_filename=filename,
+            session_id=session_id,
+        ).strip()
+    except Exception:
+        logger.exception(
+            append_correlation(
+                "agent text repair fallback failed",
+                normalize_correlation(
+                    {
+                        "component": "agent.reply.repair",
+                        "session_id": session_id,
+                        "volume_id": volume_id,
+                        "filename": filename,
+                        "model_id": model_id,
+                    }
+                ),
+            )
+        )
+        return ""
+    return repaired
 
 
 @router.get("/agent/config", response_model=AgentConfigResponse)
@@ -236,14 +396,42 @@ async def create_agent_reply(
     model_id = session.model_id or AGENT_MODEL
     if model_id not in AGENT_MODELS and AGENT_MODELS:
         model_id = AGENT_MODELS[0]
-    response_text = await asyncio.to_thread(
-        run_agent_chat,
-        payload,
-        model_id=model_id,
-        volume_id=session.volume_id,
-        current_filename=req.currentFilename,
-        session_id=session_id,
-    )
+    reply_started_at = time.monotonic()
+    try:
+        response_text = await asyncio.to_thread(
+            run_agent_chat,
+            payload,
+            model_id=model_id,
+            volume_id=session.volume_id,
+            current_filename=req.currentFilename,
+            session_id=session_id,
+        )
+    except Exception as exc:
+        error_text = str(exc).strip()
+        request_id = (
+            str(getattr(exc, "request_id", "") or "").strip()
+            or _extract_request_id(error_text)
+        )
+        _log_agent_sdk_attempt(
+            component="agent.chat.sync.sdk",
+            status="error",
+            session_id=session_id,
+            volume_id=session.volume_id,
+            filename=req.currentFilename,
+            model_id=model_id,
+            messages=payload,
+            action_events=None,
+            error_detail=error_text,
+            request_id=request_id,
+            latency_ms=round((time.monotonic() - reply_started_at) * 1000),
+            finish_reason=(
+                "provider_error"
+                if _is_provider_server_error(exc=exc, text=error_text)
+                else "exception"
+            ),
+            phase="sync_reply",
+        )
+        raise
     active_text_box_count = get_active_page_text_box_count(
         volume_id=session.volume_id,
         current_filename=req.currentFilename,
@@ -253,6 +441,25 @@ async def create_agent_reply(
         messages=payload,
         active_filename=req.currentFilename,
         active_text_box_count=active_text_box_count,
+    )
+    _log_agent_sdk_attempt(
+        component="agent.chat.sync.sdk",
+        status="success" if response_text else "error",
+        session_id=session_id,
+        volume_id=session.volume_id,
+        filename=req.currentFilename,
+        model_id=model_id,
+        messages=payload,
+        action_events=None,
+        response_text=response_text,
+        error_detail=(
+            None
+            if response_text
+            else "Sync reply completed without final text"
+        ),
+        latency_ms=round((time.monotonic() - reply_started_at) * 1000),
+        finish_reason="completed" if response_text else "empty_output",
+        phase="sync_reply",
     )
 
     return add_agent_message(
@@ -294,6 +501,8 @@ async def stream_agent_reply(
         text_chunks: list[str] = []
         action_events: list[dict[str, str]] = []
         runtime_active_filename = current_filename
+        stream_started_at = time.monotonic()
+        primary_stream_used_retry = False
         initial_text_box_count = get_active_page_text_box_count(
             volume_id=session.volume_id,
             current_filename=runtime_active_filename,
@@ -384,12 +593,28 @@ async def stream_agent_reply(
                 return
             response_text = "".join(text_chunks).strip()
             if not response_text:
+                primary_stream_used_retry = True
+                _log_agent_sdk_attempt(
+                    component="agent.chat.stream.sdk",
+                    status="error",
+                    session_id=session_id,
+                    volume_id=session.volume_id,
+                    filename=runtime_active_filename,
+                    model_id=model_id,
+                    messages=payload,
+                    action_events=action_events,
+                    error_detail="Streamed SDK run completed without final text",
+                    latency_ms=round((time.monotonic() - stream_started_at) * 1000),
+                    finish_reason="empty_output",
+                    phase="stream_primary",
+                )
                 logger.warning(
                     append_correlation(
                         "agent stream empty output; retrying sync once",
                         _corr(),
                     )
                 )
+                retry_started_at = time.monotonic()
                 try:
                     retry_text = run_agent_chat(
                         payload,
@@ -403,6 +628,25 @@ async def stream_agent_reply(
                     retry_request_id = (
                         str(getattr(retry_exc, "request_id", "") or "").strip()
                         or _extract_request_id(retry_error_text)
+                    )
+                    _log_agent_sdk_attempt(
+                        component="agent.chat.sync.sdk",
+                        status="error",
+                        session_id=session_id,
+                        volume_id=session.volume_id,
+                        filename=runtime_active_filename,
+                        model_id=model_id,
+                        messages=payload,
+                        action_events=action_events,
+                        error_detail=retry_error_text,
+                        request_id=retry_request_id,
+                        latency_ms=round((time.monotonic() - retry_started_at) * 1000),
+                        finish_reason=(
+                            "provider_error"
+                            if _is_provider_server_error(exc=retry_exc, text=retry_error_text)
+                            else "exception"
+                        ),
+                        phase="stream_empty_retry_sync",
                     )
                     if _is_provider_server_error(exc=retry_exc, text=retry_error_text):
                         response_text = _provider_error_fallback_reply(
@@ -434,6 +678,20 @@ async def stream_agent_reply(
                         )
                 else:
                     if retry_text:
+                        _log_agent_sdk_attempt(
+                            component="agent.chat.sync.sdk",
+                            status="success",
+                            session_id=session_id,
+                            volume_id=session.volume_id,
+                            filename=runtime_active_filename,
+                            model_id=model_id,
+                            messages=payload,
+                            action_events=action_events,
+                            response_text=retry_text,
+                            latency_ms=round((time.monotonic() - retry_started_at) * 1000),
+                            finish_reason="completed",
+                            phase="stream_empty_retry_sync",
+                        )
                         response_text = retry_text
                         action_events.append(
                             {
@@ -442,12 +700,43 @@ async def stream_agent_reply(
                             }
                         )
                     else:
-                        action_events.append(
-                            {
-                                "type": "activity",
-                                "message": "Streaming and sync retry returned empty output; applied deterministic fallback",
-                            }
+                        repair_text = _try_text_repair_reply(
+                            messages=payload,
+                            action_events=action_events,
+                            session_id=session_id,
+                            volume_id=session.volume_id,
+                            filename=runtime_active_filename,
+                            model_id=model_id,
                         )
+                        if repair_text:
+                            response_text = repair_text
+                            action_events.append(
+                                {
+                                    "type": "activity",
+                                    "message": "Recovered empty output via text-only repair fallback",
+                                }
+                            )
+                        else:
+                            _log_agent_sdk_attempt(
+                                component="agent.chat.sync.sdk",
+                                status="error",
+                                session_id=session_id,
+                                volume_id=session.volume_id,
+                                filename=runtime_active_filename,
+                                model_id=model_id,
+                                messages=payload,
+                                action_events=action_events,
+                                error_detail="Sync retry after empty stream returned no final text",
+                                latency_ms=round((time.monotonic() - retry_started_at) * 1000),
+                                finish_reason="empty_output",
+                                phase="stream_empty_retry_sync",
+                            )
+                            action_events.append(
+                                {
+                                    "type": "activity",
+                                    "message": "Streaming and sync retry returned empty output; applied deterministic fallback",
+                                }
+                            )
             active_text_box_count = get_active_page_text_box_count(
                 volume_id=session.volume_id,
                 current_filename=runtime_active_filename,
@@ -506,6 +795,21 @@ async def stream_agent_reply(
                 queue.put_nowait,
                 {"type": "done", "message": message},
             )
+            if not primary_stream_used_retry:
+                _log_agent_sdk_attempt(
+                    component="agent.chat.stream.sdk",
+                    status="success",
+                    session_id=session_id,
+                    volume_id=session.volume_id,
+                    filename=runtime_active_filename,
+                    model_id=model_id,
+                    messages=payload,
+                    action_events=action_events,
+                    response_text=response_text,
+                    latency_ms=round((time.monotonic() - stream_started_at) * 1000),
+                    finish_reason="completed",
+                    phase="stream_primary",
+                )
             logger.info(
                 append_correlation(
                     "agent stream done",
@@ -520,6 +824,21 @@ async def stream_agent_reply(
                 or _extract_request_id(error_text)
             )
             provider_server_error = _is_provider_server_error(exc=exc, text=error_text)
+            _log_agent_sdk_attempt(
+                component="agent.chat.stream.sdk",
+                status="error",
+                session_id=session_id,
+                volume_id=session.volume_id,
+                filename=runtime_active_filename,
+                model_id=model_id,
+                messages=payload,
+                action_events=action_events,
+                error_detail=error_text,
+                request_id=request_id,
+                latency_ms=round((time.monotonic() - stream_started_at) * 1000),
+                finish_reason="provider_error" if provider_server_error else "exception",
+                phase="stream_primary",
+            )
             if provider_server_error:
                 logger.warning(
                     append_correlation(
@@ -537,6 +856,7 @@ async def stream_agent_reply(
                     logger.info(append_correlation("agent stream fallback sync", _corr()))
                     fallback_text = ""
                     for attempt in range(2):
+                        fallback_attempt_started_at = time.monotonic()
                         try:
                             fallback_text = run_agent_chat(
                                 payload,
@@ -553,6 +873,29 @@ async def stream_agent_reply(
                             )
                             if not request_id and fallback_attempt_request_id:
                                 request_id = fallback_attempt_request_id
+                            _log_agent_sdk_attempt(
+                                component="agent.chat.sync.sdk",
+                                status="error",
+                                session_id=session_id,
+                                volume_id=session.volume_id,
+                                filename=runtime_active_filename,
+                                model_id=model_id,
+                                messages=payload,
+                                action_events=action_events,
+                                error_detail=fallback_attempt_text,
+                                request_id=fallback_attempt_request_id,
+                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                finish_reason=(
+                                    "provider_error"
+                                    if _is_provider_server_error(
+                                        exc=fallback_attempt_exc,
+                                        text=fallback_attempt_text,
+                                    )
+                                    else "exception"
+                                ),
+                                phase="stream_fallback_sync",
+                                attempt=attempt + 1,
+                            )
                             if attempt == 0 and _is_provider_server_error(
                                 exc=fallback_attempt_exc,
                                 text=fallback_attempt_text,
@@ -566,8 +909,40 @@ async def stream_agent_reply(
                                 continue
                             raise
                         if fallback_text:
+                            _log_agent_sdk_attempt(
+                                component="agent.chat.sync.sdk",
+                                status="success",
+                                session_id=session_id,
+                                volume_id=session.volume_id,
+                                filename=runtime_active_filename,
+                                model_id=model_id,
+                                messages=payload,
+                                action_events=action_events,
+                                response_text=fallback_text,
+                                request_id=request_id,
+                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                finish_reason="completed",
+                                phase="stream_fallback_sync",
+                                attempt=attempt + 1,
+                            )
                             break
                         if attempt == 0:
+                            _log_agent_sdk_attempt(
+                                component="agent.chat.sync.sdk",
+                                status="error",
+                                session_id=session_id,
+                                volume_id=session.volume_id,
+                                filename=runtime_active_filename,
+                                model_id=model_id,
+                                messages=payload,
+                                action_events=action_events,
+                                error_detail="Sync fallback attempt completed without final text",
+                                request_id=request_id,
+                                latency_ms=round((time.monotonic() - fallback_attempt_started_at) * 1000),
+                                finish_reason="empty_output",
+                                phase="stream_fallback_sync",
+                                attempt=attempt + 1,
+                            )
                             logger.warning(
                                 append_correlation(
                                     "agent stream fallback attempt empty; retrying once",
@@ -585,11 +960,50 @@ async def stream_agent_reply(
                         active_text_box_count=fallback_text_box_count,
                     )
                     if guard_reason == "empty_output":
-                        fallback_text = _provider_error_fallback_reply(
-                            request_id=request_id,
-                            active_filename=runtime_active_filename,
+                        repair_text = _try_text_repair_reply(
+                            messages=payload,
+                            action_events=action_events,
+                            session_id=session_id,
+                            volume_id=session.volume_id,
+                            filename=runtime_active_filename,
+                            model_id=model_id,
                         )
-                        guard_reason = "provider_error_empty"
+                        if repair_text:
+                            fallback_text, guard_reason = sanitize_agent_reply_text(
+                                response_text=repair_text,
+                                messages=payload,
+                                active_filename=runtime_active_filename,
+                                active_text_box_count=fallback_text_box_count,
+                            )
+                            if guard_reason != "empty_output":
+                                action_events.append(
+                                    {
+                                        "type": "activity",
+                                        "message": "Recovered fallback empty output via text-only repair fallback",
+                                    }
+                                )
+                            else:
+                                repair_text = ""
+                        if not repair_text:
+                            _log_agent_sdk_attempt(
+                                component="agent.chat.sync.sdk",
+                                status="error",
+                                session_id=session_id,
+                                volume_id=session.volume_id,
+                                filename=runtime_active_filename,
+                                model_id=model_id,
+                                messages=payload,
+                                action_events=action_events,
+                                error_detail="Sync fallback returned no final text after retries",
+                                request_id=request_id,
+                                finish_reason="empty_output",
+                                phase="stream_fallback_sync",
+                            )
+                            fallback_text = _provider_error_fallback_reply(
+                                request_id=request_id,
+                                active_filename=runtime_active_filename,
+                            )
+                            guard_reason = "provider_error_empty"
                     fallback_actions = list(action_events)
                     if guard_reason == "stale_context":
                         fallback_actions.append(
@@ -646,6 +1060,25 @@ async def stream_agent_reply(
                         queue.put_nowait,
                         {"type": "done", "message": fallback_message},
                     )
+                    _log_agent_sdk_attempt(
+                        component="agent.chat.sync.sdk",
+                        status="error" if guard_reason == "provider_error_empty" else "success",
+                        session_id=session_id,
+                        volume_id=session.volume_id,
+                        filename=runtime_active_filename,
+                        model_id=model_id,
+                        messages=payload,
+                        action_events=fallback_actions,
+                        response_text=fallback_text,
+                        request_id=request_id,
+                        error_detail=(
+                            "Provider error fallback reply used because no final text was produced"
+                            if guard_reason == "provider_error_empty"
+                            else None
+                        ),
+                        finish_reason="provider_error" if guard_reason == "provider_error_empty" else "completed",
+                        phase="stream_fallback_final_reply",
+                    )
                     logger.info(
                         append_correlation(
                             "agent stream fallback done",
@@ -662,6 +1095,20 @@ async def stream_agent_reply(
                     )
                     if _is_provider_server_error(exc=fallback_exc, text=fallback_error_text):
                         final_request_id = fallback_request_id or request_id
+                        _log_agent_sdk_attempt(
+                            component="agent.chat.sync.sdk",
+                            status="error",
+                            session_id=session_id,
+                            volume_id=session.volume_id,
+                            filename=runtime_active_filename,
+                            model_id=model_id,
+                            messages=payload,
+                            action_events=action_events,
+                            error_detail=fallback_error_text,
+                            request_id=final_request_id,
+                            finish_reason="provider_error",
+                            phase="stream_fallback_final_reply",
+                        )
                         fallback_text = _provider_error_fallback_reply(
                             request_id=final_request_id,
                             active_filename=runtime_active_filename,

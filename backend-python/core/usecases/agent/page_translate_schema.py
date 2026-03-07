@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 _SPEAKER_GENDER_CHOICES = {"male", "female", "unknown"}
+_REFERENT_GENDER_CHOICES = {"male", "female", "unknown"}
 
 JsonParser = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -39,6 +40,11 @@ def build_translate_stage_text_format() -> dict[str, Any]:
                                 "enum": ["male", "female", "unknown"],
                             },
                             "speaker_visual_cues": {"type": "string"},
+                            "referent_id": {"type": "string"},
+                            "referent_gender": {
+                                "type": "string",
+                                "enum": ["male", "female", "unknown"],
+                            },
                             "translation": {"type": "string"},
                         },
                         "required": [
@@ -49,6 +55,8 @@ def build_translate_stage_text_format() -> dict[str, Any]:
                             "addressee_id",
                             "speaker_gender",
                             "speaker_visual_cues",
+                            "referent_id",
+                            "referent_gender",
                             "translation",
                         ],
                     },
@@ -228,6 +236,9 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
             speaker_gender = str(raw.get("speaker_gender") or "").strip().lower()
             if speaker_gender not in _SPEAKER_GENDER_CHOICES:
                 speaker_gender = "unknown"
+            referent_gender = str(raw.get("referent_gender") or "").strip().lower()
+            if referent_gender not in _REFERENT_GENDER_CHOICES:
+                referent_gender = "unknown"
 
             boxes.append(
                 {
@@ -239,6 +250,9 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
                     "addressee_id": str(raw.get("addressee_id") or "").strip(),
                     "speaker_gender": speaker_gender,
                     "speaker_visual_cues": str(raw.get("speaker_visual_cues") or "").strip(),
+                    "referent_id": str(raw.get("referent_id") or "unknown").strip()
+                    or "unknown",
+                    "referent_gender": referent_gender,
                     "translation": str(raw.get("translation") or "").strip(),
                 }
             )

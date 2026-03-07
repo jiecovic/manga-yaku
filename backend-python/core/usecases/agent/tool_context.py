@@ -3,18 +3,31 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from core.usecases.agent.tool_shared import list_text_boxes_for_page
+from core.usecases.agent.tool_shared import (
+    list_text_boxes_for_page,
+    resolve_active_page_filename,
+    resolve_read_page_filename,
+)
 from infra.db.db_store import (
+    get_page_context_snapshot,
     get_volume_context,
     list_page_filenames,
     load_page,
+    upsert_page_context,
     upsert_volume_context,
 )
 
 
-def _normalize_active_characters(value: list[dict[str, str]] | None) -> list[dict[str, str]]:
+def _to_iso(value: datetime | None) -> str | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return None
+
+
+def _normalize_character_entries(value: list[dict[str, Any]] | None) -> list[dict[str, str]]:
     if not isinstance(value, list):
         return []
     out: list[dict[str, str]] = []
@@ -22,12 +35,12 @@ def _normalize_active_characters(value: list[dict[str, str]] | None) -> list[dic
         if not isinstance(item, dict):
             continue
         name = str(item.get("name") or "").strip()
+        gender = str(item.get("gender") or "").strip()
         info = str(item.get("info") or "").strip()
-        if not name and not info:
+        if not name and not gender and not info:
             continue
-        out.append({"name": name, "info": info})
+        out.append({"name": name, "gender": gender, "info": info})
     return out
-
 
 
 def _normalize_glossary_entries(value: list[dict[str, str]] | None) -> list[dict[str, str]]:
@@ -46,7 +59,6 @@ def _normalize_glossary_entries(value: list[dict[str, str]] | None) -> list[dict
     return out
 
 
-
 def _normalize_open_threads(value: list[str] | None) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -58,7 +70,6 @@ def _normalize_open_threads(value: list[str] | None) -> list[str]:
     return out
 
 
-
 def get_volume_context_tool(*, volume_id: str) -> dict[str, Any]:
     if not volume_id:
         return {"error": "No active volume selected"}
@@ -66,11 +77,12 @@ def get_volume_context_tool(*, volume_id: str) -> dict[str, Any]:
     return {
         "volume_id": volume_id,
         "rolling_summary": str(snapshot.get("rolling_summary") or "").strip(),
-        "active_characters": _normalize_active_characters(snapshot.get("active_characters")),
+        "active_characters": _normalize_character_entries(snapshot.get("active_characters")),
         "open_threads": _normalize_open_threads(snapshot.get("open_threads")),
         "glossary": _normalize_glossary_entries(snapshot.get("glossary")),
+        "last_page_index": snapshot.get("last_page_index"),
+        "updated_at": _to_iso(snapshot.get("updated_at")),
     }
-
 
 
 def update_volume_context_tool(
@@ -91,9 +103,9 @@ def update_volume_context_tool(
         else str(existing.get("rolling_summary") or "").strip()
     )
     next_active_characters = (
-        _normalize_active_characters(active_characters)
+        _normalize_character_entries(active_characters)
         if active_characters is not None
-        else _normalize_active_characters(existing.get("active_characters"))
+        else _normalize_character_entries(existing.get("active_characters"))
     )
     next_open_threads = (
         _normalize_open_threads(open_threads)
@@ -112,15 +124,18 @@ def update_volume_context_tool(
         active_characters=next_active_characters,
         open_threads=next_open_threads,
         glossary=next_glossary,
+        last_page_index=existing.get("last_page_index"),
     )
     refreshed = get_volume_context(volume_id) or {}
     return {
         "status": "ok",
         "volume_id": volume_id,
         "rolling_summary": str(refreshed.get("rolling_summary") or "").strip(),
-        "active_characters": _normalize_active_characters(refreshed.get("active_characters")),
+        "active_characters": _normalize_character_entries(refreshed.get("active_characters")),
         "open_threads": _normalize_open_threads(refreshed.get("open_threads")),
         "glossary": _normalize_glossary_entries(refreshed.get("glossary")),
+        "last_page_index": refreshed.get("last_page_index"),
+        "updated_at": _to_iso(refreshed.get("updated_at")),
         "updated_fields": {
             "rolling_summary": rolling_summary is not None,
             "active_characters": active_characters is not None,
@@ -129,6 +144,127 @@ def update_volume_context_tool(
         },
     }
 
+
+def get_page_memory_tool(
+    *,
+    volume_id: str,
+    active_filename: str | None,
+    filename: str | None,
+) -> dict[str, Any]:
+    if not volume_id:
+        return {"error": "No active volume selected"}
+
+    resolved_filename, error = resolve_read_page_filename(
+        volume_id=volume_id,
+        filename=filename,
+        active_filename=active_filename,
+    )
+    if error is not None or resolved_filename is None:
+        return error or {"error": "filename resolution failed", "volume_id": volume_id}
+
+    snapshot = get_page_context_snapshot(volume_id, resolved_filename) or {}
+    return {
+        "volume_id": volume_id,
+        "filename": resolved_filename,
+        "manual_notes": str(snapshot.get("manual_notes") or "").strip(),
+        "page_summary": str(snapshot.get("page_summary") or "").strip(),
+        "image_summary": str(snapshot.get("image_summary") or "").strip(),
+        "characters": _normalize_character_entries(snapshot.get("characters_snapshot")),
+        "open_threads": _normalize_open_threads(snapshot.get("open_threads_snapshot")),
+        "glossary": _normalize_glossary_entries(snapshot.get("glossary_snapshot")),
+        "created_at": _to_iso(snapshot.get("created_at")),
+        "updated_at": _to_iso(snapshot.get("updated_at")),
+    }
+
+
+def update_page_memory_tool(
+    *,
+    volume_id: str,
+    active_filename: str | None,
+    filename: str | None,
+    manual_notes: str | None = None,
+    page_summary: str | None = None,
+    image_summary: str | None = None,
+    characters: list[dict[str, Any]] | None = None,
+    open_threads: list[str] | None = None,
+    glossary: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    if not volume_id:
+        return {"error": "No active volume selected"}
+
+    resolved_filename, error = resolve_active_page_filename(
+        volume_id=volume_id,
+        filename=filename,
+        active_filename=active_filename,
+        action_label="Page-memory update",
+    )
+    if error is not None or resolved_filename is None:
+        return error or {"error": "filename resolution failed", "volume_id": volume_id}
+
+    existing = get_page_context_snapshot(volume_id, resolved_filename) or {}
+    next_manual_notes = (
+        str(manual_notes).strip()
+        if manual_notes is not None
+        else str(existing.get("manual_notes") or "").strip()
+    )
+    next_page_summary = (
+        str(page_summary).strip()
+        if page_summary is not None
+        else str(existing.get("page_summary") or "").strip()
+    )
+    next_image_summary = (
+        str(image_summary).strip()
+        if image_summary is not None
+        else str(existing.get("image_summary") or "").strip()
+    )
+    next_characters = (
+        _normalize_character_entries(characters)
+        if characters is not None
+        else _normalize_character_entries(existing.get("characters_snapshot"))
+    )
+    next_open_threads = (
+        _normalize_open_threads(open_threads)
+        if open_threads is not None
+        else _normalize_open_threads(existing.get("open_threads_snapshot"))
+    )
+    next_glossary = (
+        _normalize_glossary_entries(glossary)
+        if glossary is not None
+        else _normalize_glossary_entries(existing.get("glossary_snapshot"))
+    )
+
+    upsert_page_context(
+        volume_id,
+        resolved_filename,
+        manual_notes=next_manual_notes,
+        page_summary=next_page_summary,
+        image_summary=next_image_summary,
+        characters_snapshot=next_characters,
+        open_threads_snapshot=next_open_threads,
+        glossary_snapshot=next_glossary,
+    )
+    refreshed = get_page_context_snapshot(volume_id, resolved_filename) or {}
+    return {
+        "status": "ok",
+        "volume_id": volume_id,
+        "filename": resolved_filename,
+        "manual_notes": str(refreshed.get("manual_notes") or "").strip(),
+        "page_summary": str(refreshed.get("page_summary") or "").strip(),
+        "image_summary": str(refreshed.get("image_summary") or "").strip(),
+        "characters": _normalize_character_entries(refreshed.get("characters_snapshot")),
+        "open_threads": _normalize_open_threads(refreshed.get("open_threads_snapshot")),
+        "glossary": _normalize_glossary_entries(refreshed.get("glossary_snapshot")),
+        "created_at": _to_iso(refreshed.get("created_at")),
+        "updated_at": _to_iso(refreshed.get("updated_at")),
+        "updated_fields": {
+            "manual_notes": manual_notes is not None,
+            "page_summary": page_summary is not None,
+            "image_summary": image_summary is not None,
+            "characters": characters is not None,
+            "open_threads": open_threads is not None,
+            "glossary": glossary is not None,
+        },
+    }
 
 
 def search_volume_text_boxes_tool(

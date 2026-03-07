@@ -41,10 +41,21 @@ def list_text_boxes_tool(
     page = load_page(volume_id, resolved_filename)
     text_boxes = list_text_boxes_for_page(page)
     safe_limit = max(1, min(int(limit), 500))
+    ocr_filled_count = sum(1 for box in text_boxes if str(box.get("text") or "").strip())
+    translated_count = sum(1 for box in text_boxes if str(box.get("translation") or "").strip())
+    untranslated_box_ids = [
+        int(box.get("id") or 0)
+        for box in text_boxes
+        if str(box.get("text") or "").strip() and not str(box.get("translation") or "").strip()
+    ]
     return {
         "volume_id": volume_id,
         "filename": resolved_filename,
         "total": len(text_boxes),
+        "ocr_filled_count": ocr_filled_count,
+        "translated_count": translated_count,
+        "untranslated_count": max(0, ocr_filled_count - translated_count),
+        "untranslated_box_ids": untranslated_box_ids[:20],
         "boxes": text_boxes[:safe_limit],
     }
 

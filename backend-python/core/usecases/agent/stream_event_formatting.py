@@ -117,6 +117,20 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             if details:
                 return "context loaded: " + ", ".join(details)
             return "context loaded"
+        elif tool_name == "get_page_memory":
+            chars = output_dict.get("characters")
+            open_threads = output_dict.get("open_threads")
+            glossary = output_dict.get("glossary")
+            details: list[str] = []
+            if isinstance(chars, list):
+                details.append(f"{len(chars)} characters")
+            if isinstance(open_threads, list):
+                details.append(f"{len(open_threads)} open threads")
+            if isinstance(glossary, list):
+                details.append(f"{len(glossary)} glossary terms")
+            if details:
+                return "page memory loaded: " + ", ".join(details)
+            return "page memory loaded"
         elif tool_name == "update_volume_context":
             status = str(output_dict.get("status") or "").strip().lower()
             if status == "ok":
@@ -124,10 +138,28 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
                 if isinstance(glossary, list):
                     return f"context updated ({len(glossary)} glossary terms)"
                 return "context updated"
+        elif tool_name == "update_page_memory":
+            status = str(output_dict.get("status") or "").strip().lower()
+            filename = str(output_dict.get("filename") or "").strip()
+            if status == "ok" and filename:
+                return f"page memory updated for {filename}"
+            if status == "ok":
+                return "page memory updated"
         elif tool_name == "list_text_boxes":
             total = output_dict.get("total")
             filename = str(output_dict.get("filename") or "").strip()
+            ocr_filled_count = output_dict.get("ocr_filled_count")
+            translated_count = output_dict.get("translated_count")
             if isinstance(total, int):
+                if (
+                    filename
+                    and isinstance(ocr_filled_count, int)
+                    and isinstance(translated_count, int)
+                ):
+                    return (
+                        f"{total} text boxes on {filename} "
+                        f"({ocr_filled_count} OCR, {translated_count} translated)"
+                    )
                 if filename:
                     return f"{total} text boxes on {filename}"
                 return f"{total} text boxes"
@@ -178,12 +210,54 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             total = output_dict.get("total")
             if isinstance(total, int):
                 return f"{total} OCR profiles"
+        elif tool_name == "translate_active_page":
+            status = str(output_dict.get("status") or "").strip().lower()
+            filename = str(output_dict.get("filename") or "").strip()
+            updated = output_dict.get("updated")
+            total = output_dict.get("total")
+            translated_count = output_dict.get("translated_count")
+            text_box_count = output_dict.get("text_box_count")
+            started_now = bool(output_dict.get("started_now"))
+            reused = bool(output_dict.get("resource_reused"))
+            if status == "already_translated":
+                if filename and isinstance(translated_count, int) and isinstance(text_box_count, int):
+                    return (
+                        f"page {filename} was already translated "
+                        f"({translated_count}/{text_box_count} boxes)"
+                    )
+                if filename:
+                    return f"page {filename} was already translated"
+                return "page was already translated"
+            if status == "completed":
+                if filename and isinstance(updated, int) and isinstance(total, int):
+                    return f"page workflow completed for {filename} ({updated}/{total} boxes updated)"
+                if filename:
+                    return f"page workflow completed for {filename}"
+                return "page workflow completed"
+            if status == "queued":
+                if filename and started_now:
+                    return f"started page workflow for {filename}"
+                if filename and reused:
+                    return f"page workflow already running for {filename}"
+                job_id = str(output_dict.get("job_id") or "").strip()
+                if job_id:
+                    return f"queued page workflow {job_id}"
+                return "queued page workflow"
         elif tool_name == "ocr_text_box":
             status = str(output_dict.get("status") or "").strip().lower()
             box_id = output_dict.get("box_id")
             filename = str(output_dict.get("filename") or "").strip()
             profile_id = str(output_dict.get("profile_id") or "").strip()
+            idempotency_state = str(output_dict.get("idempotency_state") or "").strip().lower()
+            if status == "skipped_existing":
+                if box_id is not None and filename:
+                    return f"skipped OCR for box #{box_id} on {filename}; text already exists"
+                if box_id is not None:
+                    return f"skipped OCR for box #{box_id}; text already exists"
+                return "skipped OCR; text already exists"
             if status == "ok":
+                if idempotency_state == "replay" and box_id is not None and filename:
+                    return f"reused OCR result for box #{box_id} on {filename}"
                 if box_id is not None and filename and profile_id:
                     return f"OCR box #{box_id} on {filename} via {profile_id}"
                 if box_id is not None:
@@ -195,6 +269,10 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
                 return "no text found"
             if status == "queued":
                 workflow_run_id = str(output_dict.get("workflow_run_id") or "").strip()
+                if idempotency_state == "in_progress":
+                    return "equivalent OCR workflow already in progress"
+                if idempotency_state == "replay" and workflow_run_id:
+                    return f"reused OCR workflow {workflow_run_id}"
                 if workflow_run_id:
                     return f"queued OCR workflow {workflow_run_id}"
                 return "queued OCR workflow"
@@ -207,7 +285,10 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             filename = str(output_dict.get("filename") or "").strip()
             detected_count = output_dict.get("detected_count")
             text_box_count = output_dict.get("text_box_count")
+            idempotency_state = str(output_dict.get("idempotency_state") or "").strip().lower()
             if status == "ok":
+                if idempotency_state == "replay" and filename:
+                    return f"reused detection result for {filename}"
                 if isinstance(detected_count, int) and isinstance(text_box_count, int) and filename:
                     return (
                         f"detected {detected_count} new text boxes on {filename}; "
@@ -217,6 +298,10 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
                     return f"detected {detected_count} text boxes"
             if status == "queued":
                 job_id = str(output_dict.get("job_id") or "").strip()
+                if idempotency_state == "in_progress":
+                    return "equivalent detection job already in progress"
+                if idempotency_state == "replay" and job_id:
+                    return f"reused detection job {job_id}"
                 if job_id:
                     return f"queued detection job {job_id}"
                 return "queued detection job"

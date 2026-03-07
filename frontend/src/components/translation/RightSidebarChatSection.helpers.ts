@@ -31,6 +31,10 @@ export const buildDraftSession = (
     };
 };
 
+export function isDraftAgentSessionId(sessionId: string | null | undefined): boolean {
+    return String(sessionId || "").trim().startsWith("draft-");
+}
+
 export function extractMessageActionEntries(
     message: AgentMessage,
 ): ChatStreamActivityEntry[] {

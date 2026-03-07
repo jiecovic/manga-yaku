@@ -179,12 +179,36 @@ def _build_sdk_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return input_payload
 
 
+def _build_repair_conversation_excerpt(messages: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for msg in messages[-6:]:
+        role = str(msg.get("role") or "user").strip().lower()
+        text = str(msg.get("content") or "").strip()
+        if not text:
+            continue
+        lines.append(f"{role}: {text}")
+    return "\n\n".join(lines).strip()
+
+
+def _build_repair_action_excerpt(action_events: list[dict[str, str]]) -> str:
+    lines: list[str] = []
+    for event in action_events[-12:]:
+        event_type = str(event.get("type") or "").strip().lower()
+        message = str(event.get("message") or "").strip()
+        if not message:
+            continue
+        if event_type in {"tool_called", "tool_output", "activity", "page_switch"}:
+            lines.append(f"- {message}")
+    return "\n".join(lines).strip()
+
+
 def _build_sdk_agent(model_id: str, *, mcp_servers: list[Any]) -> Any:
     if Agent is None or ModelSettings is None:
         raise RuntimeError(f"Agents SDK is not available: {_agents_import_error!r}")
 
     settings: dict[str, Any] = {
         "max_tokens": AGENT_MAX_OUTPUT_TOKENS,
+        "parallel_tool_calls": False,
     }
     if str(model_id).startswith("gpt-5"):
         effort = AGENT_REASONING_EFFORT
@@ -250,6 +274,87 @@ def _run_agent_chat_legacy(
         context=normalize_correlation(
             {
                 "component": "agent.chat",
+                "model_id": str(resolved_model),
+                "session_id": session_id,
+                "volume_id": volume_id,
+                "filename": current_filename,
+            }
+        ),
+    )
+    return extract_response_text(resp).strip()
+
+
+def run_agent_chat_repair(
+    messages: list[dict[str, Any]],
+    *,
+    action_events: list[dict[str, str]],
+    model_id: str | None = None,
+    volume_id: str | None = None,
+    current_filename: str | None = None,
+    session_id: str | None = None,
+) -> str:
+    if not has_openai_sdk():
+        raise RuntimeError("OpenAI SDK is not available")
+
+    resolved_model = model_id or AGENT_MODEL
+    cfg = {
+        "model": resolved_model,
+        "max_output_tokens": min(700, int(AGENT_MAX_OUTPUT_TOKENS)),
+    }
+    if str(resolved_model).startswith("gpt-5"):
+        effort = AGENT_REASONING_EFFORT
+        if effort not in {"low", "medium", "high"}:
+            effort = "medium"
+        cfg["reasoning"] = {"effort": effort}
+    else:
+        cfg["temperature"] = AGENT_TEMPERATURE
+
+    conversation_excerpt = _build_repair_conversation_excerpt(messages)
+    action_excerpt = _build_repair_action_excerpt(action_events)
+    input_payload: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "You are MangaYaku's text-only repair fallback. "
+                        "A tool-using agent run produced no final answer. "
+                        "Answer the user's last request directly using only the provided "
+                        "conversation excerpt and tool observations. "
+                        "Do not mention internal failures unless the observations are insufficient. "
+                        "Do not claim writes or actions that are not explicitly present in the observations. "
+                        "If the request is a wording or translation question, answer it directly and concisely."
+                    ),
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "Conversation excerpt:\n"
+                        f"{conversation_excerpt or '(empty)'}\n\n"
+                        "Tool observations:\n"
+                        f"{action_excerpt or '(none)'}\n\n"
+                        "Answer the last user request directly in plain text."
+                    ),
+                }
+            ],
+        },
+    ]
+
+    client = create_openai_client({})
+    params = build_response_params(cfg, input_payload)
+    resp = openai_responses_create(
+        client,
+        params,
+        component="agent.chat.repair",
+        context=normalize_correlation(
+            {
+                "component": "agent.chat.repair",
                 "model_id": str(resolved_model),
                 "session_id": session_id,
                 "volume_id": volume_id,

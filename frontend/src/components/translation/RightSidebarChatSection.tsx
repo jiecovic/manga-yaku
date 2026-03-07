@@ -17,6 +17,7 @@ import { ui } from "../../ui/tokens";
 import { ChatMessageList } from "./ChatMessageList";
 import {
     getPinnedActivityEntries,
+    isDraftAgentSessionId,
     messageHasMutatingToolAction,
     messagePageSwitchFilename,
     type AgentSessionState,
@@ -143,6 +144,11 @@ export function RightSidebarChatSection({
     useEffect(() => {
         if (!activeSessionId) {
             setMessages([]);
+            return;
+        }
+        if (isDraftAgentSessionId(activeSessionId)) {
+            setMessages([]);
+            setLoadingMessages(false);
             return;
         }
         const currentSession = sessions.find(

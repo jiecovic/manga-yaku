@@ -17,15 +17,19 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from fastapi import HTTPException
+from starlette.requests import Request
+
 from api.routers.jobs import routes as jobs_routes
 from api.schemas.jobs import CreateAgentTranslatePageJobRequest
 from api.services.jobs_creation_service import create_agent_translate_page_job as create_job_record
-from fastapi import HTTPException
+from infra.jobs.agent_translate_creation import (
+    create_agent_translate_page_job as create_shared_job_record,
+)
 from infra.jobs.store import Job, JobStatus, JobStore
-from starlette.requests import Request
 
 
-class AgentTranslatePageCreationServiceTests(unittest.TestCase):
+class AgentTranslatePageCreationSharedHelperTests(unittest.TestCase):
     def setUp(self) -> None:
         self.store = JobStore()
 
@@ -52,17 +56,17 @@ class AgentTranslatePageCreationServiceTests(unittest.TestCase):
             )
         )
 
-        result = create_job_record(store=self.store, req=self._request())
+        result = create_shared_job_record(store=self.store, payload=self._request().model_dump())
 
         self.assertEqual(result["job_id"], "mem-1")
         self.assertFalse(result["queued"])
 
     def test_reuses_active_persisted_run_for_same_page(self) -> None:
         with patch(
-            "api.services.jobs_creation_service.find_latest_active_workflow_run",
+            "infra.jobs.agent_translate_creation.find_latest_active_workflow_run",
             return_value={"id": "wf-123"},
         ):
-            result = create_job_record(store=self.store, req=self._request())
+            result = create_shared_job_record(store=self.store, payload=self._request().model_dump())
 
         self.assertEqual(result["job_id"], "wf-123")
         self.assertFalse(result["queued"])
@@ -70,17 +74,17 @@ class AgentTranslatePageCreationServiceTests(unittest.TestCase):
     def test_claimed_idempotency_key_finalizes_new_job(self) -> None:
         with (
             patch(
-                "api.services.jobs_creation_service.claim_idempotency_key",
+                "infra.jobs.agent_translate_creation.claim_idempotency_key",
                 return_value={"status": "claimed", "resource_id": None},
             ) as claim_mock,
             patch(
-                "api.services.jobs_creation_service.finalize_idempotency_key",
+                "infra.jobs.agent_translate_creation.finalize_idempotency_key",
                 side_effect=lambda **kwargs: kwargs["resource_id"],
             ) as finalize_mock,
         ):
-            result = create_job_record(
+            result = create_shared_job_record(
                 store=self.store,
-                req=self._request(),
+                payload=self._request().model_dump(),
                 idempotency_key="page-1-key",
             )
 
@@ -91,12 +95,12 @@ class AgentTranslatePageCreationServiceTests(unittest.TestCase):
 
     def test_idempotency_key_replay_returns_existing_resource(self) -> None:
         with patch(
-            "api.services.jobs_creation_service.claim_idempotency_key",
+            "infra.jobs.agent_translate_creation.claim_idempotency_key",
             return_value={"status": "replay", "resource_id": "wf-777"},
         ):
-            result = create_job_record(
+            result = create_shared_job_record(
                 store=self.store,
-                req=self._request(),
+                payload=self._request().model_dump(),
                 idempotency_key="replay-key",
             )
 
@@ -104,50 +108,88 @@ class AgentTranslatePageCreationServiceTests(unittest.TestCase):
         self.assertFalse(result["queued"])
         self.assertEqual(self.store.jobs, {})
 
-    def test_idempotency_key_conflict_raises_http_409(self) -> None:
+    def test_idempotency_key_conflict_returns_conflict_status(self) -> None:
         with (
             patch(
-                "api.services.jobs_creation_service.claim_idempotency_key",
+                "infra.jobs.agent_translate_creation.claim_idempotency_key",
                 return_value={"status": "conflict", "resource_id": "wf-1"},
             ),
-            self.assertRaises(HTTPException) as raised,
         ):
-            create_job_record(
+            result = create_shared_job_record(
                 store=self.store,
-                req=self._request(),
+                payload=self._request().model_dump(),
                 idempotency_key="conflict-key",
             )
 
-        self.assertEqual(raised.exception.status_code, 409)
-        self.assertIn("idempotency", str(raised.exception.detail).lower())
+        self.assertEqual(result["status"], "conflict")
+        self.assertIn("conflicts", str(result["detail"]).lower())
 
-    def test_idempotency_key_in_progress_raises_http_409(self) -> None:
+    def test_idempotency_key_in_progress_returns_in_progress_status(self) -> None:
         with (
             patch(
-                "api.services.jobs_creation_service.claim_idempotency_key",
+                "infra.jobs.agent_translate_creation.claim_idempotency_key",
                 return_value={"status": "in_progress", "resource_id": None},
             ),
-            self.assertRaises(HTTPException) as raised,
         ):
-            create_job_record(
+            result = create_shared_job_record(
                 store=self.store,
-                req=self._request(),
+                payload=self._request().model_dump(),
                 idempotency_key="pending-key",
             )
 
-        self.assertEqual(raised.exception.status_code, 409)
-        self.assertIn("already in progress", str(raised.exception.detail).lower())
+        self.assertEqual(result["status"], "in_progress")
+        self.assertIn("already in progress", str(result["detail"]).lower())
 
     def test_force_rerun_skips_idempotency_claim(self) -> None:
-        with patch("api.services.jobs_creation_service.claim_idempotency_key") as claim_mock:
-            result = create_job_record(
+        with patch("infra.jobs.agent_translate_creation.claim_idempotency_key") as claim_mock:
+            result = create_shared_job_record(
                 store=self.store,
-                req=self._request(forceRerun=True),
+                payload=self._request(forceRerun=True).model_dump(),
                 idempotency_key="ignored-key",
             )
 
         self.assertTrue(result["queued"])
         claim_mock.assert_not_called()
+
+
+class AgentTranslatePageCreationServiceTests(unittest.TestCase):
+    def test_service_maps_conflict_to_http_409(self) -> None:
+        with (
+            patch(
+                "api.services.jobs_creation_service.create_shared_agent_translate_page_job",
+                return_value={
+                    "job_id": None,
+                    "queued": False,
+                    "status": "conflict",
+                    "detail": "Idempotency-Key conflicts with a different request payload",
+                },
+            ),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            create_job_record(
+                store=JobStore(),
+                req=CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg"),
+                idempotency_key="abc",
+            )
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_service_returns_job_id_for_shared_helper_success(self) -> None:
+        with patch(
+            "api.services.jobs_creation_service.create_shared_agent_translate_page_job",
+            return_value={
+                "job_id": "job-123",
+                "queued": True,
+                "status": "queued",
+                "detail": None,
+            },
+        ):
+            result = create_job_record(
+                store=JobStore(),
+                req=CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg"),
+            )
+
+        self.assertEqual(result, {"job_id": "job-123", "queued": True})
 
 
 class AgentTranslatePageRouteTests(unittest.IsolatedAsyncioTestCase):

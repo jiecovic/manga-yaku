@@ -34,6 +34,8 @@ class NormalizeTranslateStageResultTests(unittest.TestCase):
                     "addressee_id": None,
                     "speaker_gender": "not-a-valid-gender",
                     "speaker_visual_cues": " cue ",
+                    "referent_id": "",
+                    "referent_gender": "invalid",
                     "translation": " line ",
                 },
                 {"box_ids": "invalid"},
@@ -62,6 +64,8 @@ class NormalizeTranslateStageResultTests(unittest.TestCase):
         self.assertEqual(box["addressee_id"], "")
         self.assertEqual(box["speaker_gender"], "unknown")
         self.assertEqual(box["speaker_visual_cues"], "cue")
+        self.assertEqual(box["referent_id"], "unknown")
+        self.assertEqual(box["referent_gender"], "unknown")
         self.assertEqual(box["translation"], "line")
 
         self.assertEqual(result["image_summary"], "summary")

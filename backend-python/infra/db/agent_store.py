@@ -16,6 +16,18 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _coerce_session_uuid(session_id: str | UUID) -> UUID | None:
+    if isinstance(session_id, UUID):
+        return session_id
+    text = str(session_id or "").strip()
+    if not text:
+        return None
+    try:
+        return UUID(text)
+    except (TypeError, ValueError):
+        return None
+
+
 def _session_public(session: AgentSession) -> dict[str, Any]:
     return {
         "id": str(session.id),
@@ -49,9 +61,12 @@ def list_agent_sessions(volume_id: str) -> list[dict[str, Any]]:
 
 
 def get_agent_session(session_id: str | UUID) -> AgentSession | None:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        return None
     with get_session() as session:
         return session.execute(
-            select(AgentSession).where(AgentSession.id == session_id)
+            select(AgentSession).where(AgentSession.id == resolved_session_id)
         ).scalar_one_or_none()
 
 
@@ -83,9 +98,12 @@ def create_agent_session(
 
 
 def touch_agent_session(session_id: str | UUID) -> None:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        return
     with get_session() as session:
         row = session.execute(
-            select(AgentSession).where(AgentSession.id == session_id)
+            select(AgentSession).where(AgentSession.id == resolved_session_id)
         ).scalar_one_or_none()
         if row is None:
             return
@@ -98,9 +116,12 @@ def update_agent_session(
     title: str | None = None,
     model_id: str | None = None,
 ) -> dict[str, Any]:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        raise ValueError("Session not found")
     with get_session() as session:
         row = session.execute(
-            select(AgentSession).where(AgentSession.id == session_id)
+            select(AgentSession).where(AgentSession.id == resolved_session_id)
         ).scalar_one_or_none()
         if row is None:
             raise ValueError("Session not found")
@@ -114,9 +135,12 @@ def update_agent_session(
 
 
 def delete_agent_session(session_id: str | UUID) -> None:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        raise ValueError("Session not found")
     with get_session() as session:
         row = session.execute(
-            select(AgentSession).where(AgentSession.id == session_id)
+            select(AgentSession).where(AgentSession.id == resolved_session_id)
         ).scalar_one_or_none()
         if row is None:
             raise ValueError("Session not found")
@@ -128,11 +152,14 @@ def list_agent_messages(
     *,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        return []
     with get_session() as session:
         if limit is not None and limit > 0:
             stmt = (
                 select(AgentMessage)
-                .where(AgentMessage.session_id == session_id)
+                .where(AgentMessage.session_id == resolved_session_id)
                 .order_by(AgentMessage.created_at.desc(), AgentMessage.id.desc())
                 .limit(int(limit))
             )
@@ -142,7 +169,7 @@ def list_agent_messages(
 
         stmt = (
             select(AgentMessage)
-            .where(AgentMessage.session_id == session_id)
+            .where(AgentMessage.session_id == resolved_session_id)
             .order_by(AgentMessage.created_at.asc(), AgentMessage.id.asc())
         )
         rows = session.execute(stmt).scalars()
@@ -156,18 +183,21 @@ def add_agent_message(
     content: str,
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    resolved_session_id = _coerce_session_uuid(session_id)
+    if resolved_session_id is None:
+        raise ValueError("Session not found")
     now = _utc_now()
     role_value = role.strip().lower()
     if role_value not in {"user", "assistant", "system", "tool"}:
         raise ValueError(f"Unsupported role '{role}'")
     with get_session() as session:
         session_row = session.execute(
-            select(AgentSession).where(AgentSession.id == session_id)
+            select(AgentSession).where(AgentSession.id == resolved_session_id)
         ).scalar_one_or_none()
         if session_row is None:
             raise ValueError("Session not found")
         row = AgentMessage(
-            session_id=session_id,
+            session_id=resolved_session_id,
             role=role_value,
             content=str(content),
             meta=meta,

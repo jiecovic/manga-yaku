@@ -242,6 +242,8 @@ def build_turn_state_message(
         f"- active_text_box_count: {box_count_value}",
         f"- active_page_revision: {revision_value}",
         "Use this turn state for any page-specific claims.",
+        "For page-specific writes, mutate only the current active_filename.",
+        "After any mutating tool call, re-read tool state before claiming completion.",
     ]
     return {
         "role": "system",

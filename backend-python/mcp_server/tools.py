@@ -14,6 +14,7 @@ from mcp.server.fastmcp.utilities.types import Image
 from core.usecases.agent.tool_impl import (
     coerce_filename,
     detect_text_boxes_tool,
+    get_page_memory_tool,
     get_text_box_detail_tool,
     get_volume_context_tool,
     list_ocr_profiles_tool,
@@ -23,6 +24,8 @@ from core.usecases.agent.tool_impl import (
     search_volume_text_boxes_tool,
     set_active_page_tool,
     shift_active_page_tool,
+    translate_active_page_tool,
+    update_page_memory_tool,
     update_text_box_fields_tool,
     update_volume_context_tool,
 )
@@ -153,6 +156,22 @@ def register_tools(mcp: FastMCP[Any]) -> None:
         return await _run_in_thread(get_volume_context_tool, volume_id=resolved.volume_id)
 
     @mcp.tool(
+        name="get_page_memory",
+        description="Read persisted memory for the active page, or another page when filename is provided",
+    )
+    async def get_page_memory(
+        filename: str | None = None,
+        ctx: Context | None = None,
+    ) -> dict[str, Any]:
+        resolved = _resolve_tool_context(ctx)
+        return await _run_in_thread(
+            get_page_memory_tool,
+            volume_id=resolved.volume_id,
+            active_filename=resolved.active_filename,
+            filename=filename,
+        )
+
+    @mcp.tool(
         name="update_volume_context",
         description="Update persisted story context for the current volume",
     )
@@ -181,6 +200,46 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             volume_id=resolved.volume_id,
             rolling_summary=rolling_summary,
             active_characters=active_characters,
+            open_threads=open_threads,
+            glossary=glossary,
+        )
+
+    @mcp.tool(
+        name="update_page_memory",
+        description="Update persisted memory for the active page",
+    )
+    async def update_page_memory(
+        filename: str | None = None,
+        manual_notes: str | None = None,
+        page_summary: str | None = None,
+        image_summary: str | None = None,
+        characters_json: str | None = None,
+        open_threads: list[str] | None = None,
+        glossary_json: str | None = None,
+        ctx: Context | None = None,
+    ) -> dict[str, Any]:
+        try:
+            characters = _parse_json_array_of_objects(
+                characters_json,
+                field_name="characters_json",
+            )
+            glossary = _parse_json_array_of_objects(
+                glossary_json,
+                field_name="glossary_json",
+            )
+        except ValueError as exc:
+            return {"error": str(exc)}
+
+        resolved = _resolve_tool_context(ctx)
+        return await _run_in_thread(
+            update_page_memory_tool,
+            volume_id=resolved.volume_id,
+            active_filename=resolved.active_filename,
+            filename=filename,
+            manual_notes=manual_notes,
+            page_summary=page_summary,
+            image_summary=image_summary,
+            characters=characters,
             open_threads=open_threads,
             glossary=glossary,
         )
@@ -365,11 +424,15 @@ def register_tools(mcp: FastMCP[Any]) -> None:
         ]
         return {"total": len(profiles), "profiles": profiles}
 
-    @mcp.tool(name="ocr_text_box", description="Run OCR for one text box on the active page")
+    @mcp.tool(
+        name="ocr_text_box",
+        description="Run OCR for one text box on the active page; skips boxes that already have text unless force_rerun=true",
+    )
     async def ocr_text_box(
         box_id: int,
         filename: str | None = None,
         profile_id: str | None = None,
+        force_rerun: bool = False,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
         resolved = _resolve_tool_context(ctx)
@@ -380,9 +443,13 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             box_id=box_id,
             filename=filename,
             profile_id=profile_id,
+            force_rerun=force_rerun,
         )
 
-    @mcp.tool(name="detect_text_boxes", description="Run text box detection on the active page")
+    @mcp.tool(
+        name="detect_text_boxes",
+        description="Run text box detection on the active page",
+    )
     async def detect_text_boxes(
         filename: str | None = None,
         profile_id: str | None = None,
@@ -397,4 +464,32 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             filename=filename,
             profile_id=coerce_filename(profile_id),
             replace_existing=replace_existing,
+        )
+
+    @mcp.tool(
+        name="translate_active_page",
+        description="Run the staged page-translation workflow on the active page; use primitive tools afterward for inspection and box-level corrections",
+    )
+    async def translate_active_page(
+        filename: str | None = None,
+        detection_profile_id: str | None = None,
+        ocr_profiles: list[str] | None = None,
+        source_language: str | None = None,
+        target_language: str | None = None,
+        model_id: str | None = None,
+        force_rerun: bool = False,
+        ctx: Context | None = None,
+    ) -> dict[str, Any]:
+        resolved = _resolve_tool_context(ctx)
+        return await _run_in_thread(
+            translate_active_page_tool,
+            volume_id=resolved.volume_id,
+            active_filename=resolved.active_filename,
+            filename=filename,
+            detection_profile_id=coerce_filename(detection_profile_id),
+            ocr_profiles=ocr_profiles,
+            source_language=coerce_filename(source_language),
+            target_language=coerce_filename(target_language),
+            model_id=coerce_filename(model_id),
+            force_rerun=force_rerun,
         )

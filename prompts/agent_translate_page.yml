@@ -27,6 +27,16 @@ system: |
   {% endif %}
 
   INTERNAL REASONING MODES:
+    Mode 0 (Page Entity Resolution):
+      First identify the page-local cast from the image before translating lines.
+      Resolve who is visually present, who is speaking, and who demonstratives like
+      この人 / あいつ / こいつ likely refer to on this page.
+      Use page-local character resolution before choosing English pronouns or names.
+      For each translated box, emit explicit referent fields before translation:
+      referent_id and referent_gender.
+      If referent identity or gender is still uncertain after inspecting the page,
+      keep the translation neutral rather than forcing a specific male/female reading.
+
     Mode A (OCR Evaluation):
       Evaluate candidates per box independently; OCR is hypothesis, image wins.
       Use OCR profile notes to weight reliability.
@@ -48,6 +58,8 @@ system: |
       Translate selected Japanese into natural, faithful {{TARGET_LANG}}.
       Preserve tone, register, and intent from image context.
       Prioritize semantic fidelity first, then idiomatic spoken dialogue.
+      Page-local entity resolution from Mode 0 takes precedence over prior lore when
+      deciding who a line refers to on this page.
       If meaning is clear, avoid stiff literal calques that sound non-native.
       Apply conservative wording only when meaning is genuinely uncertain.
       If two renderings are equally faithful, choose the one that sounds most natural in dialogue.
@@ -57,6 +69,14 @@ system: |
       If intent is clearly the speaker's wish/request, prefer speaker-perspective phrasing.
       Do not force second-person pronouns from nearby "your/貴様の" alone.
       If subject is unclear, keep phrasing neutral rather than inventing I/you.
+      Do not introduce gendered pronouns (he/him/she/her) unless the source text,
+      visual speaker cues, or stable prior context make the referent clear enough.
+      If a line like あいつ / こいつ / その人 is semantically clear but gender is not,
+      prefer a neutral rendering such as "that person", a name, or another natural
+      ungendered English phrasing instead of inventing "him" or "her".
+      Treat speaker_gender and speaker_visual_cues as evidence for attribution and
+      voice, not as permission to force a gendered pronoun when the referent itself
+      is still ambiguous.
       If speaker/addressee is unclear, use "unknown".
       For SFX, localize naturally when possible; transliterate only when needed.
       speaker_gender must be one of: male, female, unknown.
@@ -79,6 +99,7 @@ system: |
       Merge duplicates by listing all source ids in box_ids.
       Do not output duplicate boxes separately.
       Each input box_index must appear exactly once across boxes + no_text_boxes.
+      Within each box object, emit attribution fields first and translation last.
 
   Required JSON shape:
   {
@@ -91,6 +112,8 @@ system: |
         "addressee_id": "char_2",
         "speaker_gender": "female",
         "speaker_visual_cues": "teen girl, short black hair",
+        "referent_id": "char_2",
+        "referent_gender": "male",
         "translation": "..."
       }
     ],

@@ -12,6 +12,8 @@ import { buildTextBoxIndexMap } from "../../utils/textBoxIndex";
 
 interface PageCanvasProps {
     imageUrl: string | null;
+    pageLabel: string;
+    filenameLabel: string;
     boxesByType: Record<BoxType, Box[]>;
     runtimeProbeBoxes: Box[];
     visibleBoxTypes: BoxType[];
@@ -42,6 +44,8 @@ const TOOLTIP_PADDING = 8;
  */
 export function PageCanvas({
     imageUrl,
+    pageLabel,
+    filenameLabel,
     boxesByType,
     runtimeProbeBoxes,
     visibleBoxTypes,
@@ -216,6 +220,14 @@ export function PageCanvas({
     return (
         <div ref={containerRef} className={ui.canvasWrap}>
             <div className={ui.layerPanel}>
+                <div className="mb-2 border-b border-slate-800/80 pb-2">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                        {pageLabel}
+                    </div>
+                    <div className="max-w-[180px] truncate text-[11px] text-slate-200">
+                        {filenameLabel}
+                    </div>
+                </div>
                 <div className={ui.layerTitle}>Layers</div>
                 <div className={ui.layerGroup}>
                     {layerTypes.map((type) => (
