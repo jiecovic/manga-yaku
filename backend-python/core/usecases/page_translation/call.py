@@ -28,13 +28,8 @@ from infra.llm.model_capabilities import (
 from infra.logging.correlation import append_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
-from . import schema as _schema
-
-JsonParser = _schema.JsonParser
-coerce_positive_int = _schema.coerce_positive_int
-extract_json = _schema.extract_json
-json_result_validator = _schema.json_result_validator
-should_retry = _schema.should_retry
+from .schema import coerce_positive_int
+from .schema_json import JsonParser, extract_json, json_result_validator, should_retry
 
 logger = logging.getLogger(__name__)
 

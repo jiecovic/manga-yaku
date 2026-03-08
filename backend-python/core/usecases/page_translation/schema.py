@@ -3,15 +3,21 @@
 
 from __future__ import annotations
 
-import json
-import re
-from collections.abc import Callable
 from typing import Any
+
+from . import schema_json as _schema_json
+from . import stage_outputs as _stage_outputs
+
+JsonParser = _schema_json.JsonParser
+extract_json = _schema_json.extract_json
+json_result_validator = _schema_json.json_result_validator
+repair_json = _schema_json.repair_json
+should_retry = _schema_json.should_retry
+apply_no_text_consensus_guard = _stage_outputs.apply_no_text_consensus_guard
+summarize_translate_stage_coverage = _stage_outputs.summarize_translate_stage_coverage
 
 _SPEAKER_GENDER_CHOICES = {"male", "female", "unknown"}
 _REFERENT_GENDER_CHOICES = {"male", "female", "unknown"}
-
-JsonParser = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def build_translate_stage_text_format() -> dict[str, Any]:
@@ -151,47 +157,6 @@ def build_state_merge_text_format() -> dict[str, Any]:
     }
 
 
-def extract_json(text: str) -> dict[str, Any]:
-    raw = text.strip()
-    if not raw:
-        raise ValueError("Empty response")
-    try:
-        parsed = json.loads(raw)
-        if not isinstance(parsed, dict):
-            raise ValueError("JSON response must be an object")
-        return parsed
-    except json.JSONDecodeError:
-        pass
-
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError("No JSON object found in response")
-    snippet = raw[start : end + 1]
-    try:
-        parsed = json.loads(snippet)
-        if not isinstance(parsed, dict):
-            raise ValueError("JSON response must be an object")
-        return parsed
-    except json.JSONDecodeError:
-        pass
-
-    repaired = repair_json(snippet)
-    parsed = json.loads(repaired)
-    if not isinstance(parsed, dict):
-        raise ValueError("JSON response must be an object")
-    return parsed
-
-
-def repair_json(raw: str) -> str:
-    text = raw.strip()
-    text = re.sub(r",\s*([}\]])", r"\1", text)
-    text = re.sub(r"}\s*{", "},{", text)
-    text = re.sub(r"]\s*{", "],{", text)
-    text = re.sub(r'([0-9eE"\}\]])\s*("[^"]+"\s*:)', r"\1,\2", text)
-    return text
-
-
 def coerce_positive_int(value: Any) -> int | None:
     try:
         parsed = int(value)
@@ -293,177 +258,6 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def summarize_translate_stage_coverage(
-    *,
-    stage1_result: dict[str, Any],
-    input_boxes: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Summarize how fully stage-1 output covers the input box set.
-
-    This is intentionally non-fatal. The workflow can continue with partial
-    output, but callers can surface a warning when boxes were omitted or
-    duplicated so operators know the generation may have been truncated.
-    """
-
-    expected_box_ids: set[int] = set()
-    for box in input_boxes:
-        if not isinstance(box, dict):
-            continue
-        box_index = coerce_positive_int(box.get("box_index"))
-        if box_index is not None:
-            expected_box_ids.add(box_index)
-
-    coverage_counts: dict[int, int] = {}
-
-    raw_no_text = stage1_result.get("no_text_boxes")
-    if isinstance(raw_no_text, list):
-        for item in raw_no_text:
-            box_id = coerce_positive_int(item)
-            if box_id is None:
-                continue
-            coverage_counts[box_id] = coverage_counts.get(box_id, 0) + 1
-
-    raw_boxes = stage1_result.get("boxes")
-    if isinstance(raw_boxes, list):
-        for entry in raw_boxes:
-            if not isinstance(entry, dict):
-                continue
-            raw_ids = entry.get("box_ids")
-            if not isinstance(raw_ids, list):
-                continue
-            for item in raw_ids:
-                box_id = coerce_positive_int(item)
-                if box_id is None:
-                    continue
-                coverage_counts[box_id] = coverage_counts.get(box_id, 0) + 1
-
-    covered_box_ids = set(coverage_counts)
-    duplicate_box_ids = sorted(box_id for box_id, count in coverage_counts.items() if count > 1)
-    unexpected_box_ids = sorted(
-        box_id for box_id in covered_box_ids if box_id not in expected_box_ids
-    )
-    missing_box_ids = sorted(box_id for box_id in expected_box_ids if box_id not in covered_box_ids)
-    covered_expected_box_count = sum(1 for box_id in covered_box_ids if box_id in expected_box_ids)
-
-    return {
-        "expected_box_count": len(expected_box_ids),
-        "covered_box_count": covered_expected_box_count,
-        "missing_box_ids": missing_box_ids,
-        "unexpected_box_ids": unexpected_box_ids,
-        "duplicate_box_ids": duplicate_box_ids,
-        "is_complete": not missing_box_ids and not unexpected_box_ids and not duplicate_box_ids,
-    }
-
-
-def apply_no_text_consensus_guard(
-    *,
-    stage1_result: dict[str, Any],
-    input_boxes: list[dict[str, Any]],
-    ocr_profiles: list[dict[str, Any]] | None,
-) -> tuple[dict[str, Any], list[int]]:
-    """Enforce deterministic no-text consensus for stage-1 box outputs.
-
-    Policy:
-    - Hard rule only on strong remote no-text consensus:
-      `remote_no_text_count >= 2` and `remote_text_count == 0`.
-    - Otherwise keep stage-1 output as-is (agent decides mixed/ambiguous cases).
-
-    Returns:
-    - Adjusted stage-1 result payload.
-    - Box indices that were force-moved to `no_text_boxes`.
-    """
-    source_by_index: dict[int, dict[str, Any]] = {}
-    for box in input_boxes:
-        if not isinstance(box, dict):
-            continue
-        box_index = coerce_positive_int(box.get("box_index"))
-        if box_index is None:
-            continue
-        source_by_index[box_index] = box
-
-    remote_profile_ids: set[str] = set()
-    if isinstance(ocr_profiles, list):
-        for profile in ocr_profiles:
-            if not isinstance(profile, dict):
-                continue
-            profile_id = str(profile.get("id") or "").strip()
-            if not profile_id:
-                continue
-            model_id = str(profile.get("model") or "").strip().lower()
-            if profile_id.startswith("openai_") or "gpt" in model_id:
-                remote_profile_ids.add(profile_id)
-
-    def _is_remote_profile(profile_id: str) -> bool:
-        return profile_id in remote_profile_ids or profile_id.startswith("openai_")
-
-    no_text_box_ids: set[int] = set()
-    raw_no_text = stage1_result.get("no_text_boxes")
-    if isinstance(raw_no_text, list):
-        for item in raw_no_text:
-            parsed = coerce_positive_int(item)
-            if parsed is not None:
-                no_text_box_ids.add(parsed)
-
-    adjusted_no_text: list[int] = []
-    filtered_boxes: list[dict[str, Any]] = []
-    raw_boxes = stage1_result.get("boxes")
-    if not isinstance(raw_boxes, list):
-        return stage1_result, adjusted_no_text
-
-    for entry in raw_boxes:
-        if not isinstance(entry, dict):
-            continue
-        raw_ids = entry.get("box_ids")
-        if not isinstance(raw_ids, list):
-            filtered_boxes.append(entry)
-            continue
-        parsed_box_ids = [coerce_positive_int(item) for item in raw_ids]
-        box_ids = [item for item in parsed_box_ids if item is not None]
-        if len(box_ids) != 1:
-            filtered_boxes.append(entry)
-            continue
-        box_index = box_ids[0]
-        if box_index in no_text_box_ids:
-            continue
-        source_box = source_by_index.get(box_index)
-        if not isinstance(source_box, dict):
-            filtered_boxes.append(entry)
-            continue
-
-        raw_no_text_profiles = source_box.get("ocr_no_text_profiles")
-        no_text_profiles = raw_no_text_profiles if isinstance(raw_no_text_profiles, list) else []
-        remote_no_text_count = 0
-        for profile_id in no_text_profiles:
-            pid = str(profile_id or "").strip()
-            if pid and _is_remote_profile(pid):
-                remote_no_text_count += 1
-
-        remote_text_count = 0
-        raw_candidates = source_box.get("ocr_candidates")
-        if isinstance(raw_candidates, list):
-            for candidate in raw_candidates:
-                if not isinstance(candidate, dict):
-                    continue
-                pid = str(candidate.get("profile_id") or "").strip()
-                text = str(candidate.get("text") or "").strip()
-                if pid and text and _is_remote_profile(pid):
-                    remote_text_count += 1
-
-        # Strong consensus fallback: multiple remote no-text signals with no
-        # remote positive text candidate override stage-1 text for this box.
-        if remote_no_text_count >= 2 and remote_text_count == 0:
-            no_text_box_ids.add(box_index)
-            adjusted_no_text.append(box_index)
-            continue
-
-        filtered_boxes.append(entry)
-
-    adjusted_result = dict(stage1_result)
-    adjusted_result["boxes"] = filtered_boxes
-    adjusted_result["no_text_boxes"] = sorted(no_text_box_ids)
-    return adjusted_result, adjusted_no_text
-
-
 def normalize_state_merge_result(data: dict[str, Any]) -> dict[str, Any]:
     if "characters" not in data or "open_threads" not in data or "glossary" not in data:
         raise ValueError("stage2 payload must include characters/open_threads/glossary")
@@ -508,31 +302,3 @@ def normalize_state_merge_result(data: dict[str, Any]) -> dict[str, Any]:
         "glossary": glossary,
         "story_summary": str(data.get("story_summary") or "").strip(),
     }
-
-
-def json_result_validator(parser: JsonParser) -> Callable[[str], tuple[bool, str | None]]:
-    def _validate(text: str) -> tuple[bool, str | None]:
-        try:
-            parser(extract_json(text))
-            return True, None
-        except Exception as exc:
-            return False, str(exc).strip() or repr(exc)
-
-    return _validate
-
-
-def should_retry(response: Any) -> bool:
-    status = getattr(response, "status", None)
-    if status is None and isinstance(response, dict):
-        status = response.get("status")
-    if status != "incomplete":
-        return False
-
-    details = getattr(response, "incomplete_details", None)
-    if details is None and isinstance(response, dict):
-        details = response.get("incomplete_details") or {}
-    if isinstance(details, dict):
-        reason = details.get("reason")
-    else:
-        reason = getattr(details, "reason", None)
-    return reason == "max_output_tokens"

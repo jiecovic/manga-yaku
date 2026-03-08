@@ -4,209 +4,36 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from threading import Event
 from typing import Any
 
-from config import DEBUG_PROMPTS, TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
+from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
 from infra.llm.model_capabilities import model_applies_reasoning_effort
-from infra.logging.artifacts import (
-    page_translation_debug_dir,
-    timestamped_artifact_name,
-    write_json_artifact,
-)
-from infra.logging.correlation import append_correlation, with_correlation
+from infra.logging.correlation import append_correlation
 
 from .call import build_model_cfg, run_structured_call
 from .prompts import (
     build_state_merge_prompt_payload,
     build_translate_stage_prompt_payload,
 )
+from .runtime_events import (
+    StageEventCallback,
+    build_stage_event_payload,
+    emit_stage_event,
+    write_debug_snapshot,
+)
 from .schema import (
-    apply_no_text_consensus_guard,
     build_state_merge_text_format,
     build_translate_stage_text_format,
     coerce_positive_int,
     normalize_state_merge_result,
     normalize_translate_stage_result,
-    summarize_translate_stage_coverage,
 )
+from .stage_outputs import apply_no_text_consensus_guard, summarize_translate_stage_coverage
 
 logger = logging.getLogger(__name__)
-
-StageEventCallback = Callable[[str, str, dict[str, Any] | None], None]
-
-
-def _coerce_positive_int(value: Any) -> int | None:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return None
-    if parsed <= 0:
-        return None
-    return parsed
-
-
-def _coerce_non_negative_int(value: Any) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return 0
-    return max(0, parsed)
-
-
-def _extract_reasoning_effort(params: dict[str, Any] | None) -> str | None:
-    if not isinstance(params, dict):
-        return None
-    reasoning = params.get("reasoning")
-    if isinstance(reasoning, dict):
-        effort = reasoning.get("effort")
-        if isinstance(effort, str):
-            normalized = effort.strip()
-            if normalized:
-                return normalized
-    return None
-
-
-def _build_stage_event_payload(
-    *,
-    stage: str,
-    status: str,
-    message: str,
-    cfg: dict[str, Any],
-    diagnostics: dict[str, Any] | None = None,
-    error: str | None = None,
-) -> dict[str, Any]:
-    params = diagnostics.get("params") if isinstance(diagnostics, dict) else None
-    max_output_tokens = None
-    if isinstance(params, dict):
-        max_output_tokens = _coerce_positive_int(params.get("max_output_tokens"))
-    if max_output_tokens is None:
-        max_output_tokens = _coerce_positive_int(cfg.get("max_output_tokens"))
-    reasoning_effort = _extract_reasoning_effort(params)
-    if reasoning_effort is None:
-        reasoning_effort = _extract_reasoning_effort(cfg)
-
-    token_usage = diagnostics.get("token_usage") if isinstance(diagnostics, dict) else None
-    if not isinstance(token_usage, dict):
-        token_usage = None
-
-    payload: dict[str, Any] = {
-        "stage": stage,
-        "status": status,
-        "message": message,
-        "model_id": (
-            str(
-                (diagnostics.get("model") if isinstance(diagnostics, dict) else None)
-                or cfg.get("model")
-                or ""
-            ).strip()
-            or None
-        ),
-        "attempt_count": max(
-            1,
-            _coerce_non_negative_int(
-                diagnostics.get("attempt_count") if isinstance(diagnostics, dict) else 1
-            ),
-        ),
-        "latency_ms": _coerce_non_negative_int(
-            diagnostics.get("latency_ms") if isinstance(diagnostics, dict) else 0
-        ),
-        "finish_reason": (
-            str(diagnostics.get("finish_reason") or "").strip()
-            if isinstance(diagnostics, dict)
-            else ""
-        )
-        or ("error" if error else "completed"),
-        "params_snapshot": {
-            "max_output_tokens": max_output_tokens,
-            "reasoning_effort": reasoning_effort,
-        },
-        "token_usage": token_usage,
-    }
-    if error:
-        payload["error"] = error
-    warnings = diagnostics.get("warnings") if isinstance(diagnostics, dict) else None
-    if isinstance(warnings, list):
-        normalized_warnings = [str(item).strip() for item in warnings if str(item).strip()]
-        if normalized_warnings:
-            payload["warnings"] = normalized_warnings
-    coverage = diagnostics.get("coverage") if isinstance(diagnostics, dict) else None
-    if isinstance(coverage, dict):
-        payload["coverage_summary"] = {
-            "expected_box_count": _coerce_non_negative_int(coverage.get("expected_box_count")),
-            "covered_box_count": _coerce_non_negative_int(coverage.get("covered_box_count")),
-            "missing_box_ids": [
-                value
-                for value in (
-                    _coerce_positive_int(item) for item in (coverage.get("missing_box_ids") or [])
-                )
-                if value is not None
-            ],
-            "unexpected_box_ids": [
-                value
-                for value in (
-                    _coerce_positive_int(item)
-                    for item in (coverage.get("unexpected_box_ids") or [])
-                )
-                if value is not None
-            ],
-            "duplicate_box_ids": [
-                value
-                for value in (
-                    _coerce_positive_int(item) for item in (coverage.get("duplicate_box_ids") or [])
-                )
-                if value is not None
-            ],
-            "is_complete": bool(coverage.get("is_complete")),
-        }
-    return payload
-
-
-def _emit_stage_event(
-    callback: StageEventCallback | None,
-    *,
-    stage: str,
-    status: str,
-    payload: dict[str, Any] | None = None,
-) -> None:
-    if callback is None:
-        return
-    try:
-        callback(stage, status, payload)
-    except Exception as exc:
-        logger.warning(
-            append_correlation(
-                f"Stage event callback failed ({stage}/{status}): {exc}",
-                payload.get("correlation") if isinstance(payload, dict) else None,
-                component_name=stage,
-                status_name=status,
-            )
-        )
-
-
-def _write_debug_snapshot(
-    *,
-    debug_id: str | None,
-    payload: dict[str, Any],
-) -> None:
-    if not DEBUG_PROMPTS:
-        return
-    try:
-        write_json_artifact(
-            directory=page_translation_debug_dir(),
-            filename=timestamped_artifact_name(prefix=debug_id or "page_translation"),
-            payload=with_correlation(payload, payload.get("correlation")),
-        )
-    except Exception as exc:
-        logger.warning(
-            append_correlation(
-                f"Failed to write agent debug snapshot: {exc}",
-                payload.get("correlation") if isinstance(payload, dict) else None,
-            )
-        )
 
 
 def run_page_translation_stage(
@@ -283,11 +110,11 @@ def run_page_translation_stage(
         "include_image": True,
         "stage": "translate",
     }
-    _emit_stage_event(
+    emit_stage_event(
         on_stage_event,
         stage="translate_page",
         status="started",
-        payload=_build_stage_event_payload(
+        payload=build_stage_event_payload(
             stage="translate_page",
             status="running",
             message="Translating page",
@@ -314,11 +141,11 @@ def run_page_translation_stage(
         )
     except Exception as exc:
         stage1_error = str(exc).strip() or repr(exc)
-        _emit_stage_event(
+        emit_stage_event(
             on_stage_event,
             stage="translate_page",
             status="failed",
-            payload=_build_stage_event_payload(
+            payload=build_stage_event_payload(
                 stage="translate_page",
                 status="failed",
                 message="Translate stage failed",
@@ -371,14 +198,14 @@ def run_page_translation_stage(
                         component_name="page_translation.translate",
                     )
                 )
-    stage1_event = _build_stage_event_payload(
+    stage1_event = build_stage_event_payload(
         stage="translate_page",
         status="completed",
         message="Translate stage complete",
         cfg=base_cfg,
         diagnostics=stage1_debug,
     )
-    _emit_stage_event(
+    emit_stage_event(
         on_stage_event,
         stage="translate_page",
         status="succeeded",
@@ -407,7 +234,7 @@ def run_page_translation_stage(
     ]
 
     merge_cfg = dict(base_cfg)
-    stage2_max_output = _coerce_positive_int(merge_max_output_tokens)
+    stage2_max_output = coerce_positive_int(merge_max_output_tokens)
     if stage2_max_output is None:
         stage2_max_output = coerce_positive_int(merge_cfg.get("max_output_tokens"))
     if stage2_max_output is None:
@@ -434,11 +261,11 @@ def run_page_translation_stage(
 
     stage2_error: str | None = None
     stage2_debug: dict[str, Any] = {}
-    _emit_stage_event(
+    emit_stage_event(
         on_stage_event,
         stage="merge_state",
         status="started",
-        payload=_build_stage_event_payload(
+        payload=build_stage_event_payload(
             stage="merge_state",
             status="running",
             message="Merging continuity state",
@@ -457,14 +284,14 @@ def run_page_translation_stage(
             log_context=stage2_log_context,
             stop_event=stop_event,
         )
-        stage2_event = _build_stage_event_payload(
+        stage2_event = build_stage_event_payload(
             stage="merge_state",
             status="completed",
             message="Merge stage complete",
             cfg=merge_cfg,
             diagnostics=stage2_debug,
         )
-        _emit_stage_event(
+        emit_stage_event(
             on_stage_event,
             stage="merge_state",
             status="succeeded",
@@ -483,7 +310,7 @@ def run_page_translation_stage(
                 },
             )
         )
-        stage2_event = _build_stage_event_payload(
+        stage2_event = build_stage_event_payload(
             stage="merge_state",
             status="completed",
             message="Merge stage fallback applied",
@@ -492,7 +319,7 @@ def run_page_translation_stage(
         )
         stage2_event["merge_warning"] = stage2_error
         stage2_event["finish_reason"] = "fallback"
-        _emit_stage_event(
+        emit_stage_event(
             on_stage_event,
             stage="merge_state",
             status="succeeded",
@@ -557,5 +384,5 @@ def run_page_translation_stage(
         },
         "result": result,
     }
-    _write_debug_snapshot(debug_id=debug_id, payload=debug_payload)
+    write_debug_snapshot(debug_id=debug_id, payload=debug_payload)
     return result
