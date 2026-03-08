@@ -2,17 +2,17 @@
 
 MangaYaku is an experimental sandbox for manga translation workflows.
 
-The repo is where I try things like:
+The repo is a place to explore different ways of doing things like:
 
-- YOLO-based text-box detection
-- OCR with local and LLM-backed profiles
-- LLM-assisted translation
-- chat-agent tooling over MCP
-- persisted workflow/job execution
-- training and dataset-prep loops for better detection models
+- page and text-box detection
+- OCR with local or model-backed pipelines
+- translation with different model/runtime setups
+- agent tooling and tool protocols such as MCP
+- persisted jobs, workflows, and orchestration
+- training and dataset-prep loops for improving detection quality
 
-It is not a polished product. The point is to iterate on OCR, translation,
-agents, workflows, and model/runtime choices in one local-first environment.
+It is not a polished product. The point is to iterate on workflow design,
+model/runtime choices, and supporting tooling in one local-first environment.
 
 ## What Works Today
 
@@ -36,7 +36,6 @@ Current supported paths:
 Important current behavior:
 
 - `page_translation` is the default page pipeline
-- standalone `translate_page` jobs are disabled
 - page reruns preserve existing boxes by default instead of wiping the page
 
 ## Stack
