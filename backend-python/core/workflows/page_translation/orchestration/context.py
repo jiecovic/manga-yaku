@@ -14,6 +14,13 @@ NowFn = Callable[[], float]
 
 @dataclass
 class WorkflowRunContext:
+    """Mutable per-run counters and timings used across workflow stages.
+
+    The workflow runner keeps one of these objects for the whole page-translation
+    run so stage helpers can report progress without each helper re-deriving
+    counts, durations, and workflow metadata from scratch.
+    """
+
     workflow_run_id: str
     detection_profile_id: str | None
     on_progress: ProgressCallback | None
@@ -30,9 +37,11 @@ class WorkflowRunContext:
         self._run_started_at = self.now()
 
     def start_stage(self, stage_name: str) -> None:
+        """Record the start timestamp for a stage before work begins."""
         self._stage_started_at[stage_name] = self.now()
 
     def finish_stage(self, stage_name: str) -> None:
+        """Store elapsed milliseconds for a stage if it was started."""
         started = self._stage_started_at.get(stage_name)
         if started is None:
             return
@@ -40,4 +49,5 @@ class WorkflowRunContext:
         self.stage_durations_ms[stage_name] = max(0, elapsed_ms)
 
     def total_duration_ms(self) -> int:
+        """Return total elapsed runtime for the workflow run."""
         return max(0, int((self.now() - self._run_started_at) * 1000))

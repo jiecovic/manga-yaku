@@ -20,7 +20,12 @@ def ensure_workflow_run(
     request_payload: dict[str, Any],
     page_revision: str,
 ) -> str:
-    """Create the workflow row if needed and persist the normalized request."""
+    """Ensure the persisted workflow row exists before stage execution starts.
+
+    New runs create a queued workflow row here. Existing runs reuse the provided
+    id and refresh the normalized request payload so retries and inspection use
+    the same stored source of truth.
+    """
     resolved_workflow_run_id = workflow_run_id
     if not resolved_workflow_run_id:
         resolved_workflow_run_id = create_workflow_run(
@@ -45,7 +50,7 @@ def advance_running_state(
     state: WorkflowState,
     event: WorkflowEvent,
 ) -> WorkflowState:
-    """Advance the state machine and persist running workflow status."""
+    """Advance the workflow state machine and persist the new running state."""
     next_state = transition(state, event)
     update_workflow_run(
         workflow_run_id,

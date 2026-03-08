@@ -35,7 +35,19 @@ async def run_page_translation_workflow(
     on_progress: ProgressCallback | None = None,
     is_canceled: CancelCheck | None = None,
 ) -> dict[str, Any]:
-    """Run the page-translation workflow."""
+    """Run the persisted page-translation workflow from detect through commit.
+
+    This is the top-level business orchestrator for page translation. It owns:
+
+    - state-machine transitions
+    - stage ordering
+    - progress emission
+    - cancellation checks between stages
+    - terminal workflow outcomes
+
+    Lower-level OCR/translation logic lives in `core/usecases/...`; this runner
+    decides how those capabilities are combined into one durable workflow run.
+    """
     request_payload = dict(payload)
     request_payload.pop("workflowRunId", None)
     request_payload.pop("taskRunId", None)

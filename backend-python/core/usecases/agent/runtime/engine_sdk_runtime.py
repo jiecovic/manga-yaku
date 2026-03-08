@@ -104,7 +104,12 @@ def build_sdk_agent(
     resolve_max_output_tokens: Callable[[], int],
     agents_import_error: Exception | None,
 ) -> Any:
-    """Build the configured Agents SDK agent instance."""
+    """Build the Agents SDK agent with model-aware runtime settings.
+
+    The app keeps one internal settings shape, but the actual request knobs are
+    model-dependent. GPT-5-style models use reasoning effort, while older or
+    local OpenAI-compatible models still use temperature.
+    """
     if agent_cls is None or model_settings_cls is None:
         raise RuntimeError(f"Agents SDK is not available: {agents_import_error!r}")
 
@@ -157,7 +162,16 @@ def _prepare_agent_chat_run(
     input_builder: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
     include_activity_events: bool,
 ) -> PreparedAgentChatRun:
-    """Resolve active-page state and build the shared SDK input for one chat turn."""
+    """Prepare one chat turn for both sync and streaming execution paths.
+
+    This collects all run-scoped state that would otherwise be duplicated in the
+    sync and stream code paths:
+
+    - resolve the effective model and active page
+    - build MCP client connections bound to the current run context
+    - normalize prior chat messages into SDK input items
+    - inject active-page state and optional grounding messages
+    """
     resolved_model = model_id or AGENT_MODEL
     volume_value = str(volume_id or "").strip()
     active_filename = None
@@ -247,7 +261,12 @@ def run_agent_chat_sdk(
     logger: logging.Logger,
     agents_import_error: Exception | None,
 ) -> str:
-    """Run a synchronous chat turn through the Agents SDK runtime."""
+    """Run one synchronous chat turn through the Agents SDK plus MCP tools.
+
+    The sync path still uses the same prepared run context as streaming. The
+    main difference is that it waits for the final SDK result text instead of
+    yielding intermediate activity/tool events.
+    """
     if runner_cls is None:
         raise RuntimeError(f"Agents SDK is not available: {agents_import_error!r}")
     resolved_runner_cls = cast(Any, runner_cls)
@@ -312,7 +331,11 @@ def run_agent_chat_stream_sdk(
     resolve_max_turns: Callable[[], int],
     agents_import_error: Exception | None,
 ):
-    """Stream a chat turn through the Agents SDK runtime."""
+    """Stream one chat turn through the Agents SDK plus MCP tools.
+
+    This path shares the same run preparation as the sync flow, but yields
+    activity and tool events while the SDK run is still in progress.
+    """
     if runner_cls is None:
         raise RuntimeError(f"Agents SDK is not available: {agents_import_error!r}")
     prepared = _prepare_agent_chat_run(

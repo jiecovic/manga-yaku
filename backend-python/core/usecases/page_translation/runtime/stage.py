@@ -63,6 +63,19 @@ def run_page_translation_stage(
     on_stage_event: StageEventCallback | None = None,
     stop_event: Event | None = None,
 ) -> dict[str, Any]:
+    """Run the two LLM-backed page-translation stages for one page snapshot.
+
+    Stage 1 translates the current page boxes into structured box-level output.
+    Stage 2 merges that stage-1 result with prior continuity context to refresh
+    characters, open threads, glossary, and story summary state.
+
+    The function also owns:
+
+    - structured-output parsing and repair
+    - stage event emission
+    - debug snapshot capture
+    - non-fatal merge fallback behavior when stage 2 fails
+    """
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
 
