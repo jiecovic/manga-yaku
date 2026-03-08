@@ -1,11 +1,16 @@
 # backend-python/core/usecases/agent/tools/context.py
-"""Volume-level context helpers for agent tools."""
+"""Volume and page memory helpers for agent tools."""
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
+from core.usecases.agent.tools.context_serialization import (
+    serialize_character_entries,
+    serialize_glossary_entries,
+    serialize_open_threads,
+    serialize_optional_timestamp,
+)
 from core.usecases.agent.tools.shared import (
     resolve_active_page_filename,
     resolve_read_page_filename,
@@ -18,55 +23,6 @@ from infra.db.store_context import (
 )
 
 
-def _to_iso(value: datetime | None) -> str | None:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return None
-
-
-def _normalize_character_entries(value: list[dict[str, Any]] | None) -> list[dict[str, str]]:
-    if not isinstance(value, list):
-        return []
-    out: list[dict[str, str]] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or "").strip()
-        gender = str(item.get("gender") or "").strip()
-        info = str(item.get("info") or "").strip()
-        if not name and not gender and not info:
-            continue
-        out.append({"name": name, "gender": gender, "info": info})
-    return out
-
-
-def _normalize_glossary_entries(value: list[dict[str, str]] | None) -> list[dict[str, str]]:
-    if not isinstance(value, list):
-        return []
-    out: list[dict[str, str]] = []
-    for item in value:
-        if not isinstance(item, dict):
-            continue
-        term = str(item.get("term") or "").strip()
-        translation = str(item.get("translation") or "").strip()
-        note = str(item.get("note") or "").strip()
-        if not term or not translation:
-            continue
-        out.append({"term": term, "translation": translation, "note": note})
-    return out
-
-
-def _normalize_open_threads(value: list[str] | None) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    out: list[str] = []
-    for item in value:
-        text = str(item or "").strip()
-        if text:
-            out.append(text)
-    return out
-
-
 def get_volume_context_tool(*, volume_id: str) -> dict[str, Any]:
     if not volume_id:
         return {"error": "No active volume selected"}
@@ -74,11 +30,11 @@ def get_volume_context_tool(*, volume_id: str) -> dict[str, Any]:
     return {
         "volume_id": volume_id,
         "rolling_summary": str(snapshot.get("rolling_summary") or "").strip(),
-        "active_characters": _normalize_character_entries(snapshot.get("active_characters")),
-        "open_threads": _normalize_open_threads(snapshot.get("open_threads")),
-        "glossary": _normalize_glossary_entries(snapshot.get("glossary")),
+        "active_characters": serialize_character_entries(snapshot.get("active_characters")),
+        "open_threads": serialize_open_threads(snapshot.get("open_threads")),
+        "glossary": serialize_glossary_entries(snapshot.get("glossary")),
         "last_page_index": snapshot.get("last_page_index"),
-        "updated_at": _to_iso(snapshot.get("updated_at")),
+        "updated_at": serialize_optional_timestamp(snapshot.get("updated_at")),
     }
 
 
@@ -100,19 +56,19 @@ def update_volume_context_tool(
         else str(existing.get("rolling_summary") or "").strip()
     )
     next_active_characters = (
-        _normalize_character_entries(active_characters)
+        serialize_character_entries(active_characters)
         if active_characters is not None
-        else _normalize_character_entries(existing.get("active_characters"))
+        else serialize_character_entries(existing.get("active_characters"))
     )
     next_open_threads = (
-        _normalize_open_threads(open_threads)
+        serialize_open_threads(open_threads)
         if open_threads is not None
-        else _normalize_open_threads(existing.get("open_threads"))
+        else serialize_open_threads(existing.get("open_threads"))
     )
     next_glossary = (
-        _normalize_glossary_entries(glossary)
+        serialize_glossary_entries(glossary)
         if glossary is not None
-        else _normalize_glossary_entries(existing.get("glossary"))
+        else serialize_glossary_entries(existing.get("glossary"))
     )
 
     upsert_volume_context(
@@ -128,11 +84,11 @@ def update_volume_context_tool(
         "status": "ok",
         "volume_id": volume_id,
         "rolling_summary": str(refreshed.get("rolling_summary") or "").strip(),
-        "active_characters": _normalize_character_entries(refreshed.get("active_characters")),
-        "open_threads": _normalize_open_threads(refreshed.get("open_threads")),
-        "glossary": _normalize_glossary_entries(refreshed.get("glossary")),
+        "active_characters": serialize_character_entries(refreshed.get("active_characters")),
+        "open_threads": serialize_open_threads(refreshed.get("open_threads")),
+        "glossary": serialize_glossary_entries(refreshed.get("glossary")),
         "last_page_index": refreshed.get("last_page_index"),
-        "updated_at": _to_iso(refreshed.get("updated_at")),
+        "updated_at": serialize_optional_timestamp(refreshed.get("updated_at")),
         "updated_fields": {
             "rolling_summary": rolling_summary is not None,
             "active_characters": active_characters is not None,
@@ -166,11 +122,11 @@ def get_page_memory_tool(
         "manual_notes": str(snapshot.get("manual_notes") or "").strip(),
         "page_summary": str(snapshot.get("page_summary") or "").strip(),
         "image_summary": str(snapshot.get("image_summary") or "").strip(),
-        "characters": _normalize_character_entries(snapshot.get("characters_snapshot")),
-        "open_threads": _normalize_open_threads(snapshot.get("open_threads_snapshot")),
-        "glossary": _normalize_glossary_entries(snapshot.get("glossary_snapshot")),
-        "created_at": _to_iso(snapshot.get("created_at")),
-        "updated_at": _to_iso(snapshot.get("updated_at")),
+        "characters": serialize_character_entries(snapshot.get("characters_snapshot")),
+        "open_threads": serialize_open_threads(snapshot.get("open_threads_snapshot")),
+        "glossary": serialize_glossary_entries(snapshot.get("glossary_snapshot")),
+        "created_at": serialize_optional_timestamp(snapshot.get("created_at")),
+        "updated_at": serialize_optional_timestamp(snapshot.get("updated_at")),
     }
 
 
@@ -215,19 +171,19 @@ def update_page_memory_tool(
         else str(existing.get("image_summary") or "").strip()
     )
     next_characters = (
-        _normalize_character_entries(characters)
+        serialize_character_entries(characters)
         if characters is not None
-        else _normalize_character_entries(existing.get("characters_snapshot"))
+        else serialize_character_entries(existing.get("characters_snapshot"))
     )
     next_open_threads = (
-        _normalize_open_threads(open_threads)
+        serialize_open_threads(open_threads)
         if open_threads is not None
-        else _normalize_open_threads(existing.get("open_threads_snapshot"))
+        else serialize_open_threads(existing.get("open_threads_snapshot"))
     )
     next_glossary = (
-        _normalize_glossary_entries(glossary)
+        serialize_glossary_entries(glossary)
         if glossary is not None
-        else _normalize_glossary_entries(existing.get("glossary_snapshot"))
+        else serialize_glossary_entries(existing.get("glossary_snapshot"))
     )
 
     upsert_page_context(
@@ -248,11 +204,11 @@ def update_page_memory_tool(
         "manual_notes": str(refreshed.get("manual_notes") or "").strip(),
         "page_summary": str(refreshed.get("page_summary") or "").strip(),
         "image_summary": str(refreshed.get("image_summary") or "").strip(),
-        "characters": _normalize_character_entries(refreshed.get("characters_snapshot")),
-        "open_threads": _normalize_open_threads(refreshed.get("open_threads_snapshot")),
-        "glossary": _normalize_glossary_entries(refreshed.get("glossary_snapshot")),
-        "created_at": _to_iso(refreshed.get("created_at")),
-        "updated_at": _to_iso(refreshed.get("updated_at")),
+        "characters": serialize_character_entries(refreshed.get("characters_snapshot")),
+        "open_threads": serialize_open_threads(refreshed.get("open_threads_snapshot")),
+        "glossary": serialize_glossary_entries(refreshed.get("glossary_snapshot")),
+        "created_at": serialize_optional_timestamp(refreshed.get("created_at")),
+        "updated_at": serialize_optional_timestamp(refreshed.get("updated_at")),
         "updated_fields": {
             "manual_notes": manual_notes is not None,
             "page_summary": page_summary is not None,
