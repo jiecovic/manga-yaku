@@ -13,6 +13,7 @@ Requirements:
 - npm 11.10.x
 - Docker (for Postgres)
 - Git LFS (for published model weights under `models/`)
+- `OPENAI_API_KEY` if you want to use the OpenAI-backed OCR, translation, or chat-agent paths
 
 Tooling consistency:
 - Use `.nvmrc` (`nvm use`) before installing dependencies.
@@ -57,13 +58,13 @@ backend-python/  # FastAPI app + core logic
 data/            # runtime data (volumes, logs)
 training-data/   # local datasets + runs (gitignored)
 models/          # published model weights + manifests
-docs/            # status + internal notes
+docs/            # datasets, plans, and deeper project notes
 ```
 
 Backend layout (core vs infra):
 
 - `backend-python/api/` — FastAPI routers + schemas (HTTP surface area).
-- `backend-python/core/` — business logic (usecases, profiles, detection/ocr engines).
+- `backend-python/core/` — business logic and workflow orchestration (usecases, profiles, detection/ocr engines, page-translation workflow).
 - `backend-python/infra/` — DB, LLM clients, jobs, IO adapters.
 - `backend-python/app.py` — app wiring and router registration.
 
@@ -93,7 +94,7 @@ Core tables:
 - `app_settings` — persisted settings (e.g., detection thresholds, defaults).
 - `ocr_profile_settings` — per-OCR profile overrides for agent use.
 - `translation_profile_settings` — per-translation profile overrides for single-box translation.
-- `page_translation_settings` — default model/params for agent page translate.
+- `page_translation_settings` — default model/params for the page-translation workflow.
 - `workflow_runs` — persisted workflow jobs (ocr/translate/agent pipelines).
 - `task_runs` — child tasks for workflow runs (stage/model/box level execution).
 - `task_attempt_events` — per-attempt telemetry (latency/tokens/errors).
@@ -121,22 +122,23 @@ Important constraints:
 ## Key Workflows
 
 Box detection:
-- UI picks a detection profile (Translate sidebar) or a default (Settings → Translation Agent).
+- UI picks a detection profile from the page view or falls back to the default page-translation detection setting.
 - Backend loads a YOLO profile and writes boxes to Postgres.
 
 OCR:
 - Uses local manga-ocr by default, optional OpenAI vision OCR.
 - OCR results are stored per box in Postgres.
 
-Page translation page:
+Page translation:
 - Detects boxes → runs OCR fanout (multi-profile child tasks) → page translate stage
   (image + OCR candidates) → merge stage (continuity updates) → commit to Postgres.
-- Default LLM model is configured in Settings → Translation Agent.
+- Default LLM model and merge/runtime knobs are configured in Settings → Page Translation Workflow.
 
 Jobs model:
 - Workflow-backed jobs (`ocr_box`, `ocr_page`, `translate_box`, `page_translation`) are persisted
   in Postgres (`workflow_runs`/`task_runs`) and can be reloaded after backend restart.
-- Some utility jobs (for example, training/dataset prep) remain process-local in the in-memory `JobStore`.
+- Utility workflows (`box_detection`, `prepare_dataset`, `train_model`) are also persisted in
+  Postgres and executed by the DB utility worker.
 - `page_translation` create requests support `Idempotency-Key` and same-page
   active dedupe (`volumeId + filename`) to avoid duplicate runs from retries/double-clicks.
 - `forceRerun` can request a fresh run, but does not allow parallel duplicate runs
@@ -154,6 +156,7 @@ Training:
 npm run lint
 npm run lint:backend
 npm run lint:frontend
+npm run format:backend:check
 ```
 
 ## Pre-commit
