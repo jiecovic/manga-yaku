@@ -13,7 +13,6 @@ from core.usecases.translation.execution import (
     run_translation_task_async,
 )
 from core.usecases.translation.profiles import get_translation_profile
-from infra.jobs.handlers.utils import make_snippet
 from infra.jobs.job_modes import TRANSLATE_BOX_WORKFLOW_TYPE
 from infra.jobs.task_attempt_events import (
     build_reasoning_params_snapshot,
@@ -28,6 +27,7 @@ from infra.jobs.workflow_repo import (
     update_workflow_run,
 )
 from infra.logging.correlation import append_correlation, normalize_correlation
+from infra.text_utils import make_snippet
 
 logger = logging.getLogger(__name__)
 

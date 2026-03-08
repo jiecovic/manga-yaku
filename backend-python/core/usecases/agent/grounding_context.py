@@ -9,15 +9,9 @@ from core.usecases.agent.tool_shared import list_text_boxes_for_page
 from core.usecases.agent.turn_state import has_visual_grounding_intent
 from infra.db.db_store import list_page_filenames, load_page
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
+from infra.text_utils import truncate_text
 
 from .grounding_assets import build_page_overlay_data_url
-
-
-def _truncate(value: str, *, max_chars: int = 120) -> str:
-    text = " ".join(value.split())
-    if len(text) <= max_chars:
-        return text
-    return f"{text[: max_chars - 3].rstrip()}..."
 
 
 def _normalize_grounding_mode(raw_mode: str | None) -> str:
@@ -91,8 +85,8 @@ def build_grounding_message(
                 "  - "
                 f"#{item['id']} "
                 f"bbox=({int(item['x'])},{int(item['y'])},{int(item['width'])},{int(item['height'])}) "
-                f'ocr="{_truncate(str(item["text"]), max_chars=80)}" '
-                f'tr="{_truncate(str(item["translation"]), max_chars=80)}"'
+                f'ocr="{truncate_text(str(item["text"]), limit=80, collapse_whitespace=True)}" '
+                f'tr="{truncate_text(str(item["translation"]), limit=80, collapse_whitespace=True)}"'
             )
 
     content: list[dict[str, Any]] = [

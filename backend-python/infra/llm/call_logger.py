@@ -12,6 +12,7 @@ from typing import Any
 
 from infra.db.llm_call_log_store import create_llm_call_log
 from infra.logging.correlation import append_correlation, normalize_correlation
+from infra.text_utils import truncate_text
 
 from .openai_client import extract_response_text
 
@@ -22,13 +23,6 @@ _LOG_MODE = os.getenv("MANGAYAKU_LLM_LOG_MODE", "full").strip().lower()
 if _LOG_MODE not in {"off", "errors_only", "full"}:
     _LOG_MODE = "full"
 _LOG_INCLUDE_IMAGES = os.getenv("MANGAYAKU_LLM_LOG_INCLUDE_IMAGES", "0").strip().lower() in _TRUE
-
-
-def _truncate_text(value: str, *, limit: int = 8000) -> str:
-    text = value.strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 3] + "..."
 
 
 def _redact_value(value: Any) -> Any:
@@ -55,7 +49,7 @@ def _redact_value(value: Any) -> Any:
     if isinstance(value, str):
         if not _LOG_INCLUDE_IMAGES and value.startswith("data:image/"):
             return f"<redacted:data-url:{len(value)}>"
-        return _truncate_text(value, limit=12000)
+        return truncate_text(value, limit=12000)
     return value
 
 
@@ -130,17 +124,17 @@ def _extract_response_text_excerpt(api: str, response: Any) -> str:
                 message = _safe_get(choices[0], "message")
                 content = _safe_get(message, "content")
                 if isinstance(content, str):
-                    return _truncate_text(content, limit=8000)
+                    return truncate_text(content, limit=8000)
                 if content is not None:
                     try:
-                        return _truncate_text(
+                        return truncate_text(
                             json.dumps(content, ensure_ascii=True, default=str),
                             limit=8000,
                         )
                     except Exception:
-                        return _truncate_text(str(content), limit=8000)
+                        return truncate_text(str(content), limit=8000)
             return ""
-        return _truncate_text(extract_response_text(response), limit=8000)
+        return truncate_text(extract_response_text(response), limit=8000)
     except Exception:
         return ""
 
@@ -180,7 +174,7 @@ def _extract_request_excerpt(params: dict[str, Any]) -> str:
                         lines.append(text.strip())
             elif isinstance(content, str) and content.strip():
                 lines.append(content.strip())
-        return _truncate_text("\n\n".join(lines), limit=8000)
+        return truncate_text("\n\n".join(lines), limit=8000)
 
     messages = params.get("messages")
     if isinstance(messages, list):
@@ -195,7 +189,7 @@ def _extract_request_excerpt(params: dict[str, Any]) -> str:
                         text = item.get("text")
                         if isinstance(text, str) and text.strip():
                             lines.append(text.strip())
-        return _truncate_text("\n\n".join(lines), limit=8000)
+        return truncate_text("\n\n".join(lines), limit=8000)
 
     return ""
 

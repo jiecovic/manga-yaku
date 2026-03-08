@@ -11,6 +11,7 @@ from core.usecases.agent.engine import run_agent_chat_repair
 from infra.db.agent_store import add_agent_message
 from infra.db.llm_call_log_store import create_llm_call_log
 from infra.logging.correlation import append_correlation, normalize_correlation
+from infra.text_utils import truncate_text
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,6 @@ def provider_error_fallback_reply(
     )
 
 
-def _truncate_text(value: str, *, limit: int = 2000) -> str:
-    text = str(value or "").strip()
-    if len(text) <= limit:
-        return text
-    return text[: limit - 3] + "..."
-
-
 def sanitize_agent_log_payload(value: Any) -> Any:
     if isinstance(value, dict):
         out: dict[str, Any] = {}
@@ -63,7 +57,7 @@ def sanitize_agent_log_payload(value: Any) -> Any:
     if isinstance(value, str):
         if value.startswith("data:image/"):
             return f"<redacted:data-url:{len(value)}>"
-        return _truncate_text(value, limit=12000)
+        return truncate_text(value, limit=12000)
     return value
 
 
@@ -75,7 +69,7 @@ def _build_agent_request_excerpt(messages: list[dict[str, Any]]) -> str:
         if not content:
             continue
         lines.append(f"{role}: {content}")
-    return _truncate_text("\n\n".join(lines), limit=8000)
+    return truncate_text("\n\n".join(lines), limit=8000)
 
 
 def log_agent_sdk_attempt(
@@ -132,10 +126,10 @@ def log_agent_sdk_attempt(
             model_id=model_id,
             latency_ms=latency_ms,
             finish_reason=finish_reason,
-            error_detail=_truncate_text(error_detail or "", limit=8000) or None,
+            error_detail=truncate_text(error_detail or "", limit=8000) or None,
             params_snapshot=params_snapshot,
             request_excerpt=_build_agent_request_excerpt(messages),
-            response_excerpt=_truncate_text(response_text or "", limit=8000) or None,
+            response_excerpt=truncate_text(response_text or "", limit=8000) or None,
             payload=payload,
             attempt=attempt,
         )

@@ -6,12 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-
-def _truncate(value: str, *, max_chars: int = 120) -> str:
-    text = " ".join(value.split())
-    if len(text) <= max_chars:
-        return text
-    return f"{text[: max_chars - 3].rstrip()}..."
+from infra.text_utils import truncate_text
 
 
 def _try_parse_json_dict(raw: str | None) -> dict[str, Any] | None:
@@ -64,13 +59,17 @@ def preview_tool_arguments(arguments: Any) -> str | None:
 
     if isinstance(payload, (dict, list)):
         try:
-            return _truncate(json.dumps(payload, ensure_ascii=False), max_chars=220)
+            return truncate_text(
+                json.dumps(payload, ensure_ascii=False),
+                limit=220,
+                collapse_whitespace=True,
+            )
         except Exception:
-            return _truncate(str(payload), max_chars=220)
+            return truncate_text(str(payload), limit=220, collapse_whitespace=True)
     text = str(payload or "").strip()
     if not text:
         return None
-    return _truncate(text, max_chars=220)
+    return truncate_text(text, limit=220, collapse_whitespace=True)
 
 
 def summarize_tool_output(tool_name: str, output: Any) -> str:
@@ -78,7 +77,7 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
     if isinstance(output_dict, dict):
         error = output_dict.get("error")
         if error:
-            return f"error: {_truncate(str(error), max_chars=160)}"
+            return f"error: {truncate_text(str(error), limit=160, collapse_whitespace=True)}"
 
         if tool_name == "list_volume_pages":
             page_count = output_dict.get("page_count")
@@ -168,13 +167,20 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
             query = str(output_dict.get("query") or "").strip()
             if isinstance(total, int):
                 if query:
-                    return f"{total} matches for '{_truncate(query, max_chars=60)}'"
+                    return (
+                        f"{total} matches for "
+                        f"'{truncate_text(query, limit=60, collapse_whitespace=True)}'"
+                    )
                 return f"{total} matches"
         elif tool_name == "get_text_box_detail":
             box = output_dict.get("box")
             if isinstance(box, dict):
                 box_id = box.get("id")
-                text_preview = _truncate(str(box.get("text") or "").strip(), max_chars=80)
+                text_preview = truncate_text(
+                    str(box.get("text") or "").strip(),
+                    limit=80,
+                    collapse_whitespace=True,
+                )
                 if box_id is not None and text_preview:
                     return f"box #{box_id}: {text_preview}"
                 if box_id is not None:
@@ -334,7 +340,7 @@ def summarize_tool_output(tool_name: str, output: Any) -> str:
         return f"{len(output)} items"
     if output is None:
         return "ok"
-    return _truncate(str(output), max_chars=180)
+    return truncate_text(str(output), limit=180, collapse_whitespace=True)
 
 
 def format_tool_called_message(tool_name: str, args_preview: str | None) -> str:
@@ -381,7 +387,7 @@ def format_exception_details(exc: Exception) -> str:
                 body_text = json.dumps(body, ensure_ascii=True)
             else:
                 body_text = str(body)
-            parts.append(f"body={_truncate(body_text, max_chars=400)}")
+            parts.append(f"body={truncate_text(body_text, limit=400, collapse_whitespace=True)}")
         except Exception:
             pass
 

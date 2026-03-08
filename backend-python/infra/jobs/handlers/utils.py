@@ -39,13 +39,6 @@ def apply_model_metadata(payload: dict[str, Any], config: dict[str, Any]) -> dic
     return updated
 
 
-def make_snippet(text: str, limit: int = 80) -> str:
-    snippet = " ".join(text.split())
-    if len(snippet) > limit:
-        return f"{snippet[:limit]}..."
-    return snippet
-
-
 def list_text_boxes(page: dict[str, Any]) -> list[dict[str, Any]]:
     raw_boxes = page.get("boxes", []) if isinstance(page, dict) else []
     text_boxes = [box for box in raw_boxes if box.get("type") == "text"]
