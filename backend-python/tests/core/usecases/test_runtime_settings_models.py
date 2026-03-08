@@ -85,7 +85,7 @@ def test_get_ocr_profile_applies_typed_runtime_settings_to_config() -> None:
     }
     with (
         patch(
-            "core.usecases.ocr.profiles.settings.resolve_ocr_profile_settings",
+            "core.usecases.ocr.profiles.registry.resolve_ocr_profile_settings",
             return_value=runtime_settings,
         ),
         patch(
@@ -93,7 +93,7 @@ def test_get_ocr_profile_applies_typed_runtime_settings_to_config() -> None:
             return_value=OcrLabelOverrides(values={}),
         ),
         patch(
-            "core.usecases.ocr.runtime.engine.initialize_ocr_runtime",
+            "core.usecases.ocr.profiles.registry.initialize_ocr_runtime",
         ),
     ):
         profile = get_ocr_profile("openai_quality_ocr")
@@ -129,7 +129,7 @@ def test_get_translation_profile_applies_typed_runtime_settings_to_config() -> N
         )
     }
     with patch(
-        "core.usecases.translation.profiles.settings.resolve_translation_profile_settings",
+        "core.usecases.translation.profiles.registry.resolve_translation_profile_settings",
         return_value=runtime_settings,
     ):
         profile = get_translation_profile("openai_ultra_translate")

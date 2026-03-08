@@ -60,11 +60,11 @@ def test_unavailable_manga_ocr_is_hidden_from_provider_list() -> None:
 
         with (
             patch(
-                "core.usecases.ocr.runtime.engine.initialize_ocr_runtime",
+                "core.usecases.ocr.profiles.registry.initialize_ocr_runtime",
                 side_effect=_simulate_runtime_probe,
             ),
             patch(
-                "core.usecases.ocr.profiles.settings.list_ocr_profiles_with_settings",
+                "core.usecases.ocr.profiles.registry.list_ocr_profiles_with_settings",
                 side_effect=_profiles_snapshot_from_registry,
             ),
         ):

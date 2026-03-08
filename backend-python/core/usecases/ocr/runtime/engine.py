@@ -8,7 +8,6 @@ import io
 import logging
 from typing import Any, cast
 
-from config import OPENAI_API_KEY
 from core.domain.pages import set_box_ocr_text_by_id
 from infra.images.image_ops import crop_volume_image, resize_for_llm
 from infra.llm import (
@@ -16,57 +15,18 @@ from infra.llm import (
     build_response_params,
     create_openai_client,
     extract_response_text,
-    has_openai_sdk,
     openai_chat_completions_create,
     openai_responses_create,
 )
 from infra.logging.correlation import append_correlation
 from infra.prompts import PromptBundle, load_prompt_bundle
 
-from ..profiles.registry import (
-    OcrProfile,
-    get_ocr_profile,
-    mark_ocr_availability,
-)
+from ..profiles.catalog import OcrProfile
+from ..profiles.registry import get_ocr_profile
+from .bootstrap import get_manga_ocr_runtime, initialize_ocr_runtime
 
 logger = logging.getLogger(__name__)
-
-# Optional manga-ocr import
-try:
-    from manga_ocr import MangaOcr  # type: ignore
-
-    _manga_ocr = MangaOcr()
-    _manga_ocr_error: Exception | None = None
-except Exception as e:  # pragma: no cover
-    _manga_ocr = None
-    _manga_ocr_error = e
-
-# -------------------------------------------------------------------
-# Runtime availability → tell profiles which ones are usable
-# -------------------------------------------------------------------
-
-_has_openai_sdk = has_openai_sdk()
-_has_llm_ocr = _has_openai_sdk and bool(OPENAI_API_KEY)
-
-if _has_openai_sdk and not OPENAI_API_KEY:
-    logger.warning(
-        append_correlation(
-            "OPENAI_API_KEY not set; OpenAI OCR profiles disabled",
-            {"component": "ocr.runtime"},
-        )
-    )
-elif not _has_openai_sdk:
-    logger.warning(
-        append_correlation(
-            "OpenAI SDK not available; OpenAI OCR profiles disabled",
-            {"component": "ocr.runtime"},
-        )
-    )
-
-mark_ocr_availability(
-    has_manga_ocr=_manga_ocr is not None,
-    has_llm_ocr=_has_llm_ocr,
-)
+initialize_ocr_runtime()
 
 
 # -------------------------------------------------------------------
@@ -142,12 +102,13 @@ def _run_manga_ocr_box(
     width: float,
     height: float,
 ) -> str:
-    if _manga_ocr is None:
-        raise RuntimeError(f"manga-ocr is not available: {_manga_ocr_error!r}")
+    manga_ocr, init_error = get_manga_ocr_runtime()
+    if manga_ocr is None:
+        raise RuntimeError(f"manga-ocr is not available: {init_error!r}")
 
     crop = crop_volume_image(volume_id, filename, x, y, width, height)
     crop = resize_for_llm(crop)
-    return _manga_ocr(crop)
+    return manga_ocr(crop)
 
 
 # -------------------------------------------------------------------
@@ -322,7 +283,3 @@ def run_ocr_box(
         )
 
     return text
-
-
-def initialize_ocr_runtime() -> None:
-    """Ensure OCR runtime side effects are initialized before profile reads."""

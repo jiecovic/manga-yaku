@@ -18,7 +18,7 @@ from infra.db.translation_profile_settings_store import (
     upsert_translation_profile_setting,
 )
 
-from .registry import TRANSLATION_PROFILES, TranslationProfile
+from .catalog import TRANSLATION_PROFILES, TranslationProfile
 
 
 def _default_profile_settings(profile: TranslationProfile) -> TranslationProfileRuntimeSettings:

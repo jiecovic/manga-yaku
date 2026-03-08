@@ -16,12 +16,12 @@ from infra.llm import (
 from infra.logging.correlation import append_correlation
 from infra.prompts import render_prompt_bundle
 
-from ..profiles.registry import (
+from ..profiles.catalog import (
     TRANSLATION_PROFILES,
     TranslationProfile,
-    get_translation_profile,
     mark_translation_availability,
 )
+from ..profiles.registry import get_translation_profile
 from .context import build_page_context, build_series_context
 from .parsing import parse_structured_translation
 from .provider import load_profile_prompt_bundle, run_openai_translate

@@ -1,110 +1,19 @@
 # backend-python/core/usecases/translation/profiles/registry.py
-"""Default profile definitions for translation providers."""
+"""Effective translation profile lookups and API views."""
 
 from __future__ import annotations
 
-import os
-from typing import Any, TypedDict, cast
+from typing import Any, cast
 
-
-class TranslationProfile(TypedDict, total=False):
-    """Static configuration for a translation provider/profile."""
-
-    id: str
-    label: str
-    description: str
-    provider: str  # e.g. "openai_chat"
-    kind: str  # "local" | "remote"
-    enabled: bool
-    config: dict[str, Any]
-
-
-# Registry of all translation profiles.
-TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
-    # ------------------------------------------------------------------
-    # OpenAI Fast
-    # ------------------------------------------------------------------
-    "openai_fast_translate": {
-        "id": "openai_fast_translate",
-        "label": "Single-box Translate - Fast",
-        "description": "Fast single-box translation via OpenAI",
-        "provider": "openai_chat",
-        "kind": "remote",
-        "enabled": True,
-        "config": {
-            "model": "gpt-4o-mini",
-            "max_tokens": 256,
-            "temperature": 0.2,
-            "prompt_file": "translation/single_box/fast.yml",
-        },
-    },
-    # ------------------------------------------------------------------
-    # OpenAI Quality
-    # ------------------------------------------------------------------
-    "openai_quality_translate": {
-        "id": "openai_quality_translate",
-        "label": "Single-box Translate - Quality",
-        "description": "Higher-quality single-box translation via OpenAI",
-        "provider": "openai_chat",
-        "kind": "remote",
-        "enabled": True,
-        "config": {
-            "model": "gpt-4.1-mini",
-            "max_tokens": 512,
-            "temperature": 0.2,
-            "prompt_file": "translation/single_box/quality.yml",
-        },
-    },
-    # ------------------------------------------------------------------
-    # OpenAI Ultra - GPT-5.1
-    # ------------------------------------------------------------------
-    "openai_ultra_translate": {
-        "id": "openai_ultra_translate",
-        "label": "Single-box Translate - Max",
-        "description": "Max-quality single-box translation via OpenAI",
-        "provider": "openai_chat",
-        "kind": "remote",
-        "enabled": True,
-        "config": {
-            "model": "gpt-5.1",  # or "gpt-5.1-preview"
-            "max_completion_tokens": 1024,
-            "temperature": 0.15,
-            "prompt_file": "translation/single_box/ultra.yml",
-        },
-    },
-    # ------------------------------------------------------------------
-    # Local LLM - OpenAI-compatible endpoint
-    # ------------------------------------------------------------------
-    "local_llm_default": {
-        "id": "local_llm_default",
-        "label": "Single-box Translate - Local",
-        "description": (
-            "Single-box translation via a local OpenAI-compatible HTTP endpoint "
-            "(e.g. TextGen WebUI / LM Studio / llama.cpp server)"
-        ),
-        "provider": "openai_chat",
-        "kind": "local",
-        "enabled": True,
-        "config": {
-            "base_url": os.getenv("LOCAL_OPENAI_BASE_URL", ""),
-            "model": os.getenv("LOCAL_OPENAI_MODEL", "local-model"),
-            "max_tokens": 512,
-            "temperature": 0.3,
-            "prompt_file": "translation/single_box/local.yml",
-        },
-    },
-}
-
-
-# ----------------------------------------------------------------------
-# Public helpers
-# ----------------------------------------------------------------------
+from .catalog import TRANSLATION_PROFILES, TranslationProfile
+from .settings import (
+    list_translation_profiles_with_settings,
+    resolve_translation_profile_settings,
+)
 
 
 def list_translation_profiles_for_api() -> list[dict[str, Any]]:
     """Lightweight view for the API / frontend."""
-    from .settings import list_translation_profiles_with_settings
-
     profiles = list_translation_profiles_with_settings()
     return [
         {
@@ -129,38 +38,12 @@ def get_translation_profile(profile_id: str) -> TranslationProfile:
     profile = cast(TranslationProfile, dict(base))
     cfg = dict(profile.get("config", {}) or {})
 
-    from .settings import resolve_translation_profile_settings
-
     profile_settings = resolve_translation_profile_settings()[profile_id]
     runtime_enabled = bool(profile.get("enabled", True))
     single_box_enabled = profile_settings.single_box_enabled
     profile["enabled"] = runtime_enabled and single_box_enabled
-
     profile["config"] = profile_settings.model_settings().apply_to_config(
         cfg,
         token_key="max_output_tokens",
     )
     return profile
-
-
-def mark_translation_availability(
-    *,
-    has_cloud_openai: bool,
-    has_local_openai: bool,
-) -> None:
-    """
-    Called by the translation engine at import/startup to toggle 'enabled'
-    flags based on runtime capabilities (OpenAI SDK, API key, local endpoint).
-    """
-    # Cloud OpenAI-backed profiles
-    for key in (
-        "openai_fast_translate",
-        "openai_quality_translate",
-        "openai_ultra_translate",
-    ):
-        if key in TRANSLATION_PROFILES:
-            TRANSLATION_PROFILES[key]["enabled"] = has_cloud_openai
-
-    # Local OpenAI-compatible profile
-    if "local_llm_default" in TRANSLATION_PROFILES:
-        TRANSLATION_PROFILES["local_llm_default"]["enabled"] = has_local_openai

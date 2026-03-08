@@ -20,7 +20,7 @@ from infra.db.ocr_profile_settings_store import (
     upsert_ocr_profile_setting,
 )
 
-from .registry import OCR_PROFILES, OcrProfile
+from .catalog import OCR_PROFILES, OcrProfile
 
 
 def _default_profile_settings(profile: OcrProfile) -> OcrProfileRuntimeSettings:
