@@ -100,6 +100,12 @@ export interface AgentMessage {
 export interface AgentModel {
     id: string;
     label: string;
+    capability: {
+        appliesTemperature: boolean;
+        appliesReasoningEffort: boolean;
+        temperatureSupport: string;
+        notes: string[];
+    };
 }
 export type TrainingSourceType = "manga109s" | "yolo" | "custom-db" | "unknown";
 

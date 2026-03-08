@@ -1,11 +1,13 @@
 // src/components/settings/sections/OcrProfilesCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
-import type { OcrDraftProfile } from "../types";
+import type { ModelCapability, OcrDraftProfile } from "../types";
+import { resolveModelCapability } from "../types";
 
 type Props = {
     ocrDraft: OcrDraftProfile[];
     ocrModelOptions: string[];
+    ocrModelCapabilities: Record<string, ModelCapability>;
     ocrReasoningOptions: string[];
     onUpdateOcrProfile: (id: string, updates: Partial<OcrDraftProfile>) => void;
 };
@@ -13,6 +15,7 @@ type Props = {
 export function OcrProfilesCard({
     ocrDraft,
     ocrModelOptions,
+    ocrModelCapabilities,
     ocrReasoningOptions,
     onUpdateOcrProfile,
 }: Props) {
@@ -26,6 +29,10 @@ export function OcrProfilesCard({
                     if (profile.model_id) {
                         options.add(profile.model_id);
                     }
+                    const capability = resolveModelCapability(
+                        ocrModelCapabilities,
+                        profile.model_id,
+                    );
                     return (
                         <div
                             key={profile.id}
@@ -113,6 +120,7 @@ export function OcrProfilesCard({
                                             <Select
                                                 variant="training"
                                                 value={profile.reasoning_effort ?? ""}
+                                                disabled={!capability.applies_reasoning_effort}
                                                 onChange={(e) =>
                                                     onUpdateOcrProfile(profile.id, {
                                                         reasoning_effort:
@@ -140,6 +148,7 @@ export function OcrProfilesCard({
                                                 step="0.1"
                                                 min={0}
                                                 max={2}
+                                                disabled={!capability.applies_temperature}
                                                 value={profile.temperature ?? ""}
                                                 onChange={(e) =>
                                                     onUpdateOcrProfile(profile.id, {
@@ -160,12 +169,23 @@ export function OcrProfilesCard({
                                             Max output: output token cap per OCR attempt.
                                         </div>
                                         <div className={ui.trainingHelp}>
-                                            Reasoning: GPT-5 reasoning level for OCR.
+                                            {capability.applies_reasoning_effort
+                                                ? "Reasoning: active for the selected model."
+                                                : "Reasoning: inactive for the selected model."}
                                         </div>
                                         <div className={ui.trainingHelp}>
-                                            Temperature: sampling randomness (if model
-                                            supports it).
+                                            {capability.applies_temperature
+                                                ? "Temperature: active for the selected model."
+                                                : "Temperature: inactive for the selected model."}
                                         </div>
+                                        {capability.notes.map((note) => (
+                                            <div
+                                                key={`${profile.id}-${note}`}
+                                                className={ui.trainingHelp}
+                                            >
+                                                {note}
+                                            </div>
+                                        ))}
                                     </div>
                                 </>
                             )}

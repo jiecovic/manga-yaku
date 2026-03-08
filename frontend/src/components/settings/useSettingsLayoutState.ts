@@ -9,7 +9,10 @@ import { normalizeBoxType } from "../../utils/boxes";
 import type { SettingsTab } from "./SettingsTabs";
 import { draftBoolean, draftString } from "./draftUtils";
 import {
+    coerceModelCapabilities,
     type PageTranslationDraft,
+    resolveModelCapability,
+    type ModelCapability,
     type OcrDraftProfile,
     type TranslationDraftProfile,
     toIntWithFallback,
@@ -123,6 +126,18 @@ export function useSettingsLayoutState() {
         const raw = pageTranslation?.options?.reasoning_effort;
         return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
     }, [pageTranslation]);
+    const pageTranslationModelCapabilities = useMemo(
+        () => coerceModelCapabilities(pageTranslation?.options?.model_capabilities),
+        [pageTranslation],
+    );
+    const pageTranslationSelectedCapability = useMemo<ModelCapability>(
+        () =>
+            resolveModelCapability(
+                pageTranslationModelCapabilities,
+                pageTranslationDraft?.model_id,
+            ),
+        [pageTranslationDraft?.model_id, pageTranslationModelCapabilities],
+    );
 
     const ocrModelOptions = useMemo(() => {
         const raw = ocrProfiles?.options?.models;
@@ -133,6 +148,10 @@ export function useSettingsLayoutState() {
         const raw = ocrProfiles?.options?.reasoning_effort;
         return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
     }, [ocrProfiles]);
+    const ocrModelCapabilities = useMemo(
+        () => coerceModelCapabilities(ocrProfiles?.options?.model_capabilities),
+        [ocrProfiles],
+    );
 
     const translationModelOptions = useMemo(() => {
         const raw = translationProfiles?.options?.models;
@@ -143,6 +162,11 @@ export function useSettingsLayoutState() {
         const raw = translationProfiles?.options?.reasoning_effort;
         return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
     }, [translationProfiles]);
+    const translationModelCapabilities = useMemo(
+        () =>
+            coerceModelCapabilities(translationProfiles?.options?.model_capabilities),
+        [translationProfiles],
+    );
 
     const confThreshold = useMemo(
         () => draftString(draft, "detection.conf_threshold"),
@@ -749,6 +773,7 @@ export function useSettingsLayoutState() {
         updateDraft,
         pageTranslationDraft,
         pageTranslationModelOptions,
+        pageTranslationSelectedCapability,
         pageTranslationReasoningOptions,
         updatePageTranslationDraft,
         pageTranslationDetectionProfileId,
@@ -766,10 +791,12 @@ export function useSettingsLayoutState() {
         hasPageTranslationDetectionOptions,
         translationDraft,
         translationModelOptions,
+        translationModelCapabilities,
         translationReasoningOptions,
         updateTranslationProfile,
         ocrDraft,
         ocrModelOptions,
+        ocrModelCapabilities,
         ocrReasoningOptions,
         updateOcrProfile,
         ocrParallelismLocal,

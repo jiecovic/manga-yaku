@@ -1,7 +1,7 @@
 // src/components/settings/sections/PageTranslationCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
-import type { PageTranslationDraft } from "../types";
+import type { ModelCapability, PageTranslationDraft } from "../types";
 
 type DetectionOption = {
     id: string;
@@ -12,6 +12,7 @@ type DetectionOption = {
 type Props = {
     pageTranslationDraft: PageTranslationDraft | null;
     pageTranslationModelOptions: string[];
+    pageTranslationSelectedCapability: ModelCapability;
     pageTranslationReasoningOptions: string[];
     onUpdatePageTranslationDraft: (key: keyof PageTranslationDraft, value: string) => void;
     pageTranslationDetectionProfileId: string;
@@ -28,6 +29,7 @@ type Props = {
 export function PageTranslationCard({
     pageTranslationDraft,
     pageTranslationModelOptions,
+    pageTranslationSelectedCapability,
     pageTranslationReasoningOptions,
     onUpdatePageTranslationDraft,
     pageTranslationDetectionProfileId,
@@ -99,6 +101,7 @@ export function PageTranslationCard({
                 <Field label="Reasoning" layout="row" labelClassName={ui.label}>
                     <Select
                         value={pageTranslationDraft?.reasoning_effort ?? "low"}
+                        disabled={!pageTranslationSelectedCapability.applies_reasoning_effort}
                         onChange={(e) =>
                             onUpdatePageTranslationDraft("reasoning_effort", e.target.value)
                         }
@@ -111,8 +114,15 @@ export function PageTranslationCard({
                     </Select>
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Reasoning level for page translation runs (GPT-5 models only).
+                    {pageTranslationSelectedCapability.applies_reasoning_effort
+                        ? "Reasoning level for page translation runs with reasoning-capable models."
+                        : "Reasoning effort is not used for the selected model."}
                 </div>
+                {pageTranslationSelectedCapability.notes.map((note) => (
+                    <div key={`pt-reason-${note}`} className={`${ui.trainingHelp} ml-28`}>
+                        {note}
+                    </div>
+                ))}
 
                 <Field label="Volume memory" layout="row" labelClassName={ui.label}>
                     <div className="flex flex-col gap-1 text-xs text-slate-300">
@@ -198,6 +208,7 @@ export function PageTranslationCard({
                         step="0.1"
                         min={0}
                         max={2}
+                        disabled={!pageTranslationSelectedCapability.applies_temperature}
                         value={pageTranslationDraft?.temperature ?? ""}
                         onChange={(e) =>
                             onUpdatePageTranslationDraft("temperature", e.target.value)
@@ -205,12 +216,15 @@ export function PageTranslationCard({
                     />
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Sampling randomness for page translation when the model supports
-                    temperature.
+                    {pageTranslationSelectedCapability.applies_temperature
+                        ? "Sampling randomness for page translation when the selected model supports temperature."
+                        : "Temperature is inactive for the selected model."}
                 </div>
-                <div className={`${ui.trainingHelp} ml-28`}>
-                    Temperature is ignored by GPT-5 models.
-                </div>
+                {pageTranslationSelectedCapability.notes.map((note) => (
+                    <div key={`pt-temp-${note}`} className={`${ui.trainingHelp} ml-28`}>
+                        {note}
+                    </div>
+                ))}
             </div>
         </div>
     );

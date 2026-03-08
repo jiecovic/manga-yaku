@@ -36,6 +36,7 @@ export function SettingsLayout() {
         updateDraft,
         pageTranslationDraft,
         pageTranslationModelOptions,
+        pageTranslationSelectedCapability,
         pageTranslationReasoningOptions,
         updatePageTranslationDraft,
         pageTranslationDetectionProfileId,
@@ -53,10 +54,12 @@ export function SettingsLayout() {
         hasPageTranslationDetectionOptions,
         translationDraft,
         translationModelOptions,
+        translationModelCapabilities,
         translationReasoningOptions,
         updateTranslationProfile,
         ocrDraft,
         ocrModelOptions,
+        ocrModelCapabilities,
         ocrReasoningOptions,
         updateOcrProfile,
         ocrParallelismLocal,
@@ -158,6 +161,9 @@ export function SettingsLayout() {
                                 <PageTranslationCard
                                     pageTranslationDraft={pageTranslationDraft}
                                     pageTranslationModelOptions={pageTranslationModelOptions}
+                                    pageTranslationSelectedCapability={
+                                        pageTranslationSelectedCapability
+                                    }
                                     pageTranslationReasoningOptions={pageTranslationReasoningOptions}
                                     onUpdatePageTranslationDraft={updatePageTranslationDraft}
                                     pageTranslationDetectionProfileId={pageTranslationDetectionProfileId}
@@ -184,6 +190,7 @@ export function SettingsLayout() {
                                 <TranslationProfilesCard
                                     translationDraft={translationDraft}
                                     translationModelOptions={translationModelOptions}
+                                    translationModelCapabilities={translationModelCapabilities}
                                     translationReasoningOptions={translationReasoningOptions}
                                     translateSingleBoxUseContext={translateSingleBoxUseContext}
                                     onUpdateTranslationProfile={updateTranslationProfile}
@@ -206,6 +213,7 @@ export function SettingsLayout() {
                                 <OcrProfilesCard
                                     ocrDraft={ocrDraft}
                                     ocrModelOptions={ocrModelOptions}
+                                    ocrModelCapabilities={ocrModelCapabilities}
                                     ocrReasoningOptions={ocrReasoningOptions}
                                     onUpdateOcrProfile={updateOcrProfile}
                                 />

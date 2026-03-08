@@ -1,11 +1,13 @@
 // src/components/settings/sections/TranslationProfilesCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
-import type { TranslationDraftProfile } from "../types";
+import type { ModelCapability, TranslationDraftProfile } from "../types";
+import { resolveModelCapability } from "../types";
 
 type Props = {
     translationDraft: TranslationDraftProfile[];
     translationModelOptions: string[];
+    translationModelCapabilities: Record<string, ModelCapability>;
     translationReasoningOptions: string[];
     translateSingleBoxUseContext: boolean;
     onUpdateTranslationProfile: (
@@ -18,6 +20,7 @@ type Props = {
 export function TranslationProfilesCard({
     translationDraft,
     translationModelOptions,
+    translationModelCapabilities,
     translationReasoningOptions,
     translateSingleBoxUseContext,
     onUpdateTranslationProfile,
@@ -56,6 +59,10 @@ export function TranslationProfilesCard({
                     if (profile.model_id) {
                         options.add(profile.model_id);
                     }
+                    const capability = resolveModelCapability(
+                        translationModelCapabilities,
+                        profile.model_id,
+                    );
                     return (
                         <div
                             key={profile.id}
@@ -136,6 +143,7 @@ export function TranslationProfilesCard({
                                     <Select
                                         variant="training"
                                         value={profile.reasoning_effort ?? ""}
+                                        disabled={!capability.applies_reasoning_effort}
                                         onChange={(e) =>
                                             onUpdateTranslationProfile(profile.id, {
                                                 reasoning_effort:
@@ -163,6 +171,7 @@ export function TranslationProfilesCard({
                                         step="0.1"
                                         min={0}
                                         max={2}
+                                        disabled={!capability.applies_temperature}
                                         value={profile.temperature ?? ""}
                                         onChange={(e) =>
                                             onUpdateTranslationProfile(profile.id, {
@@ -183,11 +192,23 @@ export function TranslationProfilesCard({
                                     Max output: output token cap per translation attempt.
                                 </div>
                                 <div className={ui.trainingHelp}>
-                                    Reasoning: GPT-5 reasoning level for translation retries.
+                                    {capability.applies_reasoning_effort
+                                        ? "Reasoning: active for the selected model."
+                                        : "Reasoning: inactive for the selected model."}
                                 </div>
                                 <div className={ui.trainingHelp}>
-                                    Temperature: sampling randomness (if model supports it).
+                                    {capability.applies_temperature
+                                        ? "Temperature: active for the selected model."
+                                        : "Temperature: inactive for the selected model."}
                                 </div>
+                                {capability.notes.map((note) => (
+                                    <div
+                                        key={`${profile.id}-${note}`}
+                                        className={ui.trainingHelp}
+                                    >
+                                        {note}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     );
