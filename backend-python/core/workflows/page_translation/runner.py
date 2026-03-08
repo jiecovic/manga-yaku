@@ -5,14 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from infra.db.workflow_store import (
-    create_workflow_run,
-    update_workflow_run,
-)
-
 from .context import WorkflowRunContext
 from .helpers import is_canceled as is_cancel_requested
 from .helpers import utc_now_iso
+from .lifecycle import advance_running_state, ensure_workflow_run
 from .outcomes import cancel_workflow, complete_workflow, fail_workflow
 from .payloads import build_ocr_profile_meta, build_translation_boxes
 from .prior_context import load_prior_context
@@ -49,19 +45,12 @@ async def run_page_translation_workflow(
     detection_profile_id = resolve_detection_profile_id(request.detection_profile_id)
     ocr_profiles = resolve_ocr_profiles(request_payload)
 
-    workflow_run_id = str(payload.get("workflowRunId") or "").strip()
-    if not workflow_run_id:
-        workflow_run_id = create_workflow_run(
-            workflow_type="page_translation",
-            volume_id=request.volume_id,
-            filename=request.filename,
-            state=state.value,
-            status="queued",
-            page_revision=utc_now_iso(),
-        )
-    update_workflow_run(
-        workflow_run_id,
-        result_json={"request": request_payload},
+    workflow_run_id = ensure_workflow_run(
+        workflow_run_id=str(payload.get("workflowRunId") or "").strip(),
+        volume_id=request.volume_id,
+        filename=request.filename,
+        state=state,
+        request_payload=request_payload,
         page_revision=utc_now_iso(),
     )
 
@@ -88,11 +77,10 @@ async def run_page_translation_workflow(
             stage="queued",
         )
 
-    state = transition(state, WorkflowEvent.start_requested)
-    update_workflow_run(
-        workflow_run_id,
-        state=state.value,
-        status="running",
+    state = advance_running_state(
+        workflow_run_id=workflow_run_id,
+        state=state,
+        event=WorkflowEvent.start_requested,
     )
     run_ctx.start_stage("detect")
     emit_workflow_progress(
@@ -132,11 +120,10 @@ async def run_page_translation_workflow(
             stage="detect_boxes",
         )
 
-    state = transition(state, WorkflowEvent.detect_succeeded)
-    update_workflow_run(
-        workflow_run_id,
-        state=state.value,
-        status="running",
+    state = advance_running_state(
+        workflow_run_id=workflow_run_id,
+        state=state,
+        event=WorkflowEvent.detect_succeeded,
     )
     run_ctx.start_stage("ocr")
     emit_workflow_progress(
@@ -186,11 +173,10 @@ async def run_page_translation_workflow(
         raise RuntimeError("OCR stage failed for all tasks")
 
     run_ctx.finish_stage("ocr")
-    state = transition(state, WorkflowEvent.ocr_succeeded)
-    update_workflow_run(
-        workflow_run_id,
-        state=state.value,
-        status="running",
+    state = advance_running_state(
+        workflow_run_id=workflow_run_id,
+        state=state,
+        event=WorkflowEvent.ocr_succeeded,
     )
     run_ctx.start_stage("translate")
     emit_workflow_progress(
@@ -265,11 +251,10 @@ async def run_page_translation_workflow(
         raise RuntimeError(error_message) from None
 
     run_ctx.finish_stage("translate")
-    state = transition(state, WorkflowEvent.translate_succeeded)
-    update_workflow_run(
-        workflow_run_id,
-        state=state.value,
-        status="running",
+    state = advance_running_state(
+        workflow_run_id=workflow_run_id,
+        state=state,
+        event=WorkflowEvent.translate_succeeded,
     )
     run_ctx.start_stage("commit")
     emit_workflow_progress(
