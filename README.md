@@ -13,6 +13,9 @@ The repo is a place to explore different ways of doing things like:
 
 It is not a polished product. The point is to iterate on workflow design,
 model/runtime choices, and supporting tooling in one local-first environment.
+OpenAI-backed paths are the main supported LLM integration today, but part of
+the reason the project uses MCP and a clearer tool/runtime split is to keep room
+for experimenting with other providers later.
 
 ## What Works Today
 
@@ -58,6 +61,7 @@ Requirements:
 - npm 11.10.x
 - Docker
 - Git LFS if you want published model weights under `models/`
+- `OPENAI_API_KEY` if you want to use the OpenAI-backed OCR, translation, or chat-agent paths
 
 From repo root:
 
