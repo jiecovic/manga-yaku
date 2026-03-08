@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from infra.db.store_context import get_volume_context
 from infra.db.workflow_store import (
     create_workflow_run,
     update_workflow_run,
@@ -14,7 +13,9 @@ from infra.db.workflow_store import (
 from .context import WorkflowRunContext
 from .helpers import is_canceled as is_cancel_requested
 from .helpers import resolve_detection_profile_id, resolve_ocr_profiles, utc_now_iso
+from .outcomes import cancel_workflow, complete_workflow, fail_workflow
 from .payloads import build_ocr_profile_meta, build_translation_boxes
+from .prior_context import load_prior_context
 from .progress import emit_workflow_progress
 from .stages.commit import run_commit_stage
 from .stages.detect import run_detect_stage
@@ -24,7 +25,6 @@ from .state_machine import transition
 from .types import (
     CancelCheck,
     PageTranslationRequest,
-    PageTranslationWorkflowSnapshot,
     ProgressCallback,
     WorkflowEvent,
     WorkflowState,
@@ -80,29 +80,12 @@ async def run_page_translation_workflow(
 
     if is_cancel_requested(is_canceled):
         state = transition(state, WorkflowEvent.cancel_requested)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="canceled",
-            cancel_requested=True,
-        )
-        snapshot = PageTranslationWorkflowSnapshot(
+        return cancel_workflow(
+            workflow_run_id=workflow_run_id,
+            run_ctx=run_ctx,
             state=state,
             stage="queued",
-            progress=100,
-            message="Canceled",
-            detection_profile_id=run_ctx.detection_profile_id,
-            detected_boxes=run_ctx.detected_boxes,
-            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_workflow_progress(
-            run_ctx,
-            state=state,
-            stage=snapshot.stage,
-            progress=snapshot.progress,
-            message=snapshot.message,
-        )
-        return snapshot.to_result()
 
     state = transition(state, WorkflowEvent.start_requested)
     update_workflow_run(
@@ -129,10 +112,9 @@ async def run_page_translation_workflow(
     except Exception as exc:
         run_ctx.finish_stage("detect")
         state = transition(state, WorkflowEvent.detect_failed)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="failed",
+        fail_workflow(
+            workflow_run_id=workflow_run_id,
+            state=state,
             error_message=str(exc),
         )
         raise
@@ -142,29 +124,12 @@ async def run_page_translation_workflow(
 
     if is_cancel_requested(is_canceled):
         state = transition(state, WorkflowEvent.cancel_requested)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="canceled",
-            cancel_requested=True,
-        )
-        snapshot = PageTranslationWorkflowSnapshot(
+        return cancel_workflow(
+            workflow_run_id=workflow_run_id,
+            run_ctx=run_ctx,
             state=state,
             stage="detect_boxes",
-            progress=100,
-            message="Canceled",
-            detection_profile_id=run_ctx.detection_profile_id,
-            detected_boxes=run_ctx.detected_boxes,
-            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_workflow_progress(
-            run_ctx,
-            state=state,
-            stage=snapshot.stage,
-            progress=snapshot.progress,
-            message=snapshot.message,
-        )
-        return snapshot.to_result()
 
     state = transition(state, WorkflowEvent.detect_succeeded)
     update_workflow_run(
@@ -196,32 +161,12 @@ async def run_page_translation_workflow(
     if is_cancel_requested(is_canceled):
         run_ctx.finish_stage("ocr")
         state = transition(state, WorkflowEvent.cancel_requested)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="canceled",
-            cancel_requested=True,
-        )
-        snapshot = PageTranslationWorkflowSnapshot(
+        return cancel_workflow(
+            workflow_run_id=workflow_run_id,
+            run_ctx=run_ctx,
             state=state,
             stage="ocr_running",
-            progress=100,
-            message="Canceled",
-            detection_profile_id=run_ctx.detection_profile_id,
-            detected_boxes=run_ctx.detected_boxes,
-            ocr_tasks_total=run_ctx.ocr_tasks_total,
-            ocr_tasks_done=run_ctx.ocr_tasks_done,
-            updated_boxes=run_ctx.updated_boxes,
-            workflow_run_id=run_ctx.workflow_run_id,
         )
-        emit_workflow_progress(
-            run_ctx,
-            state=state,
-            stage=snapshot.stage,
-            progress=snapshot.progress,
-            message=snapshot.message,
-        )
-        return snapshot.to_result()
 
     candidates = ocr_stage.candidates
     no_text_candidates = ocr_stage.no_text_candidates
@@ -232,10 +177,9 @@ async def run_page_translation_workflow(
     if not ocr_stage.usable_ocr and run_ctx.ocr_tasks_total > 0:
         run_ctx.finish_stage("ocr")
         state = transition(state, WorkflowEvent.ocr_failed)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="failed",
+        fail_workflow(
+            workflow_run_id=workflow_run_id,
+            state=state,
             error_message="OCR failed for all tasks",
         )
         raise RuntimeError("OCR stage failed for all tasks")
@@ -265,18 +209,7 @@ async def run_page_translation_workflow(
         llm_profiles=llm_profiles,
     )
 
-    volume_context = get_volume_context(request.volume_id) or {}
-    prior_summary = str(volume_context.get("rolling_summary") or "")
-    prior_characters = volume_context.get("active_characters")
-    if not isinstance(prior_characters, list):
-        prior_characters = []
-    prior_open_threads = volume_context.get("open_threads")
-    if not isinstance(prior_open_threads, list):
-        prior_open_threads = []
-    prior_glossary = volume_context.get("glossary")
-    if not isinstance(prior_glossary, list):
-        prior_glossary = []
-
+    prior_context = load_prior_context(request.volume_id)
     workflow_settings = resolve_page_translation_workflow_settings(
         request_model_id=request.model_id
     )
@@ -291,15 +224,17 @@ async def run_page_translation_workflow(
             boxes=payload_boxes,
             ocr_profiles=ocr_profile_meta,
             prior_context_summary=(
-                prior_summary if workflow_settings.include_prior_summary else ""
+                prior_context.summary if workflow_settings.include_prior_summary else ""
             ),
             prior_characters=(
-                prior_characters if workflow_settings.include_prior_characters else []
+                prior_context.characters if workflow_settings.include_prior_characters else []
             ),
             prior_open_threads=(
-                prior_open_threads if workflow_settings.include_prior_open_threads else []
+                prior_context.open_threads if workflow_settings.include_prior_open_threads else []
             ),
-            prior_glossary=(prior_glossary if workflow_settings.include_prior_glossary else []),
+            prior_glossary=(
+                prior_context.glossary if workflow_settings.include_prior_glossary else []
+            ),
             model_id=workflow_settings.model_id,
             max_output_tokens=workflow_settings.max_output_tokens
             if isinstance(workflow_settings.max_output_tokens, int | float)
@@ -321,10 +256,9 @@ async def run_page_translation_workflow(
         run_ctx.finish_stage("translate")
         error_message = str(exc).strip() or "Translate stage failed"
         state = transition(state, WorkflowEvent.translate_failed)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="failed",
+        fail_workflow(
+            workflow_run_id=workflow_run_id,
+            state=state,
             error_message=error_message,
         )
         raise RuntimeError(error_message) from None
@@ -352,15 +286,14 @@ async def run_page_translation_workflow(
             text_boxes=text_boxes,
             box_index_map=box_index_map,
             translation_payload=translation_payload,
-            prior_summary=prior_summary,
+            prior_summary=prior_context.summary,
         )
     except Exception as exc:
         run_ctx.finish_stage("commit")
         state = transition(state, WorkflowEvent.commit_failed)
-        update_workflow_run(
-            workflow_run_id,
-            state=state.value,
-            status="failed",
+        fail_workflow(
+            workflow_run_id=workflow_run_id,
+            state=state,
             error_message=str(exc),
         )
         raise
@@ -369,48 +302,11 @@ async def run_page_translation_workflow(
 
     run_ctx.updated_boxes = commit_result.updated
     state = transition(state, WorkflowEvent.commit_succeeded)
-    merge_warning = str(translation_payload.get("merge_warning") or "").strip()
-    coverage_warning = str(commit_result.coverage_warning or "").strip()
-    completion_message = "Agent translation complete"
-    if merge_warning:
-        completion_message = "Agent translation complete (merge fallback applied)"
-    if coverage_warning:
-        completion_message = "Agent translation complete (partial stage-1 coverage)"
-    result = {
-        "state": state.value,
-        "stage": "completed",
-        "processed": commit_result.processed,
-        "total": commit_result.total,
-        "updated": run_ctx.updated_boxes,
-        "orderApplied": commit_result.order_applied,
-        "detectionProfileId": run_ctx.detection_profile_id,
-        "workflowRunId": workflow_run_id,
-        "characters": commit_result.characters,
-        "imageSummary": commit_result.image_summary,
-        "storySummary": commit_result.story_summary,
-        "openThreads": commit_result.open_threads,
-        "glossary": commit_result.glossary,
-        "duration_ms": run_ctx.total_duration_ms(),
-        "stage_durations_ms": dict(run_ctx.stage_durations_ms),
-        "message": completion_message,
-    }
-    if merge_warning:
-        result["mergeWarning"] = merge_warning
-    if coverage_warning:
-        result["coverageWarning"] = coverage_warning
-    persisted = dict(result)
-    persisted["request"] = dict(payload)
-    update_workflow_run(
-        workflow_run_id,
-        state=state.value,
-        status="completed",
-        result_json=persisted,
-    )
-    emit_workflow_progress(
-        run_ctx,
+    return complete_workflow(
+        workflow_run_id=workflow_run_id,
+        run_ctx=run_ctx,
         state=state,
-        stage="completed",
-        progress=100,
-        message=completion_message,
+        commit_result=commit_result,
+        translation_payload=translation_payload,
+        request_payload=payload,
     )
-    return result
