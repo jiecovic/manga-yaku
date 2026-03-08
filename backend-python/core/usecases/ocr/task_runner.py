@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.usecases.model_metadata import extract_model_metadata
+from infra.llm.model_capabilities import model_applies_reasoning_effort
 
 from .profiles import get_ocr_profile
 
@@ -74,7 +75,7 @@ def _build_retry_override(base_cfg: dict[str, Any], *, attempt: int) -> dict[str
         out["max_tokens"] = bump
 
     model_id = str(base_cfg.get("model") or "")
-    if model_id.startswith("gpt-5"):
+    if model_applies_reasoning_effort(model_id):
         if attempt == 2:
             out["reasoning"] = {"effort": "medium"}
         elif attempt >= 3:

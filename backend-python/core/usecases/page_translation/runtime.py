@@ -11,6 +11,7 @@ from typing import Any
 from config import DEBUG_PROMPTS, TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
+from infra.llm.model_capabilities import model_applies_reasoning_effort
 from infra.logging.artifacts import (
     page_translation_debug_dir,
     timestamped_artifact_name,
@@ -343,7 +344,7 @@ def run_page_translation_stage(
     merge_cfg["max_output_tokens"] = max(128, min(stage2_max_output, 4096))
 
     # Merge is bookkeeping; keep a dedicated setting so users can trade off speed/quality.
-    if str(merge_cfg.get("model") or "").startswith("gpt-5"):
+    if model_applies_reasoning_effort(merge_cfg.get("model")):
         requested_effort = (
             str(merge_reasoning_effort).strip().lower()
             if isinstance(merge_reasoning_effort, str)

@@ -21,6 +21,10 @@ from infra.llm import (
     extract_response_text,
     openai_responses_create,
 )
+from infra.llm.model_capabilities import (
+    model_applies_reasoning_effort,
+    model_applies_temperature,
+)
 from infra.logging.correlation import append_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
@@ -128,12 +132,12 @@ def build_model_cfg(
         "model": resolved_model,
         "max_output_tokens": max_output,
     }
-    if str(resolved_model).startswith("gpt-5"):
+    if model_applies_reasoning_effort(resolved_model):
         effort = reasoning_effort or PAGE_TRANSLATION_REASONING_EFFORT or AGENT_REASONING_EFFORT
         if effort not in {"low", "medium", "high"}:
             effort = "medium"
         cfg["reasoning"] = {"effort": effort}
-    else:
+    elif model_applies_temperature(resolved_model):
         cfg["temperature"] = temperature if temperature is not None else AGENT_TEMPERATURE
     return cfg
 

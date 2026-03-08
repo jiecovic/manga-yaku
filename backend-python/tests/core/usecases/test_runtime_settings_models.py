@@ -101,7 +101,7 @@ def test_get_ocr_profile_applies_typed_runtime_settings_to_config() -> None:
     cfg = dict(profile.get("config", {}) or {})
     assert cfg["model"] == "gpt-5.2"
     assert cfg["max_tokens"] == 999
-    assert cfg["temperature"] == 0.1
+    assert "temperature" not in cfg
     assert cfg["reasoning"] == {"effort": "high"}
 
 
@@ -138,7 +138,7 @@ def test_get_translation_profile_applies_typed_runtime_settings_to_config() -> N
     assert profile["enabled"] is False
     assert cfg["model"] == "gpt-5.1"
     assert cfg["max_output_tokens"] == 1400
-    assert cfg["temperature"] == 0.25
+    assert "temperature" not in cfg
     assert cfg["reasoning"] == {"effort": "medium"}
 
 

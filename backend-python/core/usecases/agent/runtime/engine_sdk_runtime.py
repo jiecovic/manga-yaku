@@ -37,6 +37,7 @@ from core.usecases.agent.runtime.streaming import (
     extract_sdk_result_text,
     run_sdk_stream_events,
 )
+from infra.llm.model_capabilities import model_applies_reasoning_effort, model_applies_temperature
 from infra.logging.correlation import append_correlation
 
 
@@ -108,12 +109,12 @@ def build_sdk_agent(
         "max_tokens": resolve_max_output_tokens(),
         "parallel_tool_calls": False,
     }
-    if str(model_id).startswith("gpt-5"):
+    if model_applies_reasoning_effort(model_id):
         effort = AGENT_REASONING_EFFORT
         if effort not in {"low", "medium", "high"}:
             effort = "medium"
         settings["reasoning"] = {"effort": effort}
-    else:
+    elif model_applies_temperature(model_id):
         settings["temperature"] = AGENT_TEMPERATURE
 
     return agent_cls(

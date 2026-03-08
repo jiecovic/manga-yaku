@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from infra.llm.model_capabilities import model_applies_reasoning_effort, model_applies_temperature
+
 
 @dataclass(frozen=True)
 class DetectionSettings:
@@ -62,8 +64,10 @@ class ModelRuntimeSettings:
     ) -> dict[str, Any]:
         """Apply the normalized runtime settings to a provider config dict."""
         cfg = dict(base_cfg)
-        if self.model_id:
-            cfg["model"] = self.model_id
+        resolved_model_id = self.model_id
+        if resolved_model_id:
+            cfg["model"] = resolved_model_id
+        resolved_model = cfg.get("model")
         if self.max_output_tokens is not None:
             resolved_token_key = token_key
             if resolved_token_key is None:
@@ -74,10 +78,16 @@ class ModelRuntimeSettings:
                 else:
                     resolved_token_key = "max_tokens"
             cfg[resolved_token_key] = self.max_output_tokens
-        if self.temperature is not None:
-            cfg["temperature"] = self.temperature
-        if self.reasoning_effort and str(cfg.get("model") or "").startswith("gpt-5"):
-            cfg["reasoning"] = {"effort": self.reasoning_effort}
+        if model_applies_temperature(resolved_model):
+            if self.temperature is not None:
+                cfg["temperature"] = self.temperature
+        else:
+            cfg.pop("temperature", None)
+        if model_applies_reasoning_effort(resolved_model):
+            if self.reasoning_effort:
+                cfg["reasoning"] = {"effort": self.reasoning_effort}
+        else:
+            cfg.pop("reasoning", None)
         return cfg
 
 

@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 from config import OPENAI_API_KEY
+from infra.llm.model_capabilities import model_applies_temperature
 
 # Optional OpenAI import (shared by all modules)
 try:
@@ -77,6 +78,8 @@ def build_chat_params(
     for key, value in cfg.items():
         if key in excluded:
             continue
+        if key == "temperature" and not model_applies_temperature(cfg.get("model")):
+            continue
         params[key] = value
 
     return params
@@ -111,7 +114,7 @@ def build_response_params(
             continue
         if key in {"max_tokens", "max_completion_tokens", "max_output_tokens"}:
             continue
-        if key == "temperature" and str(model).startswith("gpt-5"):
+        if key == "temperature" and not model_applies_temperature(model):
             continue
         params[key] = value
 
