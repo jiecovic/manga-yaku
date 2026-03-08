@@ -6,7 +6,6 @@ import type { BoxDetectionProfile } from "../../types";
 import { ui } from "../../ui/tokens";
 import { Button, Field, Select } from "../../ui/primitives";
 import { normalizeBoxType } from "../../utils/boxes";
-import { useJobs } from "../../context/useJobs";
 
 interface ActionsSectionProps {
     selectedVolumeId: string;
@@ -17,7 +16,6 @@ interface ActionsSectionProps {
     onChangeBoxDetectionTask: (task: string) => void;
     onRefreshBoxDetectionProfiles: () => Promise<void>;
     onOcrPage: () => void;
-    onTranslatePage: () => void;
     onPageTranslationWorkflow: () => void;
     onClearBoxes: () => void;
     onClearOcrText: () => void;
@@ -39,7 +37,6 @@ export function RightSidebarActionsSection({
     onChangeBoxDetectionTask,
     onRefreshBoxDetectionProfiles,
     onOcrPage,
-    onTranslatePage,
     onPageTranslationWorkflow,
     onClearBoxes,
     onClearOcrText,
@@ -49,7 +46,6 @@ export function RightSidebarActionsSection({
     onOpenMemory,
     canOpenMemory,
 }: ActionsSectionProps) {
-    const { jobCapabilities } = useJobs();
     const [refreshingModels, setRefreshingModels] = useState(false);
     const [resettingVolumeData, setResettingVolumeData] = useState(false);
     const loadingBoxDetectionProfiles = boxDetectionProfiles.length === 0;
@@ -87,9 +83,6 @@ export function RightSidebarActionsSection({
         : !hasAvailableBoxDetection
         ? "No box detection models available for this task. Train a model to enable detection."
         : "";
-    const translatePageDisabled = !jobCapabilities.translate_page.enabled;
-    const translatePageDisabledReason = jobCapabilities.translate_page.reason ?? "";
-
     useEffect(() => {
         if (
             selectedProfileId &&
@@ -235,7 +228,7 @@ export function RightSidebarActionsSection({
                         )}
                 </Field>
 
-                {/* Row 1: Detection + OCR + Translate */}
+                {/* Row 1: Detection + OCR */}
                 <div className="flex flex-wrap gap-2">
                     <Button
                         type="button"
@@ -259,20 +252,6 @@ export function RightSidebarActionsSection({
                         onClick={onOcrPage}
                     >
                         OCR (all boxes)
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="actionEmerald"
-                        onClick={onTranslatePage}
-                        disabled={translatePageDisabled}
-                        title={
-                            translatePageDisabled
-                                ? translatePageDisabledReason || undefined
-                                : undefined
-                        }
-                    >
-                        Translate
                     </Button>
                 </div>
 

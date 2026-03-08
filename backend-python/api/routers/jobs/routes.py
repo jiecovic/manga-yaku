@@ -14,7 +14,6 @@ from api.schemas.jobs import (
     CreatePrepareDatasetJobRequest,
     CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
-    CreateTranslatePageJobRequest,
     JobCapability,
     JobsCapabilitiesResponse,
 )
@@ -53,9 +52,6 @@ from infra.training.catalog import resolve_prepared_dataset, resolve_training_so
 
 router = APIRouter(tags=["jobs"])
 
-_TRANSLATE_PAGE_DISABLED_REASON = (
-    "Standalone translation page jobs are not supported. Use the page-translation workflow."
-)
 # Job mode boundary:
 # - DB task workflows are persisted and executed by DB workers.
 # - Utility jobs are persisted single-task workflows executed by the DB utility worker.
@@ -64,10 +60,6 @@ _TRANSLATE_PAGE_DISABLED_REASON = (
 _JOB_CAPABILITIES = JobsCapabilitiesResponse(
     ocr_page=JobCapability(enabled=True),
     ocr_box=JobCapability(enabled=True),
-    translate_page=JobCapability(
-        enabled=False,
-        reason=_TRANSLATE_PAGE_DISABLED_REASON,
-    ),
     translate_box=JobCapability(enabled=True),
     page_translation=JobCapability(enabled=True),
 )
@@ -103,17 +95,6 @@ async def create_translate_box_job(
     workflow_run_id = create_translate_box_workflow(req)
     _notify_jobs_changed()
     return CreateJobResponse(jobId=workflow_run_id)
-
-
-@router.post("/jobs/translate_page", response_model=CreateJobResponse)
-async def create_translate_page_job(
-    req: CreateTranslatePageJobRequest,
-) -> CreateJobResponse:
-    """Create translate page job."""
-    raise HTTPException(
-        status_code=409,
-        detail=_TRANSLATE_PAGE_DISABLED_REASON,
-    )
 
 
 @router.post("/jobs/page_translation", response_model=CreateJobResponse)

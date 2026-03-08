@@ -45,16 +45,6 @@ class CreateTranslateBoxJobRequest(BaseModel):
     boxOrder: int | None = None
 
 
-class CreateTranslatePageJobRequest(BaseModel):
-    """Legacy full-page translate job request shape."""
-
-    profileId: str
-    volumeId: str
-    filename: str
-    usePageContext: bool = False
-    skipExisting: bool = True
-
-
 class CreatePageTranslationJobRequest(BaseModel):
     """Create the staged page-translation workflow job."""
 
@@ -127,6 +117,5 @@ class JobsCapabilitiesResponse(BaseModel):
 
     ocr_page: JobCapability
     ocr_box: JobCapability
-    translate_page: JobCapability
     translate_box: JobCapability
     page_translation: JobCapability

@@ -6,7 +6,6 @@ import {
     createOcrBoxJob,
     createOcrPageJob,
     createTranslateBoxJob,
-    createTranslatePageJob,
 } from "../api";
 import {usePage} from "../context/usePage";
 import { useJobs } from "../context/useJobs";
@@ -25,7 +24,6 @@ interface UsePageJobActionsResult {
     handleOcrPage: () => Promise<void>;
     handleOcrBox: (id: number) => Promise<void>;
     handleTranslateBox: (id: number) => Promise<void>;
-    handleTranslatePage: () => Promise<void>;
     handlePageTranslationWorkflow: () => Promise<void>;
 }
 
@@ -55,34 +53,6 @@ export function usePageJobActions({
             return globalThis.crypto.randomUUID();
         }
         return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    };
-
-    // =========================================
-    // TRANSLATE PAGE (classic)
-    // =========================================
-    const handleTranslatePage = async () => {
-        if (!jobCapabilities.translate_page.enabled) {
-            return;
-        }
-        if (!volumeId || !filename) return;
-        if (!boxes || boxes.length === 0) return;
-
-        const profileId = translationProfileId || "openai_fast_translate";
-        try {
-            console.log(
-                `Queuing TRANSLATE page job for ${volumeId}/${filename}`,
-            );
-
-            await createTranslatePageJob({
-                profileId,
-                volumeId,
-                filename,
-                usePageContext: false,
-                skipExisting: true,
-            });
-        } catch (err) {
-            console.error("Failed to queue translate page job", err);
-        }
     };
 
     // =========================================
@@ -274,7 +244,6 @@ export function usePageJobActions({
         handleOcrPage,
         handleOcrBox,
         handleTranslateBox,
-        handleTranslatePage,
         handlePageTranslationWorkflow,
     };
 }

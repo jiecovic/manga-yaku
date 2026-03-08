@@ -296,7 +296,6 @@ export function usePageJobEffects({
                     job.type === "ocr_box" ||
                     job.type === "translate_box" ||
                     job.type === "ocr_page" ||
-                    job.type === "translate_page" ||
                     job.type === "page_translation") &&
                 job.status === "finished" &&
                 !appliedIds.has(job.id) &&

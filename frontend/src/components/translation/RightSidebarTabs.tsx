@@ -76,7 +76,6 @@ interface RightSidebarTabsProps {
 
     // actions
     onOcrPage: () => void;
-    onTranslatePage: () => void;
     onPageTranslationWorkflow: () => void;
     onClearBoxes: () => void;
     onClearOcrText: () => void;
@@ -130,7 +129,6 @@ export function RightSidebarTabs({
     onChangeOcrEngine,
     onChangeTranslationProfile,
     onOcrPage,
-    onTranslatePage,
     onPageTranslationWorkflow,
     onClearBoxes,
     onClearOcrText,
@@ -239,7 +237,6 @@ export function RightSidebarTabs({
                             onChangeBoxDetectionTask={onChangeBoxDetectionTask}
                             onRefreshBoxDetectionProfiles={onRefreshBoxDetectionProfiles}
                             onOcrPage={onOcrPage}
-                            onTranslatePage={onTranslatePage}
                             onPageTranslationWorkflow={onPageTranslationWorkflow}
                             onClearBoxes={onClearBoxes}
                             onClearOcrText={onClearOcrText}

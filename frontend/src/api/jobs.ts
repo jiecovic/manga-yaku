@@ -13,7 +13,6 @@ export interface JobCapability {
 export interface JobCapabilities {
     ocr_page: JobCapability;
     ocr_box: JobCapability;
-    translate_page: JobCapability;
     translate_box: JobCapability;
     page_translation: JobCapability;
 }
@@ -21,11 +20,6 @@ export interface JobCapabilities {
 export const DEFAULT_JOB_CAPABILITIES: JobCapabilities = {
     ocr_page: { enabled: true },
     ocr_box: { enabled: true },
-    translate_page: {
-        enabled: false,
-        reason:
-            "Standalone translation jobs are temporarily disabled during workflow rewrite. Use the page translation workflow.",
-    },
     translate_box: { enabled: true },
     page_translation: { enabled: true },
 };

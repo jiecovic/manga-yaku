@@ -489,7 +489,6 @@ function TranslateInner({
                 onChangeTranslationProfile={setTranslationProfileId}
                 // page actions
                 onOcrPage={pageActions.onOcrPage}
-                onTranslatePage={pageActions.onTranslatePage}
                 onPageTranslationWorkflow={pageActions.onPageTranslationWorkflow}
                 onClearBoxes={pageActions.onClearBoxes}
                 onClearOcrText={pageActions.onClearOcrText}
