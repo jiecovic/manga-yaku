@@ -8,7 +8,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-from core.usecases.agent.tool_shared import coerce_filename
+from core.usecases.agent.tools.shared import coerce_filename
 
 MCP_ENV_VOLUME_ID = "MANGAYAKU_AGENT_VOLUME_ID"
 MCP_ENV_ACTIVE_FILENAME = "MANGAYAKU_AGENT_ACTIVE_FILENAME"

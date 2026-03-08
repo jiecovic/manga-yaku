@@ -1,11 +1,11 @@
-# backend-python/core/usecases/agent/tool_pages.py
+# backend-python/core/usecases/agent/tools/pages.py
 """Page navigation helpers for agent tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tool_shared import coerce_filename, list_text_boxes_for_page
+from core.usecases.agent.tools.shared import coerce_filename, list_text_boxes_for_page
 from core.usecases.agent.turn_state import get_active_page_revision
 from infra.db.store_volume_page import list_page_filenames, load_page
 

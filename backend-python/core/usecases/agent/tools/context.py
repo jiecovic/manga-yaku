@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/tool_context.py
+# backend-python/core/usecases/agent/tools/context.py
 """Volume-level context helpers for agent tools."""
 
 from __future__ import annotations
@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from core.usecases.agent.tool_shared import (
+from core.usecases.agent.tools.shared import (
     list_text_boxes_for_page,
     resolve_active_page_filename,
     resolve_read_page_filename,

@@ -7,30 +7,30 @@ import asyncio
 import io
 from typing import Any
 
-from core.usecases.agent.tool_boxes import (
+from core.usecases.agent.tools.boxes import (
     get_text_box_detail_tool,
     list_text_boxes_tool,
     update_text_box_fields_tool,
 )
-from core.usecases.agent.tool_context import (
+from core.usecases.agent.tools.context import (
     get_page_memory_tool,
     get_volume_context_tool,
     search_volume_text_boxes_tool,
     update_page_memory_tool,
     update_volume_context_tool,
 )
-from core.usecases.agent.tool_jobs import (
+from core.usecases.agent.tools.jobs import (
     detect_text_boxes_tool,
     list_ocr_profiles_tool,
     ocr_text_box_tool,
     translate_active_page_tool,
 )
-from core.usecases.agent.tool_pages import (
+from core.usecases.agent.tools.pages import (
     list_volume_pages_tool,
     set_active_page_tool,
     shift_active_page_tool,
 )
-from core.usecases.agent.tool_shared import coerce_filename
+from core.usecases.agent.tools.shared import coerce_filename
 from core.usecases.box_detection.profiles import list_box_detection_profiles_for_api
 from infra.images.image_ops import load_volume_image, resize_for_llm
 from mcp.server.fastmcp import Context, FastMCP

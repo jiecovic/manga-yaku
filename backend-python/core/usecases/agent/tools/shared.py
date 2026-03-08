@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/tool_shared.py
+# backend-python/core/usecases/agent/tools/shared.py
 """Shared helpers for agent page and box tools."""
 
 from __future__ import annotations

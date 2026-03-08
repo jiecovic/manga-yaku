@@ -29,7 +29,7 @@ from core.usecases.agent.mcp_runtime import (
     connect_mcp_servers,
 )
 from core.usecases.agent.streaming import extract_sdk_result_text, run_sdk_stream_events
-from core.usecases.agent.tool_shared import coerce_filename
+from core.usecases.agent.tools.shared import coerce_filename
 from core.usecases.agent.turn_state import (
     build_turn_state_message,
     get_active_page_revision,

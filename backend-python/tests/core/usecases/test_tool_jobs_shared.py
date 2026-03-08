@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.usecases.agent.tool_jobs_shared import wait_for_agent_workflow
+from core.usecases.agent.tools.jobs_shared import wait_for_agent_workflow
 
 
 def test_wait_for_agent_workflow_normalizes_completed_snapshot() -> None:
     with patch(
-        "core.usecases.agent.tool_jobs_shared.wait_for_workflow_snapshot",
+        "core.usecases.agent.tools.jobs_shared.wait_for_workflow_snapshot",
         return_value=type(
             "Snapshot",
             (),
@@ -40,7 +40,7 @@ def test_wait_for_agent_workflow_normalizes_completed_snapshot() -> None:
 
 def test_wait_for_agent_workflow_returns_wait_error_on_exception() -> None:
     with patch(
-        "core.usecases.agent.tool_jobs_shared.wait_for_workflow_snapshot",
+        "core.usecases.agent.tools.jobs_shared.wait_for_workflow_snapshot",
         side_effect=RuntimeError("boom"),
     ):
         observation = wait_for_agent_workflow(

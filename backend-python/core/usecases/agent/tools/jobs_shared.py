@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/tool_jobs_shared.py
+# backend-python/core/usecases/agent/tools/jobs_shared.py
 """Shared helpers for job-backed agent tools."""
 
 from __future__ import annotations

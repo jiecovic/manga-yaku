@@ -1,11 +1,11 @@
-# backend-python/core/usecases/agent/tool_boxes.py
+# backend-python/core/usecases/agent/tools/boxes.py
 """Page text-box read and write helpers for agent tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tool_shared import (
+from core.usecases.agent.tools.shared import (
     find_text_box_by_id,
     list_text_boxes_for_page,
     resolve_active_page_filename,

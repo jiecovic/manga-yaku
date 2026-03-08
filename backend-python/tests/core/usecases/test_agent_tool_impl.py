@@ -6,16 +6,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.usecases.agent.tool_boxes import (
+from core.usecases.agent.tools.boxes import (
     list_text_boxes_tool,
     update_text_box_fields_tool,
 )
-from core.usecases.agent.tool_context import (
+from core.usecases.agent.tools.context import (
     get_page_memory_tool,
     get_volume_context_tool,
     update_page_memory_tool,
 )
-from core.usecases.agent.tool_jobs import (
+from core.usecases.agent.tools.jobs import (
     detect_text_boxes_tool,
     ocr_text_box_tool,
     translate_active_page_tool,
@@ -54,7 +54,7 @@ def _snapshot(
 
 def test_list_text_boxes_defaults_to_active_page() -> None:
     with patch(
-        "core.usecases.agent.tool_boxes.load_page",
+        "core.usecases.agent.tools.boxes.load_page",
         return_value={
             "boxes": [
                 {
@@ -122,12 +122,12 @@ def test_update_text_box_fields_defaults_to_active_page() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_boxes.load_page",
+            "core.usecases.agent.tools.boxes.load_page",
             side_effect=[initial_page, updated_page],
         ) as load_page_mock,
-        patch("core.usecases.agent.tool_boxes.set_box_note_by_id") as set_note_mock,
+        patch("core.usecases.agent.tools.boxes.set_box_note_by_id") as set_note_mock,
         patch(
-            "core.usecases.agent.tool_boxes.get_active_page_revision",
+            "core.usecases.agent.tools.boxes.get_active_page_revision",
             return_value="rev-1",
         ),
     ):
@@ -180,23 +180,23 @@ def test_ocr_text_box_defaults_to_active_page() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_ocr.load_page",
+            "core.usecases.agent.tools.jobs_ocr.load_page",
             side_effect=[initial_page, refreshed_page],
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.claim_idempotency_key",
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_ocr.enqueue_persisted_operation",
             return_value="wf-123",
         ) as create_workflow_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.finalize_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.finalize_idempotency_key",
             return_value="wf-123",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_ocr.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-123",
                 status="completed",
@@ -204,7 +204,7 @@ def test_ocr_text_box_defaults_to_active_page() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
             return_value="rev-2",
         ),
     ):
@@ -244,17 +244,17 @@ def test_ocr_text_box_skips_existing_text_by_default() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_ocr.load_page",
+            "core.usecases.agent.tools.jobs_ocr.load_page",
             return_value=page,
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.claim_idempotency_key",
         ) as claim_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_ocr.enqueue_persisted_operation",
         ) as create_workflow_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
             return_value="rev-2",
         ),
     ):
@@ -309,23 +309,23 @@ def test_ocr_text_box_force_rerun_overrides_existing_text_guard() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_ocr.load_page",
+            "core.usecases.agent.tools.jobs_ocr.load_page",
             side_effect=[initial_page, refreshed_page],
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.claim_idempotency_key",
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_ocr.enqueue_persisted_operation",
             return_value="wf-123",
         ) as create_workflow_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.finalize_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.finalize_idempotency_key",
             return_value="wf-123",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_ocr.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-123",
                 status="completed",
@@ -333,7 +333,7 @@ def test_ocr_text_box_force_rerun_overrides_existing_text_guard() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
             return_value="rev-2",
         ),
     ):
@@ -352,7 +352,7 @@ def test_ocr_text_box_force_rerun_overrides_existing_text_guard() -> None:
 
 def test_get_volume_context_preserves_character_gender() -> None:
     with patch(
-        "core.usecases.agent.tool_context.get_volume_context",
+        "core.usecases.agent.tools.context.get_volume_context",
         return_value={
             "rolling_summary": "summary",
             "active_characters": [{"name": "Saitama", "gender": "male", "info": "hero"}],
@@ -369,7 +369,7 @@ def test_get_volume_context_preserves_character_gender() -> None:
 
 def test_get_page_memory_defaults_to_active_page() -> None:
     with patch(
-        "core.usecases.agent.tool_context.get_page_context_snapshot",
+        "core.usecases.agent.tools.context.get_page_context_snapshot",
         return_value={
             "manual_notes": "note",
             "page_summary": "summary",
@@ -415,10 +415,10 @@ def test_update_page_memory_defaults_to_active_page() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_context.get_page_context_snapshot",
+            "core.usecases.agent.tools.context.get_page_context_snapshot",
             side_effect=[existing_snapshot, refreshed_snapshot],
         ),
-        patch("core.usecases.agent.tool_context.upsert_page_context") as upsert_mock,
+        patch("core.usecases.agent.tools.context.upsert_page_context") as upsert_mock,
     ):
         result = update_page_memory_tool(
             volume_id="vol-a",
@@ -447,15 +447,15 @@ def test_update_page_memory_defaults_to_active_page() -> None:
 def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs_detection.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_detection.get_active_page_revision",
             return_value="rev-1",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_detection.claim_idempotency_key",
             return_value={"status": "replay", "resource_id": "job-123"},
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_detection.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="job-123",
                 status="missing",
@@ -463,7 +463,7 @@ def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.load_page",
+            "core.usecases.agent.tools.jobs_detection.load_page",
             return_value={"boxes": [{"id": 1, "type": "text"}]},
         ),
     ):
@@ -483,19 +483,19 @@ def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
 def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs_detection.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_detection.get_active_page_revision",
             return_value="rev-1",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_detection.claim_idempotency_key",
             return_value={"status": "replay", "resource_id": "job-old"},
         ) as claim_mock,
         patch(
-            "core.usecases.agent.tool_jobs_detection.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_detection.enqueue_persisted_operation",
             return_value="job-789",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_detection.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="job-789",
                 status="completed",
@@ -503,7 +503,7 @@ def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_detection.load_page",
+            "core.usecases.agent.tools.jobs_detection.load_page",
             side_effect=[
                 {"boxes": []},
                 {"boxes": [{"id": 1, "type": "text"}]},
@@ -558,27 +558,27 @@ def test_ocr_text_box_claimed_request_finalizes_idempotency() -> None:
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_ocr.load_page",
+            "core.usecases.agent.tools.jobs_ocr.load_page",
             side_effect=[initial_page, refreshed_page],
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.get_active_page_revision",
+            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
             return_value="rev-2",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.claim_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.claim_idempotency_key",
             return_value={"status": "claimed", "resource_id": None},
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_ocr.enqueue_persisted_operation",
             return_value="wf-123",
         ),
         patch(
-            "core.usecases.agent.tool_jobs_ocr.finalize_idempotency_key",
+            "core.usecases.agent.tools.jobs_ocr.finalize_idempotency_key",
             return_value="wf-123",
         ) as finalize_mock,
         patch(
-            "core.usecases.agent.tool_jobs_ocr.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_ocr.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-123",
                 status="completed",
@@ -622,7 +622,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_page_translation.enqueue_persisted_operation",
             return_value={
                 "job_id": "job-123",
                 "queued": True,
@@ -631,7 +631,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_page_translation.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-123",
                 status="completed",
@@ -639,7 +639,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_page_translation._count_page_translation_state",
+            "core.usecases.agent.tools.jobs_page_translation._count_page_translation_state",
             side_effect=[
                 {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 0},
                 {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 18},
@@ -662,7 +662,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
 def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_page_translation.enqueue_persisted_operation",
             return_value={
                 "job_id": "wf-999",
                 "queued": False,
@@ -671,7 +671,7 @@ def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.wait_for_agent_workflow",
+            "core.usecases.agent.tools.jobs_page_translation.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-999",
                 status="running",
@@ -679,7 +679,7 @@ def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_page_translation._count_page_translation_state",
+            "core.usecases.agent.tools.jobs_page_translation._count_page_translation_state",
             return_value={
                 "text_box_count": 18,
                 "ocr_filled_count": 18,
@@ -717,11 +717,11 @@ def test_translate_active_page_short_circuits_when_page_already_translated() -> 
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.load_page",
+            "core.usecases.agent.tools.jobs_page_translation.load_page",
             return_value=page,
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
+            "core.usecases.agent.tools.jobs_page_translation.enqueue_persisted_operation",
         ) as create_job_mock,
     ):
         result = translate_active_page_tool(

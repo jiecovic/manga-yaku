@@ -1,16 +1,16 @@
-# backend-python/core/usecases/agent/tool_jobs_detection.py
+# backend-python/core/usecases/agent/tools/jobs_detection.py
 """Detection job-backed helpers for agent tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tool_jobs_shared import (
+from core.usecases.agent.tools.jobs_shared import (
     build_auto_idempotency_key,
     normalize_claim_status,
     wait_for_agent_workflow,
 )
-from core.usecases.agent.tool_shared import (
+from core.usecases.agent.tools.shared import (
     coerce_filename,
     list_text_boxes_for_page,
     resolve_active_page_filename,

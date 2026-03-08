@@ -1,17 +1,17 @@
-# backend-python/core/usecases/agent/tool_jobs_ocr.py
+# backend-python/core/usecases/agent/tools/jobs_ocr.py
 """OCR job-backed helpers for agent tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tool_jobs_shared import (
+from core.usecases.agent.tools.jobs_shared import (
     build_auto_idempotency_key,
     build_box_revision,
     normalize_claim_status,
     wait_for_agent_workflow,
 )
-from core.usecases.agent.tool_shared import (
+from core.usecases.agent.tools.shared import (
     coerce_filename,
     find_text_box_by_id,
     list_text_boxes_for_page,
