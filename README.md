@@ -93,6 +93,7 @@ See `CONTRIBUTING.md` for development setup, linting/testing, and internal conve
 
 ## See Also
 
+- `ARCHITECTURE.md`
 - `backend-python/README.md`
 - `CONTRIBUTING.md`
 - Swagger UI: http://localhost:8101/docs
