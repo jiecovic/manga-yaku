@@ -293,6 +293,68 @@ def normalize_translate_stage_result(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def summarize_translate_stage_coverage(
+    *,
+    stage1_result: dict[str, Any],
+    input_boxes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize how fully stage-1 output covers the input box set.
+
+    This is intentionally non-fatal. The workflow can continue with partial
+    output, but callers can surface a warning when boxes were omitted or
+    duplicated so operators know the generation may have been truncated.
+    """
+
+    expected_box_ids: set[int] = set()
+    for box in input_boxes:
+        if not isinstance(box, dict):
+            continue
+        box_index = coerce_positive_int(box.get("box_index"))
+        if box_index is not None:
+            expected_box_ids.add(box_index)
+
+    coverage_counts: dict[int, int] = {}
+
+    raw_no_text = stage1_result.get("no_text_boxes")
+    if isinstance(raw_no_text, list):
+        for item in raw_no_text:
+            box_id = coerce_positive_int(item)
+            if box_id is None:
+                continue
+            coverage_counts[box_id] = coverage_counts.get(box_id, 0) + 1
+
+    raw_boxes = stage1_result.get("boxes")
+    if isinstance(raw_boxes, list):
+        for entry in raw_boxes:
+            if not isinstance(entry, dict):
+                continue
+            raw_ids = entry.get("box_ids")
+            if not isinstance(raw_ids, list):
+                continue
+            for item in raw_ids:
+                box_id = coerce_positive_int(item)
+                if box_id is None:
+                    continue
+                coverage_counts[box_id] = coverage_counts.get(box_id, 0) + 1
+
+    covered_box_ids = set(coverage_counts)
+    duplicate_box_ids = sorted(box_id for box_id, count in coverage_counts.items() if count > 1)
+    unexpected_box_ids = sorted(
+        box_id for box_id in covered_box_ids if box_id not in expected_box_ids
+    )
+    missing_box_ids = sorted(box_id for box_id in expected_box_ids if box_id not in covered_box_ids)
+    covered_expected_box_count = sum(1 for box_id in covered_box_ids if box_id in expected_box_ids)
+
+    return {
+        "expected_box_count": len(expected_box_ids),
+        "covered_box_count": covered_expected_box_count,
+        "missing_box_ids": missing_box_ids,
+        "unexpected_box_ids": unexpected_box_ids,
+        "duplicate_box_ids": duplicate_box_ids,
+        "is_complete": not missing_box_ids and not unexpected_box_ids and not duplicate_box_ids,
+    }
+
+
 def apply_no_text_consensus_guard(
     *,
     stage1_result: dict[str, Any],

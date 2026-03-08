@@ -15,6 +15,7 @@ from __future__ import annotations
 from core.usecases.page_translation.schema import (
     apply_no_text_consensus_guard,
     normalize_translate_stage_result,
+    summarize_translate_stage_coverage,
 )
 
 
@@ -184,3 +185,29 @@ def test_consensus_guard_drops_hallucinated_text_on_remote_no_text() -> None:
     assert moved == [1]
     assert adjusted["boxes"] == []
     assert adjusted["no_text_boxes"] == [1]
+
+
+def test_summarize_translate_stage_coverage_reports_missing_and_duplicate_boxes() -> None:
+    summary = summarize_translate_stage_coverage(
+        stage1_result={
+            "boxes": [
+                {"box_ids": [1, 2]},
+                {"box_ids": [2, 4]},
+            ],
+            "no_text_boxes": [5],
+        },
+        input_boxes=[
+            {"box_index": 1},
+            {"box_index": 2},
+            {"box_index": 3},
+        ],
+    )
+
+    assert summary == {
+        "expected_box_count": 3,
+        "covered_box_count": 2,
+        "missing_box_ids": [3],
+        "unexpected_box_ids": [4, 5],
+        "duplicate_box_ids": [2],
+        "is_complete": False,
+    }

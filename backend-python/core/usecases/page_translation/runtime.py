@@ -31,6 +31,7 @@ from .schema import (
     coerce_positive_int,
     normalize_state_merge_result,
     normalize_translate_stage_result,
+    summarize_translate_stage_coverage,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,40 @@ def _build_stage_event_payload(
     }
     if error:
         payload["error"] = error
+    warnings = diagnostics.get("warnings") if isinstance(diagnostics, dict) else None
+    if isinstance(warnings, list):
+        normalized_warnings = [str(item).strip() for item in warnings if str(item).strip()]
+        if normalized_warnings:
+            payload["warnings"] = normalized_warnings
+    coverage = diagnostics.get("coverage") if isinstance(diagnostics, dict) else None
+    if isinstance(coverage, dict):
+        payload["coverage_summary"] = {
+            "expected_box_count": _coerce_non_negative_int(coverage.get("expected_box_count")),
+            "covered_box_count": _coerce_non_negative_int(coverage.get("covered_box_count")),
+            "missing_box_ids": [
+                value
+                for value in (
+                    _coerce_positive_int(item) for item in (coverage.get("missing_box_ids") or [])
+                )
+                if value is not None
+            ],
+            "unexpected_box_ids": [
+                value
+                for value in (
+                    _coerce_positive_int(item)
+                    for item in (coverage.get("unexpected_box_ids") or [])
+                )
+                if value is not None
+            ],
+            "duplicate_box_ids": [
+                value
+                for value in (
+                    _coerce_positive_int(item) for item in (coverage.get("duplicate_box_ids") or [])
+                )
+                if value is not None
+            ],
+            "is_complete": bool(coverage.get("is_complete")),
+        }
     return payload
 
 
@@ -300,6 +335,42 @@ def run_page_translation_stage(
     )
     if forced_no_text_box_ids:
         stage1_debug["post_guard_no_text_boxes"] = forced_no_text_box_ids
+    coverage = summarize_translate_stage_coverage(stage1_result=stage1_result, input_boxes=boxes)
+    stage1_debug["coverage"] = coverage
+    if not coverage["is_complete"]:
+        warnings: list[str] = []
+        missing_box_ids = coverage["missing_box_ids"]
+        if missing_box_ids:
+            warning = (
+                f"Translate stage output omitted {len(missing_box_ids)} input boxes: "
+                f"{missing_box_ids}."
+            )
+            if (
+                str(stage1_debug.get("finish_reason") or "").strip()
+                == "incomplete:max_output_tokens"
+            ):
+                warning += " The model output was truncated; consider increasing page-translation max_output_tokens."
+            warnings.append(warning)
+        if coverage["duplicate_box_ids"]:
+            warnings.append(
+                "Translate stage output covered some boxes multiple times: "
+                f"{coverage['duplicate_box_ids']}."
+            )
+        if coverage["unexpected_box_ids"]:
+            warnings.append(
+                "Translate stage output referenced unexpected box indices: "
+                f"{coverage['unexpected_box_ids']}."
+            )
+        if warnings:
+            stage1_debug["warnings"] = warnings
+            for warning in warnings:
+                logger.warning(
+                    append_correlation(
+                        warning,
+                        stage1_log_context,
+                        component_name="page_translation.translate",
+                    )
+                )
     stage1_event = _build_stage_event_payload(
         stage="translate_page",
         status="completed",
