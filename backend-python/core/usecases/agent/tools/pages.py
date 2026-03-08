@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.grounding.turn_state import build_page_state_snapshot
+from core.usecases.agent.grounding.active_page import build_page_state_snapshot
 from core.usecases.agent.tools.shared import coerce_filename
 from infra.db.store_volume_page import list_page_filenames, load_page
 

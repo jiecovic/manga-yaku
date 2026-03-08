@@ -18,15 +18,15 @@ from config import (
     AGENT_TEMPERATURE,
     DATA_DIR,
 )
+from core.usecases.agent.grounding.active_page import (
+    PageStateSnapshot,
+    build_turn_state_message,
+    get_active_page_snapshot,
+)
 from core.usecases.agent.grounding.context import (
     build_grounding_message,
     resolve_active_filename,
     should_use_visual_grounding,
-)
-from core.usecases.agent.grounding.turn_state import (
-    PageStateSnapshot,
-    build_turn_state_message,
-    get_active_page_snapshot,
 )
 from core.usecases.agent.runtime.mcp_runtime import (
     build_agent_mcp_servers,
@@ -37,7 +37,10 @@ from core.usecases.agent.runtime.streaming import (
     extract_sdk_result_text,
     run_sdk_stream_events,
 )
-from infra.llm.model_capabilities import model_applies_reasoning_effort, model_applies_temperature
+from infra.llm.model_capabilities import (
+    model_applies_reasoning_effort,
+    model_applies_temperature,
+)
 from infra.logging.correlation import append_correlation
 
 

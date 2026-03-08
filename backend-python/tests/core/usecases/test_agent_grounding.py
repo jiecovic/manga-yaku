@@ -1,10 +1,8 @@
-# backend-python/tests/core/usecases/test_agent_turn_state.py
+# backend-python/tests/core/usecases/test_agent_grounding.py
 from unittest.mock import patch
 
-from core.usecases.agent.grounding.turn_state import (
-    get_active_page_snapshot,
-    sanitize_agent_reply_text,
-)
+from core.usecases.agent.grounding.active_page import get_active_page_snapshot
+from core.usecases.agent.grounding.reply_guards import sanitize_agent_reply_text
 
 
 def test_cross_page_fact_query_allows_other_page_reference() -> None:
@@ -42,7 +40,7 @@ def test_navigation_query_blocks_wrong_page_reference() -> None:
 
 def test_get_active_page_snapshot_loads_page_once() -> None:
     with patch(
-        "core.usecases.agent.grounding.turn_state.load_page",
+        "core.usecases.agent.grounding.active_page.load_page",
         return_value={
             "boxes": [
                 {"id": 1, "type": "text", "orderIndex": 1},

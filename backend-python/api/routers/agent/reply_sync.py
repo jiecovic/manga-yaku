@@ -10,8 +10,8 @@ from typing import Any
 from api.schemas.agent_chat import AgentMessagePublic, AgentReplyRequest
 from config import AGENT_MODEL, AGENT_MODELS
 from core.usecases.agent.engine import run_agent_chat
-from core.usecases.agent.grounding.turn_state import (
-    get_active_page_text_box_count,
+from core.usecases.agent.grounding.active_page import get_active_page_text_box_count
+from core.usecases.agent.grounding.reply_guards import (
     sanitize_agent_reply_text,
     stale_context_warning_message,
 )
