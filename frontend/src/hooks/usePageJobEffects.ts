@@ -297,7 +297,7 @@ export function usePageJobEffects({
                     job.type === "translate_box" ||
                     job.type === "ocr_page" ||
                     job.type === "translate_page" ||
-                    job.type === "agent_translate_page") &&
+                    job.type === "page_translation") &&
                 job.status === "finished" &&
                 !appliedIds.has(job.id) &&
                 (job.updated_at ?? 0) >= pageLoadAtRef.current,
@@ -341,7 +341,7 @@ export function usePageJobEffects({
     }, [jobs, volumeId, filename, pageKey, setPageBoxesLocal]);
 
     // =======================================================
-    // Refresh after agent detection stage (running job)
+    // Refresh after page-translation detection stage (running job)
     // =======================================================
     useEffect(() => {
         if (!volumeId || !filename || !pageKey) return;
@@ -349,7 +349,7 @@ export function usePageJobEffects({
         const appliedIds = appliedAgentDetectRefreshRef.current;
         const pending = jobs.filter(
             (job) =>
-                job.type === "agent_translate_page" &&
+                job.type === "page_translation" &&
                 job.status === "running" &&
                 !appliedIds.has(job.id) &&
                 (job.progress ?? 0) >= 15,
@@ -381,7 +381,7 @@ export function usePageJobEffects({
                 if (cancelled) return;
                 setPageBoxesLocal(() => loadedBoxes.map(normalizeBox));
             } catch (err) {
-                console.error("Failed to refresh boxes after agent detect", err);
+                console.error("Failed to refresh boxes after page-translation detect", err);
             }
         };
 
@@ -393,7 +393,7 @@ export function usePageJobEffects({
     }, [jobs, volumeId, filename, pageKey, setPageBoxesLocal]);
 
     // =======================================================
-    // Refresh after agent OCR stage (running job)
+    // Refresh after page-translation OCR stage (running job)
     // =======================================================
     useEffect(() => {
         if (!volumeId || !filename || !pageKey) return;
@@ -401,7 +401,7 @@ export function usePageJobEffects({
         const appliedIds = appliedAgentOcrRefreshRef.current;
         const pending = jobs.filter(
             (job) =>
-                job.type === "agent_translate_page" &&
+                job.type === "page_translation" &&
                 job.status === "running" &&
                 !appliedIds.has(job.id) &&
                 (job.progress ?? 0) >= 60,
@@ -433,7 +433,7 @@ export function usePageJobEffects({
                 if (cancelled) return;
                 setPageBoxesLocal(() => loadedBoxes.map(normalizeBox));
             } catch (err) {
-                console.error("Failed to refresh boxes after agent OCR", err);
+                console.error("Failed to refresh boxes after page-translation OCR", err);
             }
         };
 
@@ -445,7 +445,7 @@ export function usePageJobEffects({
     }, [jobs, volumeId, filename, pageKey, setPageBoxesLocal]);
 
     // =======================================================
-    // Incremental refresh during agent OCR (show text as it arrives)
+    // Incremental refresh during page-translation OCR (show text as it arrives)
     // =======================================================
     useEffect(() => {
         if (!volumeId || !filename || !pageKey) return;
@@ -453,7 +453,7 @@ export function usePageJobEffects({
         const now = Date.now();
         const pending = jobs.filter(
             (job) =>
-                job.type === "agent_translate_page" &&
+                job.type === "page_translation" &&
                 job.status === "running" &&
                 (job.progress ?? 0) >= 15 &&
                 (job.progress ?? 0) < 65 &&
@@ -499,7 +499,7 @@ export function usePageJobEffects({
                 if (cancelled) return;
                 setPageBoxesLocal(() => loadedBoxes.map(normalizeBox));
             } catch (err) {
-                console.error("Failed to refresh boxes during agent OCR", err);
+                console.error("Failed to refresh boxes during page-translation OCR", err);
             }
         };
 

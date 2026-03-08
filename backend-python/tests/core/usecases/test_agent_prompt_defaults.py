@@ -18,7 +18,7 @@ def test_load_system_prompt_renders_shared_language_defaults() -> None:
     assert "{{TARGET_LANG}}" not in prompt
 
 
-def test_agent_translate_request_uses_shared_language_defaults() -> None:
+def test_page_translation_request_uses_shared_language_defaults() -> None:
     request = PageTranslationRequest.from_payload(
         {
             "volumeId": "vol-a",

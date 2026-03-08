@@ -1,3 +1,4 @@
+// src/components/settings/sections/PageTranslationMergeCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
 
@@ -8,7 +9,7 @@ type Props = {
     onUpdateDraft: (key: string, value: unknown) => void;
 };
 
-export function AgentMergeCard({
+export function PageTranslationMergeCard({
     mergeMaxOutputTokens,
     mergeReasoningEffort,
     reasoningOptions,
@@ -16,14 +17,14 @@ export function AgentMergeCard({
 }: Props) {
     return (
         <div className={ui.trainingCard}>
-            <div className={ui.trainingSubTitle}>Agent Merge Stage</div>
+            <div className={ui.trainingSubTitle}>Page Translation Merge Stage</div>
             <div className="mt-3 space-y-3">
                 <Field label="Reasoning" layout="row" labelClassName={ui.label}>
                     <Select
                         value={mergeReasoningEffort}
                         onChange={(e) =>
                             onUpdateDraft(
-                                "agent.translate.merge.reasoning_effort",
+                                "page_translation.merge.reasoning_effort",
                                 e.target.value,
                             )
                         }
@@ -48,7 +49,7 @@ export function AgentMergeCard({
                         value={mergeMaxOutputTokens}
                         onChange={(e) =>
                             onUpdateDraft(
-                                "agent.translate.merge.max_output_tokens",
+                                "page_translation.merge.max_output_tokens",
                                 e.target.value,
                             )
                         }

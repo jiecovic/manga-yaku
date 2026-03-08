@@ -93,7 +93,7 @@ Core tables:
 - `app_settings` — persisted settings (e.g., detection thresholds, defaults).
 - `ocr_profile_settings` — per-OCR profile overrides for agent use.
 - `translation_profile_settings` — per-translation profile overrides for single-box translation.
-- `agent_translate_settings` — default model/params for agent page translate.
+- `page_translation_settings` — default model/params for agent page translate.
 - `workflow_runs` — persisted workflow jobs (ocr/translate/agent pipelines).
 - `task_runs` — child tasks for workflow runs (stage/model/box level execution).
 - `task_attempt_events` — per-attempt telemetry (latency/tokens/errors).
@@ -116,7 +116,7 @@ Important constraints:
 
 - `pages` unique (`volume_id`, `filename`)
 - `boxes` unique (`page_id`, `box_id`) and constrained `type`/`source`
-- `agent_translate_settings` is a singleton row (`id = 1`)
+- `page_translation_settings` is a singleton row (`id = 1`)
 
 ## Key Workflows
 
@@ -128,16 +128,16 @@ OCR:
 - Uses local manga-ocr by default, optional OpenAI vision OCR.
 - OCR results are stored per box in Postgres.
 
-Agent translate page:
+Page translation page:
 - Detects boxes → runs OCR fanout (multi-profile child tasks) → page translate stage
   (image + OCR candidates) → merge stage (continuity updates) → commit to Postgres.
 - Default LLM model is configured in Settings → Translation Agent.
 
 Jobs model:
-- Workflow-backed jobs (`ocr_box`, `ocr_page`, `translate_box`, `agent_translate_page`) are persisted
+- Workflow-backed jobs (`ocr_box`, `ocr_page`, `translate_box`, `page_translation`) are persisted
   in Postgres (`workflow_runs`/`task_runs`) and can be reloaded after backend restart.
 - Some utility jobs (for example, training/dataset prep) remain process-local in the in-memory `JobStore`.
-- `agent_translate_page` create requests support `Idempotency-Key` and same-page
+- `page_translation` create requests support `Idempotency-Key` and same-page
   active dedupe (`volumeId + filename`) to avoid duplicate runs from retries/double-clicks.
 - `forceRerun` can request a fresh run, but does not allow parallel duplicate runs
   for the same page while one is already queued/running.
@@ -190,7 +190,7 @@ Notes:
 - The test suite defaults to offline Hugging Face/Transformers mode via
   `tests/conftest.py` (`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`).
 - For quick local checks, you can run focused files such as:
-  `pytest -q tests/core/agent_translate_page/test_agent_state_machine.py tests/core/usecases/test_retry_policies.py`.
+  `pytest -q tests/core/page_translation/test_page_translation_state_machine.py tests/core/usecases/test_retry_policies.py`.
 - Test module coverage map and targeted command groups are documented in:
   `backend-python/tests/README.md`.
 

@@ -29,7 +29,7 @@ def _profiles_snapshot_from_registry() -> list[dict]:
                 "description": profile.get("description", ""),
                 "kind": profile.get("kind", "local"),
                 "enabled": bool(profile.get("enabled", True)),
-                "agent_enabled": True,
+                "page_translation_enabled": True,
                 "model_id": None,
                 "max_output_tokens": None,
                 "reasoning_effort": None,

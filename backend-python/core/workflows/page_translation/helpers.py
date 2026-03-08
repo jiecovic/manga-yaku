@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from core.usecases.ocr.profile_settings import agent_enabled_ocr_profiles
+from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.settings.service import (
     resolve_detection_settings,
@@ -53,7 +53,7 @@ def resolve_detection_profile_id(preferred_profile_id: str | None) -> str | None
     """Resolve detection profile id."""
     if preferred_profile_id:
         return preferred_profile_id
-    stored_profile_id = resolve_detection_settings().agent_detection_profile_id
+    stored_profile_id = resolve_detection_settings().page_translation_detection_profile_id
     if stored_profile_id:
         return stored_profile_id
     return None
@@ -63,7 +63,7 @@ def resolve_ocr_profiles(payload: dict[str, Any]) -> list[str]:
     """Resolve ocr profiles."""
     raw = payload.get("ocrProfiles")
     requested = [str(item).strip() for item in raw or [] if str(item).strip()]
-    profile_ids = requested or agent_enabled_ocr_profiles()
+    profile_ids = requested or page_translation_enabled_ocr_profiles()
     if not profile_ids:
         profile_ids = ["manga_ocr_default"]
 
@@ -303,7 +303,7 @@ def apply_translation_payload(
             append_correlation(
                 coverage_warning,
                 {
-                    "component": "agent.translate_page.coverage",
+                    "component": "page_translation.coverage",
                     "volume_id": volume_id,
                     "filename": filename,
                 },

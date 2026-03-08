@@ -1,4 +1,4 @@
-export type AgentDraft = {
+export type PageTranslationDraft = {
     model_id: string;
     max_output_tokens: string;
     reasoning_effort: string;
@@ -11,7 +11,7 @@ export type OcrDraftProfile = {
     description?: string | null;
     kind: string;
     enabled: boolean;
-    agent_enabled: boolean;
+    page_translation_enabled: boolean;
     model_id?: string | null;
     max_output_tokens?: number | null;
     reasoning_effort?: string | null;

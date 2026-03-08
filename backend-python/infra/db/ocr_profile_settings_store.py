@@ -14,7 +14,7 @@ def list_ocr_profile_settings() -> dict[str, dict[str, Any]]:
         rows = session.query(OcrProfileSetting).all()
         return {
             row.profile_id: {
-                "agent_enabled": bool(row.agent_enabled),
+                "page_translation_enabled": bool(row.page_translation_enabled),
                 "model_id": row.model_id,
                 "max_output_tokens": row.max_output_tokens,
                 "reasoning_effort": row.reasoning_effort,

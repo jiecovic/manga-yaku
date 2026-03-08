@@ -5,7 +5,7 @@ OCR, and LLM-assisted translation.
 
 ## Status
 
-Current default page pipeline is `agent_translate_page`; standalone
+Current default page pipeline is `page_translation`; standalone
 `translate_page` jobs are disabled.
 
 ## Features

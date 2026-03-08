@@ -52,12 +52,12 @@ def _fake_session_scope(rows: list[_FakeWorkflowRow]):
 
 def test_mark_running_workflows_interrupted_leaves_queued_runs_untouched_by_default() -> None:
     queued = _FakeWorkflowRow(
-        workflow_type="agent_translate_page",
+        workflow_type="page_translation",
         status="queued",
         state="queued",
     )
     running = _FakeWorkflowRow(
-        workflow_type="agent_translate_page",
+        workflow_type="page_translation",
         status="running",
         state="running",
     )
@@ -67,7 +67,7 @@ def test_mark_running_workflows_interrupted_leaves_queued_runs_untouched_by_defa
         side_effect=lambda: _fake_session_scope([queued, running]),
     ):
         changed = workflow_store.mark_running_workflows_interrupted(
-            workflow_type="agent_translate_page",
+            workflow_type="page_translation",
         )
 
     assert changed == 1
@@ -93,12 +93,12 @@ def _filtering_session_scope(rows: list[_FakeWorkflowRow]):
 
 def test_mark_running_workflows_interrupted_can_include_queued_runs() -> None:
     queued = _FakeWorkflowRow(
-        workflow_type="agent_translate_page",
+        workflow_type="page_translation",
         status="queued",
         state="queued",
     )
     running = _FakeWorkflowRow(
-        workflow_type="agent_translate_page",
+        workflow_type="page_translation",
         status="running",
         state="running",
     )
@@ -108,7 +108,7 @@ def test_mark_running_workflows_interrupted_can_include_queued_runs() -> None:
         side_effect=lambda: _filtering_session_scope([queued, running]),
     ):
         changed = workflow_store.mark_running_workflows_interrupted(
-            workflow_type="agent_translate_page",
+            workflow_type="page_translation",
             include_queued=True,
         )
 

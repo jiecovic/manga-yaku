@@ -2,7 +2,7 @@
 import { useRef } from "react";
 import type {Box} from "../types";
 import {
-    createAgentTranslatePageJob,
+    createPageTranslationJob,
     createOcrBoxJob,
     createOcrPageJob,
     createTranslateBoxJob,
@@ -10,7 +10,7 @@ import {
 } from "../api";
 import {usePage} from "../context/usePage";
 import { useJobs } from "../context/useJobs";
-import { useAgentSettings } from "../context/AgentSettingsContext";
+import { useWorkflowSettings } from "../context/WorkflowSettingsContext";
 import { useSettings } from "../context/SettingsContext";
 import { normalizeBoxType } from "../utils/boxes";
 
@@ -26,7 +26,7 @@ interface UsePageJobActionsResult {
     handleOcrBox: (id: number) => Promise<void>;
     handleTranslateBox: (id: number) => Promise<void>;
     handleTranslatePage: () => Promise<void>;
-    handleAgentTranslatePage: () => Promise<void>;
+    handlePageTranslationWorkflow: () => Promise<void>;
 }
 
 export function usePageJobActions({
@@ -37,11 +37,11 @@ export function usePageJobActions({
 }: UsePageJobActionsArgs): UsePageJobActionsResult {
     const {volumeId, filename} = usePage();
     const { jobCapabilities, jobs } = useJobs();
-    const { ocrProfiles } = useAgentSettings();
+    const { ocrProfiles } = useWorkflowSettings();
     const { settings } = useSettings();
-    const agentDetectionProfileId =
-        typeof settings?.values?.["agent.translate.detection_profile_id"] === "string"
-            ? settings.values["agent.translate.detection_profile_id"].trim()
+    const pageTranslationDetectionProfileId =
+        typeof settings?.values?.["page_translation.detection_profile_id"] === "string"
+            ? settings.values["page_translation.detection_profile_id"].trim()
             : "";
     const translateBoxUseContext =
         typeof settings?.values?.["translation.single_box.use_context"] === "boolean"
@@ -86,13 +86,13 @@ export function usePageJobActions({
     };
 
     // =========================================
-    // AGENT TRANSLATE PAGE (detect + multi-OCR + translate)
+    // PAGE TRANSLATION WORKFLOW (detect + multi-OCR + translate)
     // =========================================
-    const handleAgentTranslatePage = async () => {
+    const handlePageTranslationWorkflow = async () => {
         if (!volumeId || !filename) return;
 
         const activeJob = jobs.find((job) => {
-            if (job.type !== "agent_translate_page") {
+            if (job.type !== "page_translation") {
                 return false;
             }
             if (job.status !== "queued" && job.status !== "running") {
@@ -104,7 +104,7 @@ export function usePageJobActions({
         });
         if (activeJob) {
             window.alert(
-                "Agent translate is already queued/running for this page. Please wait until it finishes.",
+                "Page translation is already queued or running for this page. Please wait until it finishes.",
             );
             return;
         }
@@ -112,7 +112,7 @@ export function usePageJobActions({
         const inFlightKey = inFlightAgentRequestKeyRef.current;
         if (inFlightKey) {
             window.alert(
-                "Agent translate request is already being submitted for this page. Please wait.",
+                "Page translation request is already being submitted for this page. Please wait.",
             );
             return;
         }
@@ -123,23 +123,23 @@ export function usePageJobActions({
 
         try {
             console.log(
-                `Queuing AGENT translate page job for ${volumeId}/${filename}`,
+                `Queuing PAGE TRANSLATION workflow for ${volumeId}/${filename}`,
             );
 
             const configuredProfiles = ocrProfiles?.profiles ?? [];
             const ocrProfilesForAgent = configuredProfiles
-                .filter((profile) => profile.enabled && profile.agent_enabled)
+                .filter((profile) => profile.enabled && profile.page_translation_enabled)
                 .map((profile) => profile.id);
             if (!ocrProfilesForAgent.length) {
                 const primaryOcr = ocrProfileId || "manga_ocr_default";
                 ocrProfilesForAgent.push(primaryOcr);
             }
 
-            await createAgentTranslatePageJob({
+            await createPageTranslationJob({
                 volumeId,
                 filename,
                 detectionProfileId:
-                    agentDetectionProfileId ||
+                    pageTranslationDetectionProfileId ||
                     boxDetectionProfileId ||
                     undefined,
                 ocrProfiles: ocrProfilesForAgent,
@@ -148,7 +148,7 @@ export function usePageJobActions({
             });
         } catch (err) {
             console.error(
-                "Failed to queue agent translate job for page",
+                "Failed to queue page translation workflow for page",
                 err,
             );
         } finally {
@@ -275,6 +275,6 @@ export function usePageJobActions({
         handleOcrBox,
         handleTranslateBox,
         handleTranslatePage,
-        handleAgentTranslatePage,
+        handlePageTranslationWorkflow,
     };
 }

@@ -1,3 +1,4 @@
+// src/components/settings/sections/OcrProfilesCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
 import type { OcrDraftProfile } from "../types";
@@ -39,11 +40,11 @@ export function OcrProfilesCard({
                             >
                                 <input
                                     type="checkbox"
-                                    checked={profile.agent_enabled}
+                                    checked={profile.page_translation_enabled}
                                     disabled={!profile.enabled}
                                     onChange={(e) =>
                                         onUpdateOcrProfile(profile.id, {
-                                            agent_enabled: e.target.checked,
+                                            page_translation_enabled: e.target.checked,
                                         })
                                     }
                                 />
@@ -173,7 +174,7 @@ export function OcrProfilesCard({
                 })}
             </div>
             <div className={ui.trainingHelp}>
-                Toggle which OCR profiles the agent may use.
+                Toggle which OCR profiles the page translation workflow may use.
             </div>
         </div>
     );

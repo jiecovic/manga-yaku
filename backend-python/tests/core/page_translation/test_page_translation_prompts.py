@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_page_translate_prompts.py
+# backend-python/tests/core/page_translation/test_page_translation_prompts.py
 """Unit tests for page-translate prompt payload shaping and truncation.
 
 What is tested:

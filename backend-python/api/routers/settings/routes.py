@@ -47,12 +47,12 @@ def _build_options() -> dict[str, Any]:
         "detection.iou_threshold": {"min": 0.0, "max": 1.0},
         "detection.containment_threshold": {"min": 0.0, "max": 1.0},
         "translation.single_box.use_context": {"type": "boolean"},
-        "agent.translate.include_prior_context_summary": {"type": "boolean"},
-        "agent.translate.include_prior_characters": {"type": "boolean"},
-        "agent.translate.include_prior_open_threads": {"type": "boolean"},
-        "agent.translate.include_prior_glossary": {"type": "boolean"},
-        "agent.translate.merge.max_output_tokens": {"min": 128, "max": 4096},
-        "agent.translate.merge.reasoning_effort": {"choices": ["low", "medium", "high"]},
+        "page_translation.include_prior_context_summary": {"type": "boolean"},
+        "page_translation.include_prior_characters": {"type": "boolean"},
+        "page_translation.include_prior_open_threads": {"type": "boolean"},
+        "page_translation.include_prior_glossary": {"type": "boolean"},
+        "page_translation.merge.max_output_tokens": {"min": 128, "max": 4096},
+        "page_translation.merge.reasoning_effort": {"choices": ["low", "medium", "high"]},
         "agent.chat.max_turns": {"min": 1, "max": 200},
         "agent.chat.max_output_tokens": {"min": 128, "max": 64000},
         "ocr.parallelism.local": {"min": 1, "max": 32},
@@ -148,7 +148,7 @@ async def restart_backend(background_tasks: BackgroundTasks) -> dict[str, str]:
 
 
 @router.get(
-    "/settings/agent-translate",
+    "/settings/page-translation",
     response_model=PageTranslationSettingsResponse,
 )
 async def get_page_translation_settings() -> PageTranslationSettingsResponse:
@@ -166,7 +166,7 @@ async def get_page_translation_settings() -> PageTranslationSettingsResponse:
 
 
 @router.put(
-    "/settings/agent-translate",
+    "/settings/page-translation",
     response_model=PageTranslationSettingsResponse,
 )
 async def put_page_translation_settings(

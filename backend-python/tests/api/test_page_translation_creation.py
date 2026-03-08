@@ -1,4 +1,4 @@
-# backend-python/tests/api/test_agent_translate_page_creation.py
+# backend-python/tests/api/test_page_translation_creation.py
 """Unit tests for page-translation job creation dedupe/idempotency behavior."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from api.routers.jobs import routes as jobs_routes
-from api.schemas.jobs import CreateAgentTranslatePageJobRequest
+from api.schemas.jobs import CreatePageTranslationJobRequest
 from api.services.jobs_creation_service import create_page_translation_job as create_job_record
 from fastapi import HTTPException
 from infra.jobs.page_translation_creation import (
@@ -16,7 +16,7 @@ from infra.jobs.page_translation_creation import (
 from starlette.requests import Request
 
 
-def _request(**overrides: object) -> CreateAgentTranslatePageJobRequest:
+def _request(**overrides: object) -> CreatePageTranslationJobRequest:
     payload = {
         "volumeId": "vol-a",
         "filename": "001.jpg",
@@ -24,7 +24,7 @@ def _request(**overrides: object) -> CreateAgentTranslatePageJobRequest:
         "ocrProfiles": ["manga_ocr_default", "openai_fast_ocr"],
     }
     payload.update(overrides)
-    return CreateAgentTranslatePageJobRequest(**payload)
+    return CreatePageTranslationJobRequest(**payload)
 
 
 def _request_scope(*, idempotency_key: str | None = None) -> Request:
@@ -34,7 +34,7 @@ def _request_scope(*, idempotency_key: str | None = None) -> Request:
     scope = {
         "type": "http",
         "method": "POST",
-        "path": "/api/jobs/agent_translate_page",
+        "path": "/api/jobs/page_translation",
         "headers": headers,
     }
     return Request(scope)
@@ -176,7 +176,7 @@ def test_service_maps_conflict_to_http_409() -> None:
         pytest.raises(HTTPException) as raised,
     ):
         create_job_record(
-            req=CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg"),
+            req=CreatePageTranslationJobRequest(volumeId="vol-a", filename="001.jpg"),
             idempotency_key="abc",
         )
 
@@ -194,7 +194,7 @@ def test_service_returns_job_id_for_shared_helper_success() -> None:
         },
     ):
         result = create_job_record(
-            req=CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg"),
+            req=CreatePageTranslationJobRequest(volumeId="vol-a", filename="001.jpg"),
         )
 
     assert result == {"job_id": "job-123", "queued": True}
@@ -202,7 +202,7 @@ def test_service_returns_job_id_for_shared_helper_success() -> None:
 
 @pytest.mark.asyncio
 async def test_route_skips_queue_put_for_reused_job() -> None:
-    req = CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg")
+    req = CreatePageTranslationJobRequest(volumeId="vol-a", filename="001.jpg")
     with (
         patch(
             "api.routers.jobs.routes.create_page_translation_job_record",
@@ -210,7 +210,7 @@ async def test_route_skips_queue_put_for_reused_job() -> None:
         ) as service_mock,
         patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,
     ):
-        resp = await jobs_routes.create_agent_translate_page_job(req, _request_scope())
+        resp = await jobs_routes.create_page_translation_job(req, _request_scope())
 
     assert resp.jobId == "wf-123"
     service_mock.assert_called_once()
@@ -219,7 +219,7 @@ async def test_route_skips_queue_put_for_reused_job() -> None:
 
 @pytest.mark.asyncio
 async def test_route_returns_new_job_id_without_manual_queue_step() -> None:
-    req = CreateAgentTranslatePageJobRequest(volumeId="vol-a", filename="001.jpg")
+    req = CreatePageTranslationJobRequest(volumeId="vol-a", filename="001.jpg")
     with (
         patch(
             "api.routers.jobs.routes.create_page_translation_job_record",
@@ -227,7 +227,7 @@ async def test_route_returns_new_job_id_without_manual_queue_step() -> None:
         ) as service_mock,
         patch("api.routers.jobs.routes._notify_jobs_changed") as notify_mock,
     ):
-        resp = await jobs_routes.create_agent_translate_page_job(
+        resp = await jobs_routes.create_page_translation_job(
             req,
             _request_scope(idempotency_key="abc"),
         )

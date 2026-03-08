@@ -43,7 +43,7 @@ def test_persist_task_attempt_event_uses_event_defaults_and_updates_attempt() ->
                 "token_usage": {"input_tokens": 10, "output_tokens": 5},
             },
             tool_name="merge_state",
-            prompt_version="agent_translate_page_merge.yml",
+            prompt_version="page_translation_merge.yml",
         )
 
     assert attempt == 2
@@ -53,7 +53,7 @@ def test_persist_task_attempt_event_uses_event_defaults_and_updates_attempt() ->
     assert kwargs["attempt"] == 2
     assert kwargs["tool_name"] == "merge_state"
     assert kwargs["model_id"] == "gpt-5-mini"
-    assert kwargs["prompt_version"] == "agent_translate_page_merge.yml"
+    assert kwargs["prompt_version"] == "page_translation_merge.yml"
     assert kwargs["params_snapshot"] == {"max_output_tokens": 768}
     assert kwargs["token_usage"] == {"input_tokens": 10, "output_tokens": 5}
     assert kwargs["finish_reason"] == "stop"

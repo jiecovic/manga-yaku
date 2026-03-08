@@ -14,8 +14,8 @@ from infra.jobs.task_attempt_events import (
 )
 
 _PROMPT_VERSION_BY_STAGE = {
-    "translate_page": "agent_translate_page.yml",
-    "merge_state": "agent_translate_page_merge.yml",
+    "translate_page": "page_translation.yml",
+    "merge_state": "page_translation_merge.yml",
 }
 
 
@@ -33,7 +33,7 @@ def append_stage_attempt_event(
     error_detail: str | None = None,
 ) -> None:
     """Handle append stage attempt event."""
-    prompt_version = _PROMPT_VERSION_BY_STAGE.get(stage_name, "agent_translate_page.yml")
+    prompt_version = _PROMPT_VERSION_BY_STAGE.get(stage_name, "page_translation.yml")
     persist_task_attempt_event(
         task_id=task_id,
         attempt_event=stage_meta,

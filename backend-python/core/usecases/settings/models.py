@@ -1,3 +1,4 @@
+# backend-python/core/usecases/settings/models.py
 """Typed setting models used by the settings service layer."""
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ class DetectionSettings:
     conf_threshold: float | None
     iou_threshold: float | None
     containment_threshold: float | None
-    agent_detection_profile_id: str
+    page_translation_detection_profile_id: str
 
 
 @dataclass(frozen=True)

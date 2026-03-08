@@ -43,8 +43,8 @@ def llm_calls_dir(*, create: bool = True) -> Path:
     return artifact_dir("llm_calls", create=create)
 
 
-def agent_debug_dir(*parts: str, create: bool = True) -> Path:
-    return artifact_dir("agent", *parts, create=create)
+def page_translation_debug_dir(*parts: str, create: bool = True) -> Path:
+    return artifact_dir("page_translation", *parts, create=create)
 
 
 def timestamped_artifact_name(

@@ -7,7 +7,7 @@ export interface OcrProfileSetting {
     description?: string | null;
     kind: string;
     enabled: boolean;
-    agent_enabled: boolean;
+    page_translation_enabled: boolean;
     model_id?: string | null;
     max_output_tokens?: number | null;
     reasoning_effort?: string | null;
@@ -21,7 +21,7 @@ export interface OcrProfileSettingsResponse {
 
 export interface UpdateOcrProfileSetting {
     profile_id: string;
-    agent_enabled?: boolean;
+    page_translation_enabled?: boolean;
     model_id?: string | null;
     max_output_tokens?: number | null;
     reasoning_effort?: string | null;

@@ -13,7 +13,7 @@ Purpose: runtime and persistence plumbing for background jobs.
   Stored in `workflow_runs` + `task_runs`, processed by the DB utility worker.
 
 - `workflow-orchestrator`:
-  `agent_translate_page`
+  `page_translation`
   Stored in `workflow_runs` + `task_runs`, processed by the DB page-translation worker.
   Submission is deduped per page (`volumeId + filename`) while active.
 
@@ -21,7 +21,7 @@ Source of truth: `infra/jobs/job_modes.py`.
 
 ## Idempotency behavior
 
-For `agent_translate_page` create requests:
+For `page_translation` create requests:
 
 - `Idempotency-Key` is supported at the API layer.
 - Same key + same payload reuses the existing created job id.

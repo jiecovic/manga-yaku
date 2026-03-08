@@ -26,20 +26,20 @@ def test_write_json_artifact_uses_llm_calls_dir() -> None:
         assert json.loads(path.read_text(encoding="utf-8")) == {"ok": True, "count": 2}
 
 
-def test_timestamped_agent_debug_artifact_name_is_safe() -> None:
+def test_timestamped_page_translation_debug_artifact_name_is_safe() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         root = Path(tmp_dir)
         with patch.object(artifacts, "DEBUG_LOGS_DIR", root):
             filename = artifacts.timestamped_artifact_name(
-                prefix="agent debug/run 01",
+                prefix="page translation/run 01",
             )
             path = artifacts.write_json_artifact(
-                directory=artifacts.agent_debug_dir("translate_page"),
+                directory=artifacts.page_translation_debug_dir(),
                 filename=filename,
                 payload={"volume_id": "Akuhamu"},
             )
 
-        assert path.name.startswith("agent_debug_run_01_")
+        assert path.name.startswith("page_translation_run_01_")
         assert path.suffix == ".json"
-        assert path.parent == root / "agent" / "translate_page"
+        assert path.parent == root / "page_translation"
         assert json.loads(path.read_text(encoding="utf-8")) == {"volume_id": "Akuhamu"}

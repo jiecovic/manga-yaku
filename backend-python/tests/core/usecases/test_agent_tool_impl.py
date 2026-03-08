@@ -622,7 +622,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_persisted_operation",
+            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
             return_value={
                 "job_id": "job-123",
                 "queued": True,
@@ -631,7 +631,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.wait_for_agent_workflow",
+            "core.usecases.agent.tool_jobs_page_translation.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-123",
                 status="completed",
@@ -639,7 +639,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_translate_page._count_page_translation_state",
+            "core.usecases.agent.tool_jobs_page_translation._count_page_translation_state",
             side_effect=[
                 {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 0},
                 {"text_box_count": 18, "ocr_filled_count": 18, "translated_count": 18},
@@ -662,7 +662,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
 def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
     with (
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_persisted_operation",
+            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
             return_value={
                 "job_id": "wf-999",
                 "queued": False,
@@ -671,7 +671,7 @@ def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
             },
         ),
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.wait_for_agent_workflow",
+            "core.usecases.agent.tool_jobs_page_translation.wait_for_agent_workflow",
             return_value=_snapshot(
                 workflow_run_id="wf-999",
                 status="running",
@@ -679,7 +679,7 @@ def test_translate_active_page_reuses_active_run_without_requeueing() -> None:
             ),
         ),
         patch(
-            "core.usecases.agent.tool_jobs_translate_page._count_page_translation_state",
+            "core.usecases.agent.tool_jobs_page_translation._count_page_translation_state",
             return_value={
                 "text_box_count": 18,
                 "ocr_filled_count": 18,
@@ -717,11 +717,11 @@ def test_translate_active_page_short_circuits_when_page_already_translated() -> 
     }
     with (
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.load_page",
+            "core.usecases.agent.tool_jobs_page_translation.load_page",
             return_value=page,
         ) as load_page_mock,
         patch(
-            "core.usecases.agent.tool_jobs_translate_page.enqueue_persisted_operation",
+            "core.usecases.agent.tool_jobs_page_translation.enqueue_persisted_operation",
         ) as create_job_mock,
     ):
         result = translate_active_page_tool(

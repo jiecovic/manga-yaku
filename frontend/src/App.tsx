@@ -7,7 +7,7 @@ import { LogsLayout } from "./components/debug/LogsLayout";
 import { SettingsLayout } from "./components/settings/SettingsLayout";
 import { TranslateLayout } from "./components/translation/TranslateLayout";
 import { TrainingLayout } from "./components/training/TrainingLayout";
-import { AgentSettingsProvider } from "./context/AgentSettingsContext";
+import { WorkflowSettingsProvider } from "./context/WorkflowSettingsContext";
 import { HealthProvider } from "./context/HealthContext";
 import { JobsProvider } from "./context/JobsProvider";
 import { LibraryProvider } from "./context/LibraryProvider";
@@ -25,7 +25,7 @@ export default function App() {
     return (
         <HealthProvider>
             <SettingsProvider>
-                <AgentSettingsProvider>
+                <WorkflowSettingsProvider>
                     <LibraryProvider>
                         <JobsProvider>
                             <div className={ui.appRoot}>
@@ -43,7 +43,7 @@ export default function App() {
                             </div>
                         </JobsProvider>
                     </LibraryProvider>
-                </AgentSettingsProvider>
+                </WorkflowSettingsProvider>
             </SettingsProvider>
         </HealthProvider>
     );

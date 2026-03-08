@@ -55,7 +55,7 @@ class CreateTranslatePageJobRequest(BaseModel):
     skipExisting: bool = True
 
 
-class CreateAgentTranslatePageJobRequest(BaseModel):
+class CreatePageTranslationJobRequest(BaseModel):
     """Create the staged page-translation workflow job."""
 
     volumeId: str
@@ -128,4 +128,4 @@ class JobsCapabilitiesResponse(BaseModel):
     ocr_box: JobCapability
     translate_page: JobCapability
     translate_box: JobCapability
-    agent_translate_page: JobCapability
+    page_translation: JobCapability

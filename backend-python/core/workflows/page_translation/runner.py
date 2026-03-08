@@ -99,7 +99,7 @@ async def run_page_translation_workflow(
     workflow_run_id = str(payload.get("workflowRunId") or "").strip()
     if not workflow_run_id:
         workflow_run_id = create_workflow_run(
-            workflow_type="agent_translate_page",
+            workflow_type="page_translation",
             volume_id=request.volume_id,
             filename=request.filename,
             state=state.value,
@@ -325,29 +325,29 @@ async def run_page_translation_workflow(
         prior_glossary = []
 
     include_prior_summary = _get_bool_setting(
-        "agent.translate.include_prior_context_summary",
+        "page_translation.include_prior_context_summary",
         default=True,
     )
     include_prior_characters = _get_bool_setting(
-        "agent.translate.include_prior_characters",
+        "page_translation.include_prior_characters",
         default=True,
     )
     include_prior_open_threads = _get_bool_setting(
-        "agent.translate.include_prior_open_threads",
+        "page_translation.include_prior_open_threads",
         default=True,
     )
     include_prior_glossary = _get_bool_setting(
-        "agent.translate.include_prior_glossary",
+        "page_translation.include_prior_glossary",
         default=True,
     )
     merge_max_output_tokens = _get_int_setting(
-        "agent.translate.merge.max_output_tokens",
+        "page_translation.merge.max_output_tokens",
         default=768,
         min_value=128,
         max_value=4096,
     )
     merge_reasoning_effort = _get_str_choice_setting(
-        "agent.translate.merge.reasoning_effort",
+        "page_translation.merge.reasoning_effort",
         default="low",
         choices=("low", "medium", "high"),
     )

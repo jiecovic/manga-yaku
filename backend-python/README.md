@@ -37,12 +37,12 @@ Source of truth: `infra/jobs/job_modes.py`.
   `box_detection`, `prepare_dataset`, `train_model`
   persisted in `workflow_runs` + `task_runs`, consumed by the DB utility worker.
 - `workflow-orchestrator`:
-  `agent_translate_page`
+  `page_translation`
   persisted in `workflow_runs` + `task_runs`, consumed by the DB page-translation worker.
 
-## Agent translate submission semantics
+## Page translation submission semantics
 
-`POST /api/jobs/agent_translate_page` uses request de-duplication rules:
+`POST /api/jobs/page_translation` uses request de-duplication rules:
 
 - Active-page dedupe:
   if the same `volumeId + filename` already has a `queued/running` agent run,

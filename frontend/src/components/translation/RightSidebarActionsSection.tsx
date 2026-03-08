@@ -18,7 +18,7 @@ interface ActionsSectionProps {
     onRefreshBoxDetectionProfiles: () => Promise<void>;
     onOcrPage: () => void;
     onTranslatePage: () => void;
-    onAgentTranslatePage: () => void;
+    onPageTranslationWorkflow: () => void;
     onClearBoxes: () => void;
     onClearOcrText: () => void;
     onClearTranslationText: () => void;
@@ -40,7 +40,7 @@ export function RightSidebarActionsSection({
     onRefreshBoxDetectionProfiles,
     onOcrPage,
     onTranslatePage,
-    onAgentTranslatePage,
+    onPageTranslationWorkflow,
     onClearBoxes,
     onClearOcrText,
     onClearTranslationText,
@@ -280,9 +280,9 @@ export function RightSidebarActionsSection({
                     <Button
                         type="button"
                         variant="actionEmerald"
-                        onClick={onAgentTranslatePage}
+                        onClick={onPageTranslationWorkflow}
                     >
-                        Agent translate
+                        Page translation
                     </Button>
                 </div>
 

@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_workflow_events.py
+# backend-python/tests/core/page_translation/test_page_translation_workflow_events.py
 """Unit tests for workflow attempt-event helpers and merge task utilities.
 
 What is tested:
@@ -56,7 +56,7 @@ def test_append_stage_attempt_event_uses_merge_prompt_version() -> None:
     kwargs = persist_task_attempt_event.call_args.kwargs
     assert kwargs["task_id"] == "task-1"
     assert kwargs["tool_name"] == "merge_state"
-    assert kwargs["prompt_version"] == "agent_translate_page_merge.yml"
+    assert kwargs["prompt_version"] == "page_translation_merge.yml"
     assert kwargs["attempt_event"]["attempt_count"] == 2
     assert kwargs["attempt_event"]["latency_ms"] == "14"
 

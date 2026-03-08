@@ -67,13 +67,13 @@ def test_append_correlation_preserves_generic_correlation_fields() -> None:
 def test_with_correlation_enriches_payload() -> None:
     payload = with_correlation(
         {"value": 1},
-        {"component": "agent.translate_page", "debug_id": "job-9"},
+        {"component": "page_translation", "debug_id": "job-9"},
         volumeId="Akuhamu",
     )
 
     assert payload["value"] == 1
     assert payload["correlation"] == {
-        "component": "agent.translate_page",
+        "component": "page_translation",
         "job_id": "job-9",
         "volume_id": "Akuhamu",
     }

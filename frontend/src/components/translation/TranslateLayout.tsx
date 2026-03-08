@@ -490,7 +490,7 @@ function TranslateInner({
                 // page actions
                 onOcrPage={pageActions.onOcrPage}
                 onTranslatePage={pageActions.onTranslatePage}
-                onAgentTranslatePage={pageActions.onAgentTranslatePage}
+                onPageTranslationWorkflow={pageActions.onPageTranslationWorkflow}
                 onClearBoxes={pageActions.onClearBoxes}
                 onClearOcrText={pageActions.onClearOcrText}
                 onClearTranslationText={pageActions.onClearTranslationText}

@@ -7,7 +7,7 @@ import asyncio
 from threading import Event
 from typing import Any
 
-from config import AGENT_TRANSLATE_TIMEOUT_SECONDS
+from config import PAGE_TRANSLATION_TIMEOUT_SECONDS
 from infra.db.workflow_store import create_task_run, update_task_run
 
 from ..events import append_stage_attempt_event
@@ -147,7 +147,7 @@ async def run_translate_stage(
             error_detail=error_detail,
         )
 
-    translation_timeout_seconds = max(30, int(AGENT_TRANSLATE_TIMEOUT_SECONDS))
+    translation_timeout_seconds = max(30, int(PAGE_TRANSLATION_TIMEOUT_SECONDS))
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(

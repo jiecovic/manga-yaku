@@ -6,10 +6,10 @@ from __future__ import annotations
 from typing import TypedDict
 
 from api.schemas.jobs import (
-    CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
+    CreatePageTranslationJobRequest,
     CreatePrepareDatasetJobRequest,
     CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
@@ -35,7 +35,7 @@ class PageTranslationEnqueueResult(TypedDict):
 
 def create_page_translation_job(
     *,
-    req: CreateAgentTranslatePageJobRequest,
+    req: CreatePageTranslationJobRequest,
     idempotency_key: str | None = None,
 ) -> PageTranslationEnqueueResult:
     """Create or reuse a page-translation workflow."""

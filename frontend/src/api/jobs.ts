@@ -15,7 +15,7 @@ export interface JobCapabilities {
     ocr_box: JobCapability;
     translate_page: JobCapability;
     translate_box: JobCapability;
-    agent_translate_page: JobCapability;
+    page_translation: JobCapability;
 }
 
 export const DEFAULT_JOB_CAPABILITIES: JobCapabilities = {
@@ -24,10 +24,10 @@ export const DEFAULT_JOB_CAPABILITIES: JobCapabilities = {
     translate_page: {
         enabled: false,
         reason:
-            "Standalone translation jobs are temporarily disabled during workflow rewrite. Use agent translate page workflow path.",
+            "Standalone translation jobs are temporarily disabled during workflow rewrite. Use the page translation workflow.",
     },
     translate_box: { enabled: true },
-    agent_translate_page: { enabled: true },
+    page_translation: { enabled: true },
 };
 
 export type JobStatus = "queued" | "running" | "finished" | "failed" | "canceled";

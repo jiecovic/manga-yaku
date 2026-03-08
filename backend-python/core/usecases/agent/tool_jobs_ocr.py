@@ -30,11 +30,11 @@ from infra.jobs.operations import OCR_BOX_OPERATION, enqueue_persisted_operation
 
 def list_ocr_profiles_tool() -> dict[str, Any]:
     """Return agent-eligible OCR profiles and defaults."""
-    from core.usecases.ocr.profile_settings import agent_enabled_ocr_profiles
+    from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
     from core.usecases.ocr.profiles import get_ocr_profile, list_ocr_profiles_for_api
 
     profiles_raw = list_ocr_profiles_for_api()
-    agent_enabled = set(agent_enabled_ocr_profiles())
+    page_translation_enabled = set(page_translation_enabled_ocr_profiles())
 
     profiles: list[dict[str, Any]] = []
     for item in profiles_raw:
@@ -55,14 +55,14 @@ def list_ocr_profiles_tool() -> dict[str, Any]:
                 "hint": hint,
                 "kind": str(item.get("kind") or ""),
                 "enabled": bool(item.get("enabled", False)),
-                "agent_enabled": profile_id in agent_enabled,
+                "page_translation_enabled": profile_id in page_translation_enabled,
                 "model_id": str(item.get("model_id") or "").strip() or None,
             }
         )
 
     default_profile_id = None
     for profile in profiles:
-        if bool(profile.get("agent_enabled")):
+        if bool(profile.get("page_translation_enabled")):
             default_profile_id = str(profile["id"])
             break
     if not default_profile_id and profiles:
@@ -85,7 +85,7 @@ def ocr_text_box_tool(
     force_rerun: bool = False,
 ) -> dict[str, Any]:
     """Run OCR for a single box through the persisted workflow layer."""
-    from core.usecases.ocr.profile_settings import agent_enabled_ocr_profiles
+    from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
 
     if not volume_id:
         return {"error": "No active volume selected"}
@@ -130,7 +130,7 @@ def ocr_text_box_tool(
 
     selected_profile_id = coerce_filename(profile_id)
     if not selected_profile_id:
-        enabled_profiles = agent_enabled_ocr_profiles()
+        enabled_profiles = page_translation_enabled_ocr_profiles()
         selected_profile_id = enabled_profiles[0] if enabled_profiles else "manga_ocr_default"
 
     idempotency_payload = {

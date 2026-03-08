@@ -1,7 +1,7 @@
-// src/components/settings/sections/TranslationAgentCard.tsx
+// src/components/settings/sections/PageTranslationCard.tsx
 import { Field, Select } from "../../../ui/primitives";
 import { ui } from "../../../ui/tokens";
-import type { AgentDraft } from "../types";
+import type { PageTranslationDraft } from "../types";
 
 type DetectionOption = {
     id: string;
@@ -10,51 +10,51 @@ type DetectionOption = {
 };
 
 type Props = {
-    agentDraft: AgentDraft | null;
-    agentModelOptions: string[];
-    agentReasoningOptions: string[];
-    onUpdateAgentDraft: (key: keyof AgentDraft, value: string) => void;
-    agentDetectionProfileId: string;
+    pageTranslationDraft: PageTranslationDraft | null;
+    pageTranslationModelOptions: string[];
+    pageTranslationReasoningOptions: string[];
+    onUpdatePageTranslationDraft: (key: keyof PageTranslationDraft, value: string) => void;
+    pageTranslationDetectionProfileId: string;
     includePriorContextSummary: boolean;
     includePriorCharacters: boolean;
     includePriorOpenThreads: boolean;
     includePriorGlossary: boolean;
     onUpdateDraft: (key: string, value: unknown) => void;
-    agentDetectionLoading: boolean;
-    agentDetectionOptions: DetectionOption[];
-    hasAgentDetectionOptions: boolean;
+    pageTranslationDetectionLoading: boolean;
+    pageTranslationDetectionOptions: DetectionOption[];
+    hasPageTranslationDetectionOptions: boolean;
 };
 
-export function TranslationAgentCard({
-    agentDraft,
-    agentModelOptions,
-    agentReasoningOptions,
-    onUpdateAgentDraft,
-    agentDetectionProfileId,
+export function PageTranslationCard({
+    pageTranslationDraft,
+    pageTranslationModelOptions,
+    pageTranslationReasoningOptions,
+    onUpdatePageTranslationDraft,
+    pageTranslationDetectionProfileId,
     includePriorContextSummary,
     includePriorCharacters,
     includePriorOpenThreads,
     includePriorGlossary,
     onUpdateDraft,
-    agentDetectionLoading,
-    agentDetectionOptions,
-    hasAgentDetectionOptions,
+    pageTranslationDetectionLoading,
+    pageTranslationDetectionOptions,
+    hasPageTranslationDetectionOptions,
 }: Props) {
     return (
         <div className={ui.trainingCard}>
-            <div className={ui.trainingSubTitle}>Page Translate Workflow</div>
+            <div className={ui.trainingSubTitle}>Page Translation Workflow</div>
             <div className="mt-3 space-y-3">
                 <div className={ui.trainingHelp}>
-                    These settings affect the queued `agent_translate_page`
+                    These settings affect the queued `page_translation`
                     workflow, not the interactive chat agent.
                 </div>
 
                 <Field label="Model" layout="row" labelClassName={ui.label}>
                     <Select
-                        value={agentDraft?.model_id ?? ""}
-                        onChange={(e) => onUpdateAgentDraft("model_id", e.target.value)}
+                        value={pageTranslationDraft?.model_id ?? ""}
+                        onChange={(e) => onUpdatePageTranslationDraft("model_id", e.target.value)}
                     >
-                        {agentModelOptions.map((model) => (
+                        {pageTranslationModelOptions.map((model) => (
                             <option key={model} value={model}>
                                 {model}
                             </option>
@@ -62,23 +62,23 @@ export function TranslationAgentCard({
                     </Select>
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Model used by the Agent Translate page workflow. Manual
+                    Model used by the page translation workflow. Manual
                     single-box translate uses the sidebar Translation profile.
                 </div>
 
                 <Field label="Detection" layout="row" labelClassName={ui.label}>
                     <Select
-                        value={agentDetectionProfileId}
+                        value={pageTranslationDetectionProfileId}
                         onChange={(e) =>
                             onUpdateDraft(
-                                "agent.translate.detection_profile_id",
+                                "page_translation.detection_profile_id",
                                 e.target.value,
                             )
                         }
-                        disabled={agentDetectionLoading}
+                        disabled={pageTranslationDetectionLoading}
                     >
                         <option value="">Use sidebar selection</option>
-                        {agentDetectionOptions.map((profile) => (
+                        {pageTranslationDetectionOptions.map((profile) => (
                             <option key={profile.id} value={profile.id}>
                                 {profile.label}
                             </option>
@@ -86,24 +86,24 @@ export function TranslationAgentCard({
                     </Select>
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Optional override for Agent Translate detection. Leave empty to
+                    Optional override for page translation detection. Leave empty to
                     use the sidebar selection.
                 </div>
-                {!agentDetectionLoading && !hasAgentDetectionOptions && (
+                {!pageTranslationDetectionLoading && !hasPageTranslationDetectionOptions && (
                     <div className={ui.trainingHelp}>
                         No text detection models available. Train a model to enable
-                        agent detection.
+                        page translation detection.
                     </div>
                 )}
 
                 <Field label="Reasoning" layout="row" labelClassName={ui.label}>
                     <Select
-                        value={agentDraft?.reasoning_effort ?? "low"}
+                        value={pageTranslationDraft?.reasoning_effort ?? "low"}
                         onChange={(e) =>
-                            onUpdateAgentDraft("reasoning_effort", e.target.value)
+                            onUpdatePageTranslationDraft("reasoning_effort", e.target.value)
                         }
                     >
-                        {agentReasoningOptions.map((option) => (
+                        {pageTranslationReasoningOptions.map((option) => (
                             <option key={option} value={option}>
                                 {option}
                             </option>
@@ -111,14 +111,10 @@ export function TranslationAgentCard({
                     </Select>
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Reasoning level for Agent Translate runs (GPT-5 models only).
+                    Reasoning level for page translation runs (GPT-5 models only).
                 </div>
 
-                <Field
-                    label="Agent memory"
-                    layout="row"
-                    labelClassName={ui.label}
-                >
+                <Field label="Volume memory" layout="row" labelClassName={ui.label}>
                     <div className="flex flex-col gap-1 text-xs text-slate-300">
                         <div className="text-slate-300">page image is always included</div>
                         <label className="inline-flex items-center gap-2">
@@ -127,7 +123,7 @@ export function TranslationAgentCard({
                                 checked={includePriorContextSummary}
                                 onChange={(e) =>
                                     onUpdateDraft(
-                                        "agent.translate.include_prior_context_summary",
+                                        "page_translation.include_prior_context_summary",
                                         e.target.checked,
                                     )
                                 }
@@ -140,7 +136,7 @@ export function TranslationAgentCard({
                                 checked={includePriorCharacters}
                                 onChange={(e) =>
                                     onUpdateDraft(
-                                        "agent.translate.include_prior_characters",
+                                        "page_translation.include_prior_characters",
                                         e.target.checked,
                                     )
                                 }
@@ -153,7 +149,7 @@ export function TranslationAgentCard({
                                 checked={includePriorOpenThreads}
                                 onChange={(e) =>
                                     onUpdateDraft(
-                                        "agent.translate.include_prior_open_threads",
+                                        "page_translation.include_prior_open_threads",
                                         e.target.checked,
                                     )
                                 }
@@ -166,7 +162,7 @@ export function TranslationAgentCard({
                                 checked={includePriorGlossary}
                                 onChange={(e) =>
                                     onUpdateDraft(
-                                        "agent.translate.include_prior_glossary",
+                                        "page_translation.include_prior_glossary",
                                         e.target.checked,
                                     )
                                 }
@@ -177,7 +173,7 @@ export function TranslationAgentCard({
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
                     Controls which saved volume memory blocks are injected into the
-                    Agent Translate page prompt.
+                    page translation prompt.
                 </div>
 
                 <Field label="Max output" layout="row" labelClassName={ui.label}>
@@ -185,14 +181,14 @@ export function TranslationAgentCard({
                         className={ui.trainingInput}
                         type="number"
                         min={128}
-                        value={agentDraft?.max_output_tokens ?? ""}
+                        value={pageTranslationDraft?.max_output_tokens ?? ""}
                         onChange={(e) =>
-                            onUpdateAgentDraft("max_output_tokens", e.target.value)
+                            onUpdatePageTranslationDraft("max_output_tokens", e.target.value)
                         }
                     />
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Output token cap for Agent Translate model responses.
+                    Output token cap for page translation model responses.
                 </div>
 
                 <Field label="Temperature" layout="row" labelClassName={ui.label}>
@@ -202,14 +198,14 @@ export function TranslationAgentCard({
                         step="0.1"
                         min={0}
                         max={2}
-                        value={agentDraft?.temperature ?? ""}
+                        value={pageTranslationDraft?.temperature ?? ""}
                         onChange={(e) =>
-                            onUpdateAgentDraft("temperature", e.target.value)
+                            onUpdatePageTranslationDraft("temperature", e.target.value)
                         }
                     />
                 </Field>
                 <div className={`${ui.trainingHelp} ml-28`}>
-                    Sampling randomness for Agent Translate when the model supports
+                    Sampling randomness for page translation when the model supports
                     temperature.
                 </div>
                 <div className={`${ui.trainingHelp} ml-28`}>

@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/tool_jobs_translate_page.py
+# backend-python/core/usecases/agent/tool_jobs_page_translation.py
 """Page-translate job-backed helpers for agent tools."""
 
 from __future__ import annotations

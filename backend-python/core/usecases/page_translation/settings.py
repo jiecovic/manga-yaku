@@ -9,8 +9,8 @@ from config import (
     AGENT_MODEL,
     AGENT_MODELS,
     AGENT_TEMPERATURE,
-    AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
-    AGENT_TRANSLATE_REASONING_EFFORT,
+    PAGE_TRANSLATION_MAX_OUTPUT_TOKENS,
+    PAGE_TRANSLATION_REASONING_EFFORT,
 )
 from infra.db.page_translation_settings_store import (
     get_page_translation_settings,
@@ -23,8 +23,8 @@ REASONING_CHOICES = ("low", "medium", "high")
 def page_translation_defaults() -> dict[str, Any]:
     return {
         "model_id": AGENT_MODEL,
-        "max_output_tokens": AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
-        "reasoning_effort": AGENT_TRANSLATE_REASONING_EFFORT,
+        "max_output_tokens": PAGE_TRANSLATION_MAX_OUTPUT_TOKENS,
+        "reasoning_effort": PAGE_TRANSLATION_REASONING_EFFORT,
         "temperature": AGENT_TEMPERATURE,
     }
 

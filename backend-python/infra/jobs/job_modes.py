@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Final
 
 # Workflow/job type ids.
-PAGE_TRANSLATION_WORKFLOW_TYPE: Final[str] = "agent_translate_page"
+PAGE_TRANSLATION_WORKFLOW_TYPE: Final[str] = "page_translation"
 OCR_PAGE_WORKFLOW_TYPE: Final[str] = "ocr_page"
 OCR_BOX_WORKFLOW_TYPE: Final[str] = "ocr_box"
 TRANSLATE_BOX_WORKFLOW_TYPE: Final[str] = "translate_box"

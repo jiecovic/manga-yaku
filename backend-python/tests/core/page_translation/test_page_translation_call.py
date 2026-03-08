@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_page_translate_call.py
+# backend-python/tests/core/page_translation/test_page_translation_call.py
 """Unit tests for page-translate structured call retry behavior.
 
 What is tested:
@@ -60,8 +60,8 @@ def test_retry_max_output_tokens_is_capped() -> None:
             input_payload=[{"role": "user", "content": [{"type": "input_text", "text": "x"}]}],
             text_format={"type": "json_schema", "name": "n", "schema": {"type": "object"}},
             parser=lambda data: data,
-            component="agent.translate_page.translate",
-            repair_component="agent.translate_page.translate.repair",
+            component="page_translation.translate",
+            repair_component="page_translation.translate.repair",
             log_context={"job_id": "test"},
         )
 

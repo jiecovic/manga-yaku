@@ -58,7 +58,7 @@ class OcrProfileSettingsItem(BaseModel):
     description: str | None = None
     kind: str
     enabled: bool
-    agent_enabled: bool
+    page_translation_enabled: bool
     model_id: str | None = None
     max_output_tokens: int | None = None
     reasoning_effort: str | None = None
@@ -76,7 +76,7 @@ class UpdateOcrProfileSettingsItem(BaseModel):
     """Per-profile OCR override patch entry."""
 
     profile_id: str
-    agent_enabled: bool | None = None
+    page_translation_enabled: bool | None = None
     model_id: str | None = None
     max_output_tokens: int | None = None
     reasoning_effort: str | None = None

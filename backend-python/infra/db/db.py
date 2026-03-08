@@ -321,7 +321,7 @@ class OcrProfileSetting(Base):
     __tablename__ = "ocr_profile_settings"
 
     profile_id = Column(String, primary_key=True)
-    agent_enabled = Column(Boolean, nullable=False, default=True)
+    page_translation_enabled = Column(Boolean, nullable=False, default=True)
     model_id = Column(String, nullable=True)
     max_output_tokens = Column(Integer, nullable=True)
     reasoning_effort = Column(String, nullable=True)
@@ -371,8 +371,8 @@ class TranslationProfileSetting(Base):
     )
 
 
-class AgentTranslateSetting(Base):
-    __tablename__ = "agent_translate_settings"
+class PageTranslationSetting(Base):
+    __tablename__ = "page_translation_settings"
 
     id = Column(Integer, primary_key=True, default=1)
     model_id = Column(String, nullable=False)
@@ -384,17 +384,17 @@ class AgentTranslateSetting(Base):
     __table_args__ = (
         CheckConstraint(
             "reasoning_effort IN ('low', 'medium', 'high') OR reasoning_effort IS NULL",
-            name="ck_agent_translate_settings_reasoning_effort",
+            name="ck_page_translation_settings_reasoning_effort",
         ),
         CheckConstraint(
             "max_output_tokens IS NULL OR max_output_tokens >= 1",
-            name="ck_agent_translate_settings_max_output",
+            name="ck_page_translation_settings_max_output",
         ),
         CheckConstraint(
             "temperature IS NULL OR (temperature >= 0 AND temperature <= 2)",
-            name="ck_agent_translate_settings_temperature",
+            name="ck_page_translation_settings_temperature",
         ),
-        CheckConstraint("id = 1", name="ck_agent_translate_settings_singleton"),
+        CheckConstraint("id = 1", name="ck_page_translation_settings_singleton"),
     )
 
 
@@ -555,10 +555,128 @@ SessionLocal = sessionmaker(
 )
 
 
+def _rename_page_translation_settings_table() -> None:
+    with engine.begin() as conn:
+        old_name = conn.execute(
+            text("SELECT to_regclass('public.agent_translate_settings')")
+        ).scalar_one_or_none()
+        new_name = conn.execute(
+            text("SELECT to_regclass('public.page_translation_settings')")
+        ).scalar_one_or_none()
+        if not old_name or new_name:
+            return
+
+        conn.execute(
+            text("ALTER TABLE agent_translate_settings RENAME TO page_translation_settings")
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE page_translation_settings "
+                "RENAME CONSTRAINT ck_agent_translate_settings_reasoning_effort "
+                "TO ck_page_translation_settings_reasoning_effort"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE page_translation_settings "
+                "RENAME CONSTRAINT ck_agent_translate_settings_max_output "
+                "TO ck_page_translation_settings_max_output"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE page_translation_settings "
+                "RENAME CONSTRAINT ck_agent_translate_settings_temperature "
+                "TO ck_page_translation_settings_temperature"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE page_translation_settings "
+                "RENAME CONSTRAINT ck_agent_translate_settings_singleton "
+                "TO ck_page_translation_settings_singleton"
+            )
+        )
+
+
+def _rename_ocr_profile_page_translation_flag() -> None:
+    with engine.begin() as conn:
+        old_column = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' "
+                "AND table_name = 'ocr_profile_settings' "
+                "AND column_name = 'agent_enabled'"
+            )
+        ).scalar_one_or_none()
+        new_column = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' "
+                "AND table_name = 'ocr_profile_settings' "
+                "AND column_name = 'page_translation_enabled'"
+            )
+        ).scalar_one_or_none()
+        if not old_column or new_column:
+            return
+
+        conn.execute(
+            text(
+                "ALTER TABLE ocr_profile_settings "
+                "RENAME COLUMN agent_enabled TO page_translation_enabled"
+            )
+        )
+
+
+def _normalize_page_translation_identifiers() -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE workflow_runs "
+                "SET workflow_type = 'page_translation' "
+                "WHERE workflow_type = 'agent_translate_page'"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE task_runs "
+                "SET stage = 'page_translation' "
+                "WHERE stage = 'agent_translate_page'"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE idempotency_keys "
+                "SET job_type = 'page_translation' "
+                "WHERE job_type = 'agent_translate_page'"
+            )
+        )
+        conn.execute(
+            text(
+                "DELETE FROM app_settings old "
+                "USING app_settings new "
+                "WHERE old.scope = new.scope "
+                "AND old.key LIKE 'agent.translate.%' "
+                "AND new.key = regexp_replace("
+                "old.key, '^agent\\\\.translate\\\\.', 'page_translation.')"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE app_settings "
+                "SET key = regexp_replace(key, '^agent\\\\.translate\\\\.', 'page_translation.') "
+                "WHERE key LIKE 'agent.translate.%'"
+            )
+        )
+
+
 def init_db() -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    _rename_page_translation_settings_table()
+    _rename_ocr_profile_page_translation_flag()
     Base.metadata.create_all(bind=engine)
+    _normalize_page_translation_identifiers()
 
 
 def check_db() -> tuple[bool, str | None]:

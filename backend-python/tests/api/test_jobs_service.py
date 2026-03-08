@@ -116,7 +116,7 @@ def test_get_resume_page_translation_payload_strips_workflow_fields(store: JobSt
     store.add_job(
         Job(
             id="job-3",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.failed,
             created_at=now,
             updated_at=now,
@@ -146,7 +146,7 @@ def test_get_resume_page_translation_payload_rejects_active_persisted_workflow(
             "api.services.jobs_service.get_workflow_run",
             return_value={
                 "id": "wf-active-1",
-                "workflow_type": "agent_translate_page",
+                "workflow_type": "page_translation",
                 "status": status,
                 "result_json": {"request": {"volumeId": "vol", "filename": "010.jpg"}},
             },
@@ -164,7 +164,7 @@ def test_cancel_job_marks_memory_job_canceled(store: JobStore) -> None:
     store.add_job(
         Job(
             id="job-4",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.running,
             created_at=now,
             updated_at=now,
@@ -186,7 +186,7 @@ def test_cancel_memory_hybrid_job_propagates_to_persisted_workflow(store: JobSto
     store.add_job(
         Job(
             id="job-4a",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.running,
             created_at=now,
             updated_at=now,
@@ -221,7 +221,7 @@ def test_cancel_job_by_workflow_id_marks_linked_memory_agent_job_canceled(store:
     store.add_job(
         Job(
             id="job-4b",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.running,
             created_at=now,
             updated_at=now,
@@ -238,7 +238,7 @@ def test_cancel_job_by_workflow_id_marks_linked_memory_agent_job_canceled(store:
             "api.services.jobs_service.get_workflow_run",
             return_value={
                 "id": "wf-4b",
-                "workflow_type": "agent_translate_page",
+                "workflow_type": "page_translation",
                 "status": "running",
             },
         ),
@@ -264,7 +264,7 @@ def test_delete_job_rejects_running_memory_job(store: JobStore) -> None:
     store.add_job(
         Job(
             id="job-5",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.running,
             created_at=now,
             updated_at=now,
@@ -282,7 +282,7 @@ def test_delete_job_removes_associated_persisted_workflow_for_memory_job(store: 
     store.add_job(
         Job(
             id="job-6",
-            type="agent_translate_page",
+            type="page_translation",
             status=JobStatus.canceled,
             created_at=now,
             updated_at=now,

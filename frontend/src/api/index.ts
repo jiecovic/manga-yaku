@@ -1,7 +1,7 @@
 // src/api/index.ts
 export * from "./boxes";
 export * from "./agent";
-export * from "./agentSettings";
+export * from "./pageTranslationSettings";
 export * from "./jobs";
 export * from "./library";
 export * from "./logs";

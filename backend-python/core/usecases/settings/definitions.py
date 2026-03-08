@@ -39,7 +39,7 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         min_value=0.0,
         max_value=1.0,
     ),
-    "agent.translate.detection_profile_id": SettingSpec(
+    "page_translation.detection_profile_id": SettingSpec(
         default="",
         value_type=str,
     ),
@@ -47,29 +47,29 @@ SETTING_SPECS: dict[str, SettingSpec] = {
         default=True,
         value_type=bool,
     ),
-    "agent.translate.include_prior_context_summary": SettingSpec(
+    "page_translation.include_prior_context_summary": SettingSpec(
         default=True,
         value_type=bool,
     ),
-    "agent.translate.include_prior_characters": SettingSpec(
+    "page_translation.include_prior_characters": SettingSpec(
         default=True,
         value_type=bool,
     ),
-    "agent.translate.include_prior_open_threads": SettingSpec(
+    "page_translation.include_prior_open_threads": SettingSpec(
         default=True,
         value_type=bool,
     ),
-    "agent.translate.include_prior_glossary": SettingSpec(
+    "page_translation.include_prior_glossary": SettingSpec(
         default=True,
         value_type=bool,
     ),
-    "agent.translate.merge.max_output_tokens": SettingSpec(
+    "page_translation.merge.max_output_tokens": SettingSpec(
         default=768,
         value_type=int,
         min_value=128,
         max_value=4096,
     ),
-    "agent.translate.merge.reasoning_effort": SettingSpec(
+    "page_translation.merge.reasoning_effort": SettingSpec(
         default="low",
         value_type=str,
         choices=("low", "medium", "high"),

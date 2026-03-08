@@ -13,7 +13,7 @@ const WORKFLOW_JOB_TYPES = new Set([
     "ocr_box",
     "ocr_page",
     "translate_box",
-    "agent_translate_page",
+    "page_translation",
     "box_detection",
     "prepare_dataset",
     "train_model",

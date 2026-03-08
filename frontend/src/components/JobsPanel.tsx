@@ -135,7 +135,7 @@ export function JobsPanel() {
                                     ? Math.max(0, Math.trunc(resultDurationMs))
                                     : computeJobDurationMs(job, nowMs);
                             const stageDurations =
-                                job.type === "agent_translate_page"
+                                job.type === "page_translation"
                                     ? parseStageDurationsMs(job)
                                     : {};
                             const orderedStageIds = ["detect", "ocr", "translate", "commit"];

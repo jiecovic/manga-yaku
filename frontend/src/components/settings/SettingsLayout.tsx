@@ -4,10 +4,10 @@ import { ui } from "../../ui/tokens";
 import { JobsPanel } from "../JobsPanel";
 import { ChatAgentCard } from "./sections/ChatAgentCard";
 import { DetectionDefaultsCard } from "./sections/DetectionDefaultsCard";
-import { AgentMergeCard } from "./sections/AgentMergeCard";
+import { PageTranslationMergeCard } from "./sections/PageTranslationMergeCard";
 import { OcrParallelismCard } from "./sections/OcrParallelismCard";
 import { OcrProfilesCard } from "./sections/OcrProfilesCard";
-import { TranslationAgentCard } from "./sections/TranslationAgentCard";
+import { PageTranslationCard } from "./sections/PageTranslationCard";
 import { TranslationProfilesCard } from "./sections/TranslationProfilesCard";
 import { SettingsTabs } from "./SettingsTabs";
 import { useSettingsLayoutState } from "./useSettingsLayoutState";
@@ -21,7 +21,7 @@ export function SettingsLayout() {
         autoSaveEnabled,
         setAutoSaveEnabled,
         baseAutoSaving,
-        agentAutoSaving,
+        pageTranslationAutoSaving,
         ocrAutoSaving,
         translationAutoSaving,
         saving,
@@ -34,11 +34,11 @@ export function SettingsLayout() {
         iouThreshold,
         containmentThreshold,
         updateDraft,
-        agentDraft,
-        agentModelOptions,
-        agentReasoningOptions,
-        updateAgentDraft,
-        agentDetectionProfileId,
+        pageTranslationDraft,
+        pageTranslationModelOptions,
+        pageTranslationReasoningOptions,
+        updatePageTranslationDraft,
+        pageTranslationDetectionProfileId,
         translateSingleBoxUseContext,
         includePriorContextSummary,
         includePriorCharacters,
@@ -48,9 +48,9 @@ export function SettingsLayout() {
         agentChatMaxOutputTokens,
         mergeMaxOutputTokens,
         mergeReasoningEffort,
-        agentDetectionLoading,
-        agentDetectionOptions,
-        hasAgentDetectionOptions,
+        pageTranslationDetectionLoading,
+        pageTranslationDetectionOptions,
+        hasPageTranslationDetectionOptions,
         translationDraft,
         translationModelOptions,
         translationReasoningOptions,
@@ -128,9 +128,9 @@ export function SettingsLayout() {
                             Saving base settings…
                         </div>
                     )}
-                    {agentAutoSaving && (
+                    {pageTranslationAutoSaving && (
                         <div className={ui.trainingMetaSmall}>
-                            Saving translation agent settings…
+                            Saving page translation settings…
                         </div>
                     )}
                     {ocrAutoSaving && (
@@ -148,32 +148,32 @@ export function SettingsLayout() {
                     />
 
                     <div className="space-y-4">
-                        {activeTab === "agent" && (
+                        {activeTab === "llm" && (
                             <>
                                 <ChatAgentCard
                                     agentChatMaxTurns={agentChatMaxTurns}
                                     agentChatMaxOutputTokens={agentChatMaxOutputTokens}
                                     onUpdateDraft={updateDraft}
                                 />
-                                <TranslationAgentCard
-                                    agentDraft={agentDraft}
-                                    agentModelOptions={agentModelOptions}
-                                    agentReasoningOptions={agentReasoningOptions}
-                                    onUpdateAgentDraft={updateAgentDraft}
-                                    agentDetectionProfileId={agentDetectionProfileId}
+                                <PageTranslationCard
+                                    pageTranslationDraft={pageTranslationDraft}
+                                    pageTranslationModelOptions={pageTranslationModelOptions}
+                                    pageTranslationReasoningOptions={pageTranslationReasoningOptions}
+                                    onUpdatePageTranslationDraft={updatePageTranslationDraft}
+                                    pageTranslationDetectionProfileId={pageTranslationDetectionProfileId}
                                     includePriorContextSummary={includePriorContextSummary}
                                     includePriorCharacters={includePriorCharacters}
                                     includePriorOpenThreads={includePriorOpenThreads}
                                     includePriorGlossary={includePriorGlossary}
                                     onUpdateDraft={updateDraft}
-                                    agentDetectionLoading={agentDetectionLoading}
-                                    agentDetectionOptions={agentDetectionOptions}
-                                    hasAgentDetectionOptions={hasAgentDetectionOptions}
+                                    pageTranslationDetectionLoading={pageTranslationDetectionLoading}
+                                    pageTranslationDetectionOptions={pageTranslationDetectionOptions}
+                                    hasPageTranslationDetectionOptions={hasPageTranslationDetectionOptions}
                                 />
-                                <AgentMergeCard
+                                <PageTranslationMergeCard
                                     mergeMaxOutputTokens={mergeMaxOutputTokens}
                                     mergeReasoningEffort={mergeReasoningEffort}
-                                    reasoningOptions={agentReasoningOptions}
+                                    reasoningOptions={pageTranslationReasoningOptions}
                                     onUpdateDraft={updateDraft}
                                 />
                             </>

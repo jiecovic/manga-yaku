@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_state_machine.py
+# backend-python/tests/core/page_translation/test_page_translation_state_machine.py
 """Unit tests for the page-translation workflow state machine contract.
 
 What is tested:

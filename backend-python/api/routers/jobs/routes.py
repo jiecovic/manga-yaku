@@ -6,11 +6,11 @@ from __future__ import annotations
 import asyncio
 
 from api.schemas.jobs import (
-    CreateAgentTranslatePageJobRequest,
     CreateBoxDetectionJobRequest,
     CreateJobResponse,
     CreateOcrBoxJobRequest,
     CreateOcrPageJobRequest,
+    CreatePageTranslationJobRequest,
     CreatePrepareDatasetJobRequest,
     CreateTrainModelJobRequest,
     CreateTranslateBoxJobRequest,
@@ -69,7 +69,7 @@ _JOB_CAPABILITIES = JobsCapabilitiesResponse(
         reason=_TRANSLATE_PAGE_DISABLED_REASON,
     ),
     translate_box=JobCapability(enabled=True),
-    agent_translate_page=JobCapability(enabled=True),
+    page_translation=JobCapability(enabled=True),
 )
 
 
@@ -116,9 +116,9 @@ async def create_translate_page_job(
     )
 
 
-@router.post("/jobs/agent_translate_page", response_model=CreateJobResponse)
-async def create_agent_translate_page_job(
-    req: CreateAgentTranslatePageJobRequest,
+@router.post("/jobs/page_translation", response_model=CreateJobResponse)
+async def create_page_translation_job(
+    req: CreatePageTranslationJobRequest,
     request: Request,
 ) -> CreateJobResponse:
     """Create the persisted page-translation workflow job."""
@@ -276,7 +276,7 @@ async def get_job_tasks(job_id: str) -> dict:
 async def resume_job(job_id: str) -> CreateJobResponse:
     """Resume job."""
     payload = get_resume_page_translation_payload(job_id=job_id, store=STORE)
-    req = CreateAgentTranslatePageJobRequest(**payload)
+    req = CreatePageTranslationJobRequest(**payload)
     decision = create_page_translation_job_record(
         req=req,
     )

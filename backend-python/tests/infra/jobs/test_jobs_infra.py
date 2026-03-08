@@ -106,7 +106,7 @@ async def test_canceled_agent_job_ignores_late_progress() -> None:
     now = store.now()
     job = Job(
         id="agent-job",
-        type="agent_translate_page",
+        type="page_translation",
         status=JobStatus.running,
         created_at=now,
         updated_at=now,

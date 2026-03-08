@@ -12,7 +12,7 @@ from config import DEBUG_PROMPTS, TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGE
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
 from infra.logging.artifacts import (
-    agent_debug_dir,
+    page_translation_debug_dir,
     timestamped_artifact_name,
     write_json_artifact,
 )
@@ -160,8 +160,8 @@ def _write_debug_snapshot(
         return
     try:
         write_json_artifact(
-            directory=agent_debug_dir("translate_page"),
-            filename=timestamped_artifact_name(prefix=debug_id or "agent"),
+            directory=page_translation_debug_dir(),
+            filename=timestamped_artifact_name(prefix=debug_id or "page_translation"),
             payload=with_correlation(payload, payload.get("correlation")),
         )
     except Exception as exc:
@@ -271,8 +271,8 @@ def run_page_translation_stage(
             input_payload=translate_stage_input_payload,
             text_format=build_translate_stage_text_format(),
             parser=normalize_translate_stage_result,
-            component="agent.translate_page.translate",
-            repair_component="agent.translate_page.translate.repair",
+            component="page_translation.translate",
+            repair_component="page_translation.translate.repair",
             log_context=stage1_log_context,
             stop_event=stop_event,
         )
@@ -380,8 +380,8 @@ def run_page_translation_stage(
             input_payload=merge_stage_input_payload,
             text_format=build_state_merge_text_format(),
             parser=normalize_state_merge_result,
-            component="agent.translate_page.merge",
-            repair_component="agent.translate_page.merge.repair",
+            component="page_translation.merge",
+            repair_component="page_translation.merge.repair",
             log_context=stage2_log_context,
             stop_event=stop_event,
         )
@@ -404,7 +404,7 @@ def run_page_translation_stage(
             append_correlation(
                 f"State merge call failed, using fallback context: {stage2_error}",
                 {
-                    "component": "agent.translate_page.merge",
+                    "component": "page_translation.merge",
                     "job_id": debug_id,
                     "volume_id": volume_id,
                     "filename": filename,
@@ -460,7 +460,7 @@ def run_page_translation_stage(
         "volume_id": volume_id,
         "filename": filename,
         "correlation": {
-            "component": "agent.translate_page",
+            "component": "page_translation",
             "job_id": debug_id,
             "volume_id": volume_id,
             "filename": filename,

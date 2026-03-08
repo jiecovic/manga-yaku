@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_workflow_helpers.py
+# backend-python/tests/core/page_translation/test_page_translation_workflow_helpers.py
 """Unit tests for workflow helper mapping and normalization functions.
 
 What is tested:
@@ -35,7 +35,7 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 
     with (
         patch(
-            "core.workflows.page_translation.helpers.agent_enabled_ocr_profiles",
+            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
@@ -51,7 +51,7 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 def test_resolve_ocr_profiles_uses_fallback_default() -> None:
     with (
         patch(
-            "core.workflows.page_translation.helpers.agent_enabled_ocr_profiles",
+            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
@@ -67,7 +67,7 @@ def test_resolve_ocr_profiles_uses_fallback_default() -> None:
 def test_resolve_ocr_profiles_raises_when_none_enabled() -> None:
     with (
         patch(
-            "core.workflows.page_translation.helpers.agent_enabled_ocr_profiles",
+            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(

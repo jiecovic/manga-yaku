@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_workflow_stages.py
+# backend-python/tests/core/page_translation/test_page_translation_workflow_stages.py
 """Unit tests for extracted page-translation workflow stage modules.
 
 What is tested:

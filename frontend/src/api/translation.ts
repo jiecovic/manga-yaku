@@ -20,7 +20,7 @@ export interface CreateTranslatePageJobRequest {
     skipExisting?: boolean;
 }
 
-export interface CreateAgentTranslatePageJobRequest {
+export interface CreatePageTranslationJobRequest {
     volumeId: string;
     filename: string;
     detectionProfileId?: string | null;
@@ -31,7 +31,7 @@ export interface CreateAgentTranslatePageJobRequest {
     forceRerun?: boolean;
 }
 
-export interface CreateAgentTranslatePageJobOptions {
+export interface CreatePageTranslationJobOptions {
     idempotencyKey?: string;
 }
 
@@ -71,9 +71,9 @@ export async function createTranslatePageJob(
     return res.json() as Promise<CreateJobResponse>;
 }
 
-export async function createAgentTranslatePageJob(
-    payload: CreateAgentTranslatePageJobRequest,
-    options: CreateAgentTranslatePageJobOptions = {},
+export async function createPageTranslationJob(
+    payload: CreatePageTranslationJobRequest,
+    options: CreatePageTranslationJobOptions = {},
 ): Promise<CreateJobResponse> {
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -84,7 +84,7 @@ export async function createAgentTranslatePageJob(
         headers["Idempotency-Key"] = idempotencyKey;
     }
 
-    const res = await apiFetch(`${API_BASE}/api/jobs/agent_translate_page`, {
+    const res = await apiFetch(`${API_BASE}/api/jobs/page_translation`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),

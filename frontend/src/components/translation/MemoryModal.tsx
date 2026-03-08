@@ -46,7 +46,7 @@ const emptyPageMemory: PageMemory = {
     glossary: [],
 };
 
-interface AgentTranslateJobPayload {
+interface PageTranslationJobPayload {
     volumeId?: string;
     filename?: string;
 }
@@ -286,13 +286,13 @@ export function MemoryModal({
         }
         let latest = 0;
         jobs.forEach((job) => {
-            if (job.type !== "agent_translate_page") {
+            if (job.type !== "page_translation") {
                 return;
             }
             if (job.status !== "finished") {
                 return;
             }
-            const payload = (job.payload ?? {}) as AgentTranslateJobPayload;
+            const payload = (job.payload ?? {}) as PageTranslationJobPayload;
             if (payload.volumeId !== volumeId) {
                 return;
             }

@@ -1,14 +1,15 @@
+// src/components/settings/useSettingsLayoutState.ts
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchBoxDetectionProfiles, restartBackend } from "../../api";
-import { useAgentSettings } from "../../context/AgentSettingsContext";
+import { useWorkflowSettings } from "../../context/WorkflowSettingsContext";
 import { useSettings } from "../../context/SettingsContext";
 import type { BoxDetectionProfile } from "../../types";
 import { normalizeBoxType } from "../../utils/boxes";
 import type { SettingsTab } from "./SettingsTabs";
 import { draftBoolean, draftString } from "./draftUtils";
 import {
-    type AgentDraft,
+    type PageTranslationDraft,
     type OcrDraftProfile,
     type TranslationDraftProfile,
     toIntWithFallback,
@@ -25,29 +26,29 @@ export function useSettingsLayoutState() {
         refresh,
     } = useSettings();
     const {
-        agent,
+        pageTranslation,
         ocrProfiles,
         translationProfiles,
-        loading: agentLoading,
-        error: agentError,
-        refresh: refreshAgent,
-        saveAgent,
+        loading: pageTranslationLoading,
+        error: pageTranslationError,
+        refresh: refreshWorkflowSettings,
+        savePageTranslation,
         saveOcrProfiles,
         saveTranslationProfiles,
-    } = useAgentSettings();
+    } = useWorkflowSettings();
 
     const [draft, setDraft] = useState<Record<string, unknown>>({});
-    const [agentDraft, setAgentDraft] = useState<AgentDraft | null>(null);
+    const [pageTranslationDraft, setPageTranslationDraft] = useState<PageTranslationDraft | null>(null);
     const [ocrDraft, setOcrDraft] = useState<OcrDraftProfile[]>([]);
     const [translationDraft, setTranslationDraft] = useState<TranslationDraftProfile[]>(
         [],
     );
     const [baseDirty, setBaseDirty] = useState(false);
-    const [agentDirty, setAgentDirty] = useState(false);
+    const [pageTranslationDirty, setPageTranslationDirty] = useState(false);
     const [ocrDirty, setOcrDirty] = useState(false);
     const [translationDirty, setTranslationDirty] = useState(false);
     const [baseAutoSaving, setBaseAutoSaving] = useState(false);
-    const [agentAutoSaving, setAgentAutoSaving] = useState(false);
+    const [pageTranslationAutoSaving, setPageTranslationAutoSaving] = useState(false);
     const [ocrAutoSaving, setOcrAutoSaving] = useState(false);
     const [translationAutoSaving, setTranslationAutoSaving] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -64,11 +65,11 @@ export function useSettingsLayoutState() {
         const normalized = raw.trim().toLowerCase();
         return normalized !== "0" && normalized !== "false";
     });
-    const [agentDetectionProfiles, setAgentDetectionProfiles] = useState<
+    const [pageTranslationDetectionProfiles, setPageTranslationDetectionProfiles] = useState<
         BoxDetectionProfile[]
     >([]);
-    const [agentDetectionLoading, setAgentDetectionLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<SettingsTab>("agent");
+    const [pageTranslationDetectionLoading, setPageTranslationDetectionLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<SettingsTab>("llm");
 
     useEffect(() => {
         if (settings?.values) {
@@ -78,9 +79,9 @@ export function useSettingsLayoutState() {
     }, [settings]);
 
     useEffect(() => {
-        if (agent?.value) {
-            const value = agent.value;
-            setAgentDraft({
+        if (pageTranslation?.value) {
+            const value = pageTranslation.value;
+            setPageTranslationDraft({
                 model_id: value.model_id ?? "",
                 max_output_tokens:
                     value.max_output_tokens === null ||
@@ -93,9 +94,9 @@ export function useSettingsLayoutState() {
                         ? ""
                         : String(value.temperature),
             });
-            setAgentDirty(false);
+            setPageTranslationDirty(false);
         }
-    }, [agent]);
+    }, [pageTranslation]);
 
     useEffect(() => {
         if (ocrProfiles?.profiles) {
@@ -113,15 +114,15 @@ export function useSettingsLayoutState() {
         }
     }, [translationProfiles]);
 
-    const agentModelOptions = useMemo(() => {
-        const models = agent?.options?.models;
+    const pageTranslationModelOptions = useMemo(() => {
+        const models = pageTranslation?.options?.models;
         return Array.isArray(models) ? models.map(String) : [];
-    }, [agent]);
+    }, [pageTranslation]);
 
-    const agentReasoningOptions = useMemo(() => {
-        const raw = agent?.options?.reasoning_effort;
+    const pageTranslationReasoningOptions = useMemo(() => {
+        const raw = pageTranslation?.options?.reasoning_effort;
         return Array.isArray(raw) ? raw.map(String) : ["low", "medium", "high"];
-    }, [agent]);
+    }, [pageTranslation]);
 
     const ocrModelOptions = useMemo(() => {
         const raw = ocrProfiles?.options?.models;
@@ -151,8 +152,8 @@ export function useSettingsLayoutState() {
         () => draftString(draft, "detection.iou_threshold"),
         [draft],
     );
-    const agentDetectionProfileId = useMemo(
-        () => draftString(draft, "agent.translate.detection_profile_id"),
+    const pageTranslationDetectionProfileId = useMemo(
+        () => draftString(draft, "page_translation.detection_profile_id"),
         [draft],
     );
     const containmentThreshold = useMemo(
@@ -167,26 +168,26 @@ export function useSettingsLayoutState() {
         () =>
             draftBoolean(
                 draft,
-                "agent.translate.include_prior_context_summary",
+                "page_translation.include_prior_context_summary",
                 true,
             ),
         [draft],
     );
     const includePriorCharacters = useMemo(
-        () => draftBoolean(draft, "agent.translate.include_prior_characters", true),
+        () => draftBoolean(draft, "page_translation.include_prior_characters", true),
         [draft],
     );
     const includePriorOpenThreads = useMemo(
         () =>
-            draftBoolean(draft, "agent.translate.include_prior_open_threads", true),
+            draftBoolean(draft, "page_translation.include_prior_open_threads", true),
         [draft],
     );
     const includePriorGlossary = useMemo(
-        () => draftBoolean(draft, "agent.translate.include_prior_glossary", true),
+        () => draftBoolean(draft, "page_translation.include_prior_glossary", true),
         [draft],
     );
     const mergeMaxOutputTokens = useMemo(
-        () => draftString(draft, "agent.translate.merge.max_output_tokens"),
+        () => draftString(draft, "page_translation.merge.max_output_tokens"),
         [draft],
     );
     const agentChatMaxTurns = useMemo(
@@ -198,7 +199,7 @@ export function useSettingsLayoutState() {
         [draft],
     );
     const mergeReasoningEffort = useMemo(() => {
-        const raw = draftString(draft, "agent.translate.merge.reasoning_effort")
+        const raw = draftString(draft, "page_translation.merge.reasoning_effort")
             .trim()
             .toLowerCase();
         if (raw === "low" || raw === "medium" || raw === "high") {
@@ -259,14 +260,14 @@ export function useSettingsLayoutState() {
         () => ({
             maxOutputTokens: toIntWithFallback(
                 String(
-                    settings?.defaults?.["agent.translate.merge.max_output_tokens"] ??
+                    settings?.defaults?.["page_translation.merge.max_output_tokens"] ??
                         "768",
                 ),
                 768,
             ),
             reasoningEffort: (() => {
                 const raw = String(
-                    settings?.defaults?.["agent.translate.merge.reasoning_effort"] ??
+                    settings?.defaults?.["page_translation.merge.reasoning_effort"] ??
                         "low",
                 )
                     .trim()
@@ -300,18 +301,18 @@ export function useSettingsLayoutState() {
             "detection.containment_threshold": containmentThreshold
                 ? Number(containmentThreshold)
                 : null,
-            "agent.translate.detection_profile_id": agentDetectionProfileId,
+            "page_translation.detection_profile_id": pageTranslationDetectionProfileId,
             "translation.single_box.use_context": translateSingleBoxUseContext,
-            "agent.translate.include_prior_context_summary":
+            "page_translation.include_prior_context_summary":
                 includePriorContextSummary,
-            "agent.translate.include_prior_characters": includePriorCharacters,
-            "agent.translate.include_prior_open_threads": includePriorOpenThreads,
-            "agent.translate.include_prior_glossary": includePriorGlossary,
-            "agent.translate.merge.max_output_tokens": toIntWithFallback(
+            "page_translation.include_prior_characters": includePriorCharacters,
+            "page_translation.include_prior_open_threads": includePriorOpenThreads,
+            "page_translation.include_prior_glossary": includePriorGlossary,
+            "page_translation.merge.max_output_tokens": toIntWithFallback(
                 mergeMaxOutputTokens,
                 mergeDefaults.maxOutputTokens,
             ),
-            "agent.translate.merge.reasoning_effort":
+            "page_translation.merge.reasoning_effort":
                 mergeReasoningEffort || mergeDefaults.reasoningEffort,
             "agent.chat.max_turns": toIntWithFallback(
                 agentChatMaxTurns,
@@ -346,7 +347,7 @@ export function useSettingsLayoutState() {
             confThreshold,
             iouThreshold,
             containmentThreshold,
-            agentDetectionProfileId,
+            pageTranslationDetectionProfileId,
             translateSingleBoxUseContext,
             includePriorContextSummary,
             includePriorCharacters,
@@ -367,9 +368,9 @@ export function useSettingsLayoutState() {
         ],
     );
 
-    const agentDetectionOptions = useMemo(() => {
+    const pageTranslationDetectionOptions = useMemo(() => {
         const normalizedTask = normalizeBoxType("text");
-        const enabledProfiles = agentDetectionProfiles.filter(
+        const enabledProfiles = pageTranslationDetectionProfiles.filter(
             (profile) => profile.enabled,
         );
         const availableProfiles = enabledProfiles.filter((profile) => {
@@ -384,32 +385,32 @@ export function useSettingsLayoutState() {
             return classes.some((name) => normalizeBoxType(name) === normalizedTask);
         });
         if (
-            agentDetectionProfileId &&
+            pageTranslationDetectionProfileId &&
             !availableProfiles.some(
-                (profile) => profile.id === agentDetectionProfileId,
+                (profile) => profile.id === pageTranslationDetectionProfileId,
             )
         ) {
             return [
                 {
-                    id: agentDetectionProfileId,
-                    label: `${agentDetectionProfileId} (missing)`,
+                    id: pageTranslationDetectionProfileId,
+                    label: `${pageTranslationDetectionProfileId} (missing)`,
                     enabled: false,
                 },
                 ...availableProfiles,
             ];
         }
         return availableProfiles;
-    }, [agentDetectionProfiles, agentDetectionProfileId]);
+    }, [pageTranslationDetectionProfiles, pageTranslationDetectionProfileId]);
 
-    const hasAgentDetectionOptions = agentDetectionOptions.length > 0;
+    const hasPageTranslationDetectionOptions = pageTranslationDetectionOptions.length > 0;
 
     const updateDraft = (key: string, value: unknown) => {
         setDraft((prev) => ({ ...prev, [key]: value }));
         setBaseDirty(true);
     };
 
-    const updateAgentDraft = (key: keyof AgentDraft, value: string) => {
-        setAgentDraft((prev) => {
+    const updatePageTranslationDraft = (key: keyof PageTranslationDraft, value: string) => {
+        setPageTranslationDraft((prev) => {
             if (!prev) {
                 return null;
             }
@@ -418,7 +419,7 @@ export function useSettingsLayoutState() {
                 [key]: value,
             };
         });
-        setAgentDirty(true);
+        setPageTranslationDirty(true);
     };
 
     const updateOcrProfile = (id: string, updates: Partial<OcrDraftProfile>) => {
@@ -446,7 +447,7 @@ export function useSettingsLayoutState() {
         () => ({
             profiles: ocrDraft.map((profile) => ({
                 profile_id: profile.id,
-                agent_enabled: profile.agent_enabled,
+                page_translation_enabled: profile.page_translation_enabled,
                 model_id: profile.model_id ?? null,
                 max_output_tokens:
                     profile.max_output_tokens === null ||
@@ -487,14 +488,14 @@ export function useSettingsLayoutState() {
     );
 
     const refreshDetectionProfiles = useCallback(async () => {
-        setAgentDetectionLoading(true);
+        setPageTranslationDetectionLoading(true);
         try {
             const profiles = await fetchBoxDetectionProfiles();
-            setAgentDetectionProfiles(profiles);
+            setPageTranslationDetectionProfiles(profiles);
         } catch (err) {
             console.error("Failed to load box detection profiles", err);
         } finally {
-            setAgentDetectionLoading(false);
+            setPageTranslationDetectionLoading(false);
         }
     }, []);
 
@@ -546,40 +547,40 @@ export function useSettingsLayoutState() {
     ]);
 
     useEffect(() => {
-        if (!agentDirty || !agentDraft) {
+        if (!pageTranslationDirty || !pageTranslationDraft) {
             return;
         }
         if (!autoSaveEnabled) {
             return;
         }
-        if (agentLoading) {
+        if (pageTranslationLoading) {
             return;
         }
         const handle = setTimeout(() => {
-            setAgentAutoSaving(true);
-            saveAgent({
-                model_id: agentDraft.model_id,
-                reasoning_effort: agentDraft.reasoning_effort,
-                max_output_tokens: agentDraft.max_output_tokens
-                    ? Number(agentDraft.max_output_tokens)
+            setPageTranslationAutoSaving(true);
+            savePageTranslation({
+                model_id: pageTranslationDraft.model_id,
+                reasoning_effort: pageTranslationDraft.reasoning_effort,
+                max_output_tokens: pageTranslationDraft.max_output_tokens
+                    ? Number(pageTranslationDraft.max_output_tokens)
                     : null,
-                temperature: agentDraft.temperature
-                    ? Number(agentDraft.temperature)
+                temperature: pageTranslationDraft.temperature
+                    ? Number(pageTranslationDraft.temperature)
                     : null,
             })
                 .then(() => {
-                    setSaveMessage("Translation agent settings saved.");
-                    setAgentDirty(false);
+                    setSaveMessage("Page translation settings saved.");
+                    setPageTranslationDirty(false);
                 })
                 .catch(() => {
                     setSaveMessage(null);
                 })
                 .finally(() => {
-                    setAgentAutoSaving(false);
+                    setPageTranslationAutoSaving(false);
                 });
         }, 400);
         return () => clearTimeout(handle);
-    }, [agentDirty, agentDraft, autoSaveEnabled, agentLoading, saveAgent]);
+    }, [pageTranslationDirty, pageTranslationDraft, autoSaveEnabled, pageTranslationLoading, savePageTranslation]);
 
     useEffect(() => {
         if (!ocrDirty || ocrDraft.length === 0) {
@@ -588,7 +589,7 @@ export function useSettingsLayoutState() {
         if (!autoSaveEnabled) {
             return;
         }
-        if (agentLoading) {
+        if (pageTranslationLoading) {
             return;
         }
         const handle = setTimeout(() => {
@@ -610,7 +611,7 @@ export function useSettingsLayoutState() {
         ocrDirty,
         ocrDraft.length,
         autoSaveEnabled,
-        agentLoading,
+        pageTranslationLoading,
         saveOcrProfiles,
         buildOcrPayload,
     ]);
@@ -622,7 +623,7 @@ export function useSettingsLayoutState() {
         if (!autoSaveEnabled) {
             return;
         }
-        if (agentLoading) {
+        if (pageTranslationLoading) {
             return;
         }
         const handle = setTimeout(() => {
@@ -644,7 +645,7 @@ export function useSettingsLayoutState() {
         translationDirty,
         translationDraft.length,
         autoSaveEnabled,
-        agentLoading,
+        pageTranslationLoading,
         saveTranslationProfiles,
         buildTranslationPayload,
     ]);
@@ -655,15 +656,15 @@ export function useSettingsLayoutState() {
         try {
             await save(buildBaseSettingsPayload());
 
-            if (agentDraft) {
-                await saveAgent({
-                    model_id: agentDraft.model_id,
-                    reasoning_effort: agentDraft.reasoning_effort,
-                    max_output_tokens: agentDraft.max_output_tokens
-                        ? Number(agentDraft.max_output_tokens)
+            if (pageTranslationDraft) {
+                await savePageTranslation({
+                    model_id: pageTranslationDraft.model_id,
+                    reasoning_effort: pageTranslationDraft.reasoning_effort,
+                    max_output_tokens: pageTranslationDraft.max_output_tokens
+                        ? Number(pageTranslationDraft.max_output_tokens)
                         : null,
-                    temperature: agentDraft.temperature
-                        ? Number(agentDraft.temperature)
+                    temperature: pageTranslationDraft.temperature
+                        ? Number(pageTranslationDraft.temperature)
                         : null,
                 });
             }
@@ -678,7 +679,7 @@ export function useSettingsLayoutState() {
 
             setSaveMessage("Saved.");
             setBaseDirty(false);
-            setAgentDirty(false);
+            setPageTranslationDirty(false);
             setOcrDirty(false);
             setTranslationDirty(false);
         } catch {
@@ -718,12 +719,12 @@ export function useSettingsLayoutState() {
 
     const handleRefresh = () => {
         void refresh();
-        void refreshAgent();
+        void refreshWorkflowSettings();
         void refreshDetectionProfiles();
     };
 
-    const loading = baseLoading || agentLoading;
-    const error = baseError || agentError;
+    const loading = baseLoading || pageTranslationLoading;
+    const error = baseError || pageTranslationError;
 
     return {
         loading,
@@ -733,7 +734,7 @@ export function useSettingsLayoutState() {
         autoSaveEnabled,
         setAutoSaveEnabled,
         baseAutoSaving,
-        agentAutoSaving,
+        pageTranslationAutoSaving,
         ocrAutoSaving,
         translationAutoSaving,
         saving,
@@ -746,11 +747,11 @@ export function useSettingsLayoutState() {
         iouThreshold,
         containmentThreshold,
         updateDraft,
-        agentDraft,
-        agentModelOptions,
-        agentReasoningOptions,
-        updateAgentDraft,
-        agentDetectionProfileId,
+        pageTranslationDraft,
+        pageTranslationModelOptions,
+        pageTranslationReasoningOptions,
+        updatePageTranslationDraft,
+        pageTranslationDetectionProfileId,
         translateSingleBoxUseContext,
         includePriorContextSummary,
         includePriorCharacters,
@@ -760,9 +761,9 @@ export function useSettingsLayoutState() {
         agentChatMaxTurns,
         agentChatMaxOutputTokens,
         mergeReasoningEffort,
-        agentDetectionLoading,
-        agentDetectionOptions,
-        hasAgentDetectionOptions,
+        pageTranslationDetectionLoading,
+        pageTranslationDetectionOptions,
+        hasPageTranslationDetectionOptions,
         translationDraft,
         translationModelOptions,
         translationReasoningOptions,

@@ -6,12 +6,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from .db import AgentTranslateSetting, get_session
+from .db import PageTranslationSetting, get_session
 
 
 def get_page_translation_settings() -> dict[str, Any]:
     with get_session() as session:
-        row = session.get(AgentTranslateSetting, 1)
+        row = session.get(PageTranslationSetting, 1)
         if row is None:
             return {}
         return {
@@ -29,9 +29,9 @@ def upsert_page_translation_settings(values: dict[str, Any]) -> None:
     payload["updated_at"] = now
 
     with get_session() as session:
-        row = session.get(AgentTranslateSetting, 1)
+        row = session.get(PageTranslationSetting, 1)
         if row is None:
-            row = AgentTranslateSetting(id=1, model_id=str(values.get("model_id") or ""))
+            row = PageTranslationSetting(id=1, model_id=str(values.get("model_id") or ""))
             session.add(row)
         for key, value in payload.items():
             if hasattr(row, key):

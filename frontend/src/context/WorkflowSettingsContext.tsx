@@ -1,4 +1,4 @@
-// src/context/AgentSettingsContext.tsx
+// src/context/WorkflowSettingsContext.tsx
 /* eslint react-refresh/only-export-components: "off" */
 import {
     createContext,
@@ -10,9 +10,9 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type {
-    AgentTranslateSettingsResponse,
-    UpdateAgentTranslateSettingsRequest,
-} from "../api/agentSettings";
+    PageTranslationSettingsResponse,
+    UpdatePageTranslationSettingsRequest,
+} from "../api/pageTranslationSettings";
 import type {
     OcrProfileSettingsResponse,
     UpdateOcrProfileSettingsRequest,
@@ -22,9 +22,9 @@ import type {
     UpdateTranslationProfileSettingsRequest,
 } from "../api/translationProfileSettings";
 import {
-    fetchAgentTranslateSettings,
-    updateAgentTranslateSettings,
-} from "../api/agentSettings";
+    fetchPageTranslationSettings,
+    updatePageTranslationSettings,
+} from "../api/pageTranslationSettings";
 import {
     fetchOcrProfileSettings,
     updateOcrProfileSettings,
@@ -34,24 +34,24 @@ import {
     updateTranslationProfileSettings,
 } from "../api/translationProfileSettings";
 
-interface AgentSettingsContextValue {
-    agent: AgentTranslateSettingsResponse | null;
+interface WorkflowSettingsContextValue {
+    pageTranslation: PageTranslationSettingsResponse | null;
     ocrProfiles: OcrProfileSettingsResponse | null;
     translationProfiles: TranslationProfileSettingsResponse | null;
     loading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
-    saveAgent: (values: UpdateAgentTranslateSettingsRequest) => Promise<void>;
+    savePageTranslation: (values: UpdatePageTranslationSettingsRequest) => Promise<void>;
     saveOcrProfiles: (payload: UpdateOcrProfileSettingsRequest) => Promise<void>;
     saveTranslationProfiles: (
         payload: UpdateTranslationProfileSettingsRequest,
     ) => Promise<void>;
 }
 
-const AgentSettingsContext = createContext<AgentSettingsContextValue | null>(null);
+const WorkflowSettingsContext = createContext<WorkflowSettingsContextValue | null>(null);
 
-export function AgentSettingsProvider({ children }: { children: ReactNode }) {
-    const [agent, setAgent] = useState<AgentTranslateSettingsResponse | null>(null);
+export function WorkflowSettingsProvider({ children }: { children: ReactNode }) {
+    const [pageTranslation, setPageTranslation] = useState<PageTranslationSettingsResponse | null>(null);
     const [ocrProfiles, setOcrProfiles] = useState<OcrProfileSettingsResponse | null>(
         null,
     );
@@ -64,32 +64,32 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         setError(null);
         try {
-            const [agentRes, ocrRes, translationRes] = await Promise.all([
-                fetchAgentTranslateSettings(),
+            const [pageTranslationRes, ocrRes, translationRes] = await Promise.all([
+                fetchPageTranslationSettings(),
                 fetchOcrProfileSettings(),
                 fetchTranslationProfileSettings(),
             ]);
-            setAgent(agentRes);
+            setPageTranslation(pageTranslationRes);
             setOcrProfiles(ocrRes);
             setTranslationProfiles(translationRes);
         } catch (err) {
-            console.error("Failed to load agent settings", err);
-            setError("Failed to load agent settings.");
+            console.error("Failed to load workflow settings", err);
+            setError("Failed to load workflow settings.");
         } finally {
             setLoading(false);
         }
     }, []);
 
-    const saveAgent = useCallback(
-        async (values: UpdateAgentTranslateSettingsRequest) => {
+    const savePageTranslation = useCallback(
+        async (values: UpdatePageTranslationSettingsRequest) => {
             setLoading(true);
             setError(null);
             try {
-                const response = await updateAgentTranslateSettings(values);
-                setAgent(response);
+                const response = await updatePageTranslationSettings(values);
+                setPageTranslation(response);
             } catch (err) {
-                console.error("Failed to update agent settings", err);
-                setError("Failed to update agent settings.");
+                console.error("Failed to update workflow settings", err);
+                setError("Failed to update workflow settings.");
                 throw err;
             } finally {
                 setLoading(false);
@@ -140,40 +140,40 @@ export function AgentSettingsProvider({ children }: { children: ReactNode }) {
 
     const value = useMemo(
         () => ({
-            agent,
+            pageTranslation,
             ocrProfiles,
             translationProfiles,
             loading,
             error,
             refresh: load,
-            saveAgent,
+            savePageTranslation,
             saveOcrProfiles,
             saveTranslationProfiles,
         }),
         [
-            agent,
+            pageTranslation,
             ocrProfiles,
             translationProfiles,
             loading,
             error,
             load,
-            saveAgent,
+            savePageTranslation,
             saveOcrProfiles,
             saveTranslationProfiles,
         ],
     );
 
     return (
-        <AgentSettingsContext.Provider value={value}>
+        <WorkflowSettingsContext.Provider value={value}>
             {children}
-        </AgentSettingsContext.Provider>
+        </WorkflowSettingsContext.Provider>
     );
 }
 
-export function useAgentSettings() {
-    const ctx = useContext(AgentSettingsContext);
+export function useWorkflowSettings() {
+    const ctx = useContext(WorkflowSettingsContext);
     if (!ctx) {
-        throw new Error("useAgentSettings must be used within AgentSettingsProvider");
+        throw new Error("useWorkflowSettings must be used within WorkflowSettingsProvider");
     }
     return ctx;
 }

@@ -1,4 +1,4 @@
-# backend-python/tests/core/page_translation/test_agent_page_translate_helpers.py
+# backend-python/tests/core/page_translation/test_page_translation_helpers.py
 """Unit coverage for page-translate helper sanitizers and OCR consensus guards.
 
 What is tested:

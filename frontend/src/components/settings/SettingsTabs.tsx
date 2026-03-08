@@ -1,6 +1,7 @@
+// src/components/settings/SettingsTabs.tsx
 import { ui } from "../../ui/tokens";
 
-export type SettingsTab = "agent" | "translation" | "detection" | "ocr";
+export type SettingsTab = "llm" | "translation" | "detection" | "ocr";
 
 type Props = {
     activeTab: SettingsTab;
@@ -17,16 +18,14 @@ export function SettingsTabs({ activeTab, onChangeTab }: Props) {
             <button
                 type="button"
                 role="tab"
-                aria-selected={activeTab === "agent"}
-                onClick={() => onChangeTab("agent")}
+                aria-selected={activeTab === "llm"}
+                onClick={() => onChangeTab("llm")}
                 className={`${ui.trainingTab} ${
-                    activeTab === "agent"
+                    activeTab === "llm"
                         ? ui.trainingTabActive
                         : ui.trainingTabInactive
                 }`}
-            >
-                Agent
-            </button>
+            >LLM</button>
             <button
                 type="button"
                 role="tab"

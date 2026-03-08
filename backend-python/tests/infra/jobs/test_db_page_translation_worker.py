@@ -21,7 +21,7 @@ async def test_run_claimed_workflow_executes_agent_handler_with_persisted_ids() 
     }
     run_record = {
         "id": "wf-agent-1",
-        "workflow_type": "agent_translate_page",
+        "workflow_type": "page_translation",
         "volume_id": "vol-a",
         "filename": "001.jpg",
         "status": "running",

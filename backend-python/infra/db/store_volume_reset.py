@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from infra.logging.artifacts import agent_debug_dir
+from infra.logging.artifacts import page_translation_debug_dir
 from sqlalchemy import delete, func, select
 
 from .db import (
@@ -50,8 +50,8 @@ def _delete_paths(paths: list[str]) -> int:
     return deleted
 
 
-def _delete_agent_debug_files_for_volume(volume_id: str) -> int:
-    target_dir = agent_debug_dir("translate_page", create=False)
+def _delete_page_translation_debug_files_for_volume(volume_id: str) -> int:
+    target_dir = page_translation_debug_dir(create=False)
     if not target_dir.is_dir():
         return 0
 
@@ -91,7 +91,7 @@ def clear_volume_derived_data(volume_id: str) -> dict[str, int]:
         "task_attempt_events_deleted": 0,
         "llm_call_logs_deleted": 0,
         "llm_payload_files_deleted": 0,
-        "agent_debug_files_deleted": 0,
+        "page_translation_debug_files_deleted": 0,
     }
 
     with get_session() as session:
@@ -201,5 +201,7 @@ def clear_volume_derived_data(volume_id: str) -> dict[str, int]:
             )
 
     stats["llm_payload_files_deleted"] = _delete_paths(llm_payload_paths)
-    stats["agent_debug_files_deleted"] = _delete_agent_debug_files_for_volume(volume_key)
+    stats["page_translation_debug_files_deleted"] = _delete_page_translation_debug_files_for_volume(
+        volume_key
+    )
     return stats

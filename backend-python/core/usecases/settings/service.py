@@ -120,13 +120,13 @@ def resolve_detection_settings(scope: str = "global") -> DetectionSettings:
         iou = min(max(iou, 0.0), 1.0)
     if containment is not None:
         containment = min(max(containment, 0.0), 1.0)
-    raw_profile_id = values.get("agent.translate.detection_profile_id")
+    raw_profile_id = values.get("page_translation.detection_profile_id")
     profile_id = str(raw_profile_id).strip() if raw_profile_id is not None else ""
     return DetectionSettings(
         conf_threshold=conf,
         iou_threshold=iou,
         containment_threshold=containment,
-        agent_detection_profile_id=profile_id,
+        page_translation_detection_profile_id=profile_id,
     )
 
 

@@ -19,7 +19,7 @@ REASONING_CHOICES = ("low", "medium", "high")
 def _default_profile_settings(profile: OcrProfile) -> dict[str, Any]:
     cfg = profile.get("config", {}) or {}
     return {
-        "agent_enabled": True,
+        "page_translation_enabled": True,
         "model_id": cfg.get("model"),
         "max_output_tokens": cfg.get("max_tokens") or cfg.get("max_completion_tokens"),
         "reasoning_effort": None,
@@ -34,8 +34,8 @@ def resolve_ocr_profile_settings() -> dict[str, dict[str, Any]]:
         defaults = _default_profile_settings(profile)
         current = dict(defaults)
         current.update({k: v for k, v in stored.get(pid, {}).items() if v is not None})
-        if "agent_enabled" in stored.get(pid, {}):
-            current["agent_enabled"] = bool(stored[pid]["agent_enabled"])
+        if "page_translation_enabled" in stored.get(pid, {}):
+            current["page_translation_enabled"] = bool(stored[pid]["page_translation_enabled"])
         resolved[pid] = current
     return resolved
 
@@ -54,7 +54,7 @@ def list_ocr_profiles_with_settings() -> list[dict[str, Any]]:
                 "description": profile.get("description", ""),
                 "kind": profile.get("kind", "local"),
                 "enabled": bool(profile.get("enabled", True)),
-                "agent_enabled": bool(current.get("agent_enabled", True)),
+                "page_translation_enabled": bool(current.get("page_translation_enabled", True)),
                 "model_id": current.get("model_id") or cfg.get("model"),
                 "max_output_tokens": current.get("max_output_tokens")
                 if current.get("max_output_tokens") is not None
@@ -83,8 +83,8 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
             raise ValueError(f"Unknown OCR profile: {profile_id}")
 
         current = resolved[profile_id]
-        if "agent_enabled" in update:
-            current["agent_enabled"] = bool(update["agent_enabled"])
+        if "page_translation_enabled" in update:
+            current["page_translation_enabled"] = bool(update["page_translation_enabled"])
 
         profile = OCR_PROFILES[profile_id]
         is_remote = profile.get("kind") != "local"
@@ -139,15 +139,21 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
         pid for pid, profile in OCR_PROFILES.items() if profile.get("enabled", True)
     ]
     if available_profiles:
-        enabled = [pid for pid in available_profiles if resolved.get(pid, {}).get("agent_enabled")]
+        enabled = [
+            pid
+            for pid in available_profiles
+            if resolved.get(pid, {}).get("page_translation_enabled")
+        ]
         if not enabled:
-            raise ValueError("At least one OCR profile must be enabled for the agent.")
+            raise ValueError(
+                "At least one OCR profile must be enabled for the page translation workflow."
+            )
 
     for pid, settings in resolved.items():
         upsert_ocr_profile_setting(
             pid,
             {
-                "agent_enabled": settings.get("agent_enabled", True),
+                "page_translation_enabled": settings.get("page_translation_enabled", True),
                 "model_id": settings.get("model_id"),
                 "max_output_tokens": settings.get("max_output_tokens"),
                 "reasoning_effort": settings.get("reasoning_effort"),
@@ -158,12 +164,12 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
     return list_ocr_profiles_with_settings()
 
 
-def agent_enabled_ocr_profiles() -> list[str]:
+def page_translation_enabled_ocr_profiles() -> list[str]:
     settings = resolve_ocr_profile_settings()
     profile_ids: list[str] = []
     for pid, profile in OCR_PROFILES.items():
         if not profile.get("enabled", True):
             continue
-        if settings.get(pid, {}).get("agent_enabled", True):
+        if settings.get(pid, {}).get("page_translation_enabled", True):
             profile_ids.append(pid)
     return profile_ids

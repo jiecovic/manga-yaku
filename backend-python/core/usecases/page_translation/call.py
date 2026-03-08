@@ -13,8 +13,8 @@ from config import (
     AGENT_MODEL,
     AGENT_REASONING_EFFORT,
     AGENT_TEMPERATURE,
-    AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
-    AGENT_TRANSLATE_REASONING_EFFORT,
+    PAGE_TRANSLATION_MAX_OUTPUT_TOKENS,
+    PAGE_TRANSLATION_REASONING_EFFORT,
 )
 from infra.llm import (
     build_response_params,
@@ -120,14 +120,14 @@ def build_model_cfg(
     resolved_model = model_id or AGENT_MODEL
     max_output = max_output_tokens or max(
         AGENT_MAX_OUTPUT_TOKENS,
-        AGENT_TRANSLATE_MAX_OUTPUT_TOKENS,
+        PAGE_TRANSLATION_MAX_OUTPUT_TOKENS,
     )
     cfg: dict[str, Any] = {
         "model": resolved_model,
         "max_output_tokens": max_output,
     }
     if str(resolved_model).startswith("gpt-5"):
-        effort = reasoning_effort or AGENT_TRANSLATE_REASONING_EFFORT or AGENT_REASONING_EFFORT
+        effort = reasoning_effort or PAGE_TRANSLATION_REASONING_EFFORT or AGENT_REASONING_EFFORT
         if effort not in {"low", "medium", "high"}:
             effort = "medium"
         cfg["reasoning"] = {"effort": effort}
