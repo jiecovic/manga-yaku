@@ -162,7 +162,7 @@ export function TrainingLayout() {
         [sources, selectedSources],
     );
     const supportedTargets = useMemo(() => {
-        const allowed = new Set(["text", "panel", "frame", "face", "body"]);
+        const allowed = new Set(["text", "panel", "face", "body"]);
         const pool = selectedSourceList.length
             ? selectedSourceList
             : availableSources;
@@ -177,9 +177,8 @@ export function TrainingLayout() {
                 const annotations = source.stats?.annotations ?? [];
                 for (const annotation of annotations) {
                     const normalized = String(annotation).toLowerCase();
-                    const mapped = normalized === "frame" ? "panel" : normalized;
-                    if (allowed.has(mapped)) {
-                        targetSet.add(mapped);
+                    if (allowed.has(normalized)) {
+                        targetSet.add(normalized);
                     }
                 }
             }
@@ -192,9 +191,8 @@ export function TrainingLayout() {
             const current = new Set<string>();
             for (const annotation of annotations) {
                 const normalized = String(annotation).toLowerCase();
-                const mapped = normalized === "frame" ? "panel" : normalized;
-                if (allowed.has(mapped)) {
-                    current.add(mapped);
+                if (allowed.has(normalized)) {
+                    current.add(normalized);
                 }
             }
             if (intersection === null) {

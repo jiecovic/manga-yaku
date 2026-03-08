@@ -18,7 +18,7 @@ from infra.jobs.exceptions import JobCanceled
 from PIL import Image
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
-ALLOWED_TARGETS = {"frame", "text", "face", "body"}
+ALLOWED_TARGETS = {"panel", "text", "face", "body"}
 ALLOWED_LINK_MODES = {"copy", "hardlink"}
 ProgressCallback = Callable[[int, int, str], None]
 CancelCallback = Callable[[], bool]
@@ -55,6 +55,26 @@ def _default_dataset_id() -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _canonical_target_names(targets: list[str] | None) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in targets or ["text"]:
+        normalized = str(raw or "").strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out or ["text"]
+
+
+def _canonical_source_annotation_tag(tag: str) -> str:
+    """Map source-dataset annotation names onto our canonical training targets."""
+    normalized = str(tag or "").strip().lower()
+    if normalized == "frame":
+        return "panel"
+    return normalized
 
 
 def _write_yaml(path: Path, names: list[str], *, has_test: bool) -> None:
@@ -210,7 +230,7 @@ def _prepare_manga109s(
                 img_w, img_h = im.size
 
             for elem in page:
-                tag = elem.tag.lower()
+                tag = _canonical_source_annotation_tag(elem.tag)
                 if tag not in class_map:
                     continue
                 try:
@@ -282,7 +302,7 @@ def prepare_dataset(
     progress_cb: ProgressCallback | None = None,
     is_canceled: CancelCallback | None = None,
 ) -> tuple[str, Path, BuildStats]:
-    selected_targets = targets or ["text"]
+    selected_targets = _canonical_target_names(targets)
     invalid_targets = [tag for tag in selected_targets if tag not in ALLOWED_TARGETS]
     if invalid_targets:
         raise DatasetBuildError("Unsupported targets: " + ", ".join(sorted(invalid_targets)))

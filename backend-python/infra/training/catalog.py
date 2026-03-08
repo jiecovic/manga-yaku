@@ -77,7 +77,7 @@ def _stats_for_source(source_type: str, source_dir: Path) -> dict | None:
         annotations: list[str] = []
 
         if (source_dir / "annotations").is_dir():
-            annotations.extend(["frame", "text", "face", "body", "character"])
+            annotations.extend(["panel", "text", "face", "body", "character"])
         if (source_dir / "annotations_Manga109Dialog").is_dir():
             annotations.append("dialog")
         if (source_dir / "annotations_COO").is_dir():
