@@ -1,101 +1,163 @@
 # MangaYaku
 
-MangaYaku is a manga translation workflow app with a local-first UI for box detection,
-OCR, and LLM-assisted translation.
+MangaYaku is an experimental sandbox for manga translation workflows.
 
-## Status
+The repo is where I try things like:
 
-Current default page pipeline is `page_translation`; standalone
-`translate_page` jobs are disabled.
+- YOLO-based text-box detection
+- OCR with local and LLM-backed profiles
+- LLM-assisted translation
+- chat-agent tooling over MCP
+- persisted workflow/job execution
+- training and dataset-prep loops for better detection models
 
-## Features
+It is not a polished product. The point is to iterate on OCR, translation,
+agents, workflows, and model/runtime choices in one local-first environment.
 
-- Manual speech-bubble annotation in the browser
-- OCR via manga-ocr (local) or a multimodal LLM via the OpenAI API
-- Single-box translation jobs via OpenAI or a local OpenAI-compatible server
-- Context handling for volume and page prompts
-- Persistent page state stored in Postgres
+## What Works Today
+
+Current supported paths:
+
+- manual box editing in the browser
+- box detection with persisted YOLO profiles
+- OCR for a page or a single box
+- single-box translation
+- full `page_translation` workflow:
+  - detect
+  - OCR fanout
+  - page-level translation
+  - continuity merge
+  - commit back to page state + context
+- chat agent with MCP tools for page navigation, box inspection/editing, OCR,
+  box detection, and page translation
+- persisted jobs/workflows in Postgres
+- dataset preparation and model training for box-detection workflows
+
+Important current behavior:
+
+- `page_translation` is the default page pipeline
+- standalone `translate_page` jobs are disabled
+- page reruns preserve existing boxes by default instead of wiping the page
 
 ## Stack
 
-- Frontend: React + Vite + TypeScript
-- Backend: FastAPI (Python)
-- Database: Postgres + pgvector (Docker)
+- frontend: React + Vite + TypeScript
+- backend: FastAPI (Python)
+- database: Postgres + pgvector
+- models/runtime:
+  - YOLO for box detection
+  - manga-ocr or multimodal LLM OCR
+  - OpenAI and local OpenAI-compatible translation/OCR paths
+  - OpenAI Agents SDK + local MCP server for the chat agent
 
 ## Quick Start
 
-From repo root:
+Requirements:
 
-If you use published model weights under `models/`, fetch LFS objects first:
+- Python 3.10+
+- Node.js 20.20.x
+- npm 11.10.x
+- Docker
+- Git LFS if you want published model weights under `models/`
+
+From repo root:
 
 ```text
 git lfs install
 git lfs pull
-```
 
-Start app services:
-
-```text
 docker compose up -d
-
-# one-time setup
 npm run setup
-
-# run backend + frontend
 npm run dev
 ```
 
-`npm run dev` uses the scripts in `scripts/` and starts:
-- FastAPI at http://localhost:8101
-- Vite at http://localhost:5174
+That starts:
 
-Run separately:
+- backend: http://localhost:8101
+- frontend: http://localhost:5174
+
+Useful alternatives:
 
 ```text
 npm run dev:backend
 npm run dev:frontend
+npm run dev:backend:noreload
 ```
 
 ## Configuration
 
-Copy the example env files and adjust as needed:
-- copy `frontend/.env.example` to `frontend/.env` (set `VITE_API_BASE`, e.g. `http://127.0.0.1:8101` direct backend or `http://localhost:5174` dev proxy)
-- copy `backend-python/.env.example` to `backend-python/.env` (set `OPENAI_API_KEY`, `DATABASE_URL`, etc.)
+Copy the example env files first:
 
-Optional overrides:
+- `frontend/.env.example` -> `frontend/.env`
+- `backend-python/.env.example` -> `backend-python/.env`
+
+Backend config you will usually care about first:
+
+- `OPENAI_API_KEY`
+- `DATABASE_URL`
+- `AGENT_MODEL`
+- `AGENT_MCP_SERVER_URL`
+- `LOCAL_OPENAI_BASE_URL` / `LOCAL_OPENAI_MODEL` if you use a local compatible server
+
+Optional dev overrides:
+
 - `MANGAYAKU_BACKEND_PORT=8101`
 - `MANGAYAKU_BACKEND_HOST=127.0.0.1`
 
-## Data
+## Data Layout
 
-Page images live under:
+Runtime data lives in a few main places:
 
-```
-data/volumes/<volume-id>/*.jpg|png|webp
-```
+- `data/volumes/<volume-id>/...`
+  - page images
+- Postgres
+  - volumes, pages, boxes, OCR text, translations, memory/context, jobs, workflows
+- `data/logs/`
+  - debug artifacts and LLM call payload captures
+- `training-data/`
+  - prepared datasets and training runs
+- `models/`
+  - published model weights and manifests
 
-Page state (boxes, OCR text, translations) is stored in Postgres.
+## Datasets And Training
 
-## Datasets
-
-### Manga109-s
-
-The published box-detection model `yolo26s-text-v1` was trained using Manga109-s.
+The published text-box detector `yolo26s-text-v1` was trained on Manga109-s.
 Dataset images are not redistributed in this repo.
 
-You can train with Manga109-s using this framework, but you must download the dataset
-yourself from the official site. You can also use it for local testing, but no sample
-pages are included here due to licensing. See `docs/DATASETS.md` for links and references.
+You can still use this repo to:
+
+- prepare datasets
+- train your own detection models
+- publish model manifests/weights locally
+
+See [docs/DATASETS.md](/home/thomas/projects/manga-yaku/docs/DATASETS.md) for the dataset notes.
 
 ## Development
 
-See `CONTRIBUTING.md` for development setup, linting/testing, and internal conventions.
+Main developer commands:
 
-## See Also
+```text
+npm run lint
+npm run test:backend
+```
 
-- `ARCHITECTURE.md`
-- `backend-python/README.md`
-- `CONTRIBUTING.md`
+Deeper contributor/setup guidance lives in:
+
+- [CONTRIBUTING.md](/home/thomas/projects/manga-yaku/CONTRIBUTING.md)
+
+## Docs
+
+Start here depending on what you need:
+
+- [ARCHITECTURE.md](/home/thomas/projects/manga-yaku/ARCHITECTURE.md)
+  - current system architecture, boundaries, workflows, jobs, idempotency, MCP
+- [backend-python/README.md](/home/thomas/projects/manga-yaku/backend-python/README.md)
+  - backend-specific notes
+- [CONTRIBUTING.md](/home/thomas/projects/manga-yaku/CONTRIBUTING.md)
+  - setup, linting, testing, repo conventions
+
+Backend API docs when running locally:
+
 - Swagger UI: http://localhost:8101/docs
 
 ## License
