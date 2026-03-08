@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from typing import Any
+
+from json_repair import repair_json
 
 JsonParser = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -36,20 +37,11 @@ def extract_json(text: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         pass
 
-    repaired = repair_json(snippet)
+    repaired = repair_json(snippet, logging=False, return_objects=False)
     parsed = json.loads(repaired)
     if not isinstance(parsed, dict):
         raise ValueError("JSON response must be an object")
     return parsed
-
-
-def repair_json(raw: str) -> str:
-    text = raw.strip()
-    text = re.sub(r",\s*([}\]])", r"\1", text)
-    text = re.sub(r"}\s*{", "},{", text)
-    text = re.sub(r"]\s*{", "],{", text)
-    text = re.sub(r'([0-9eE"\}\]])\s*("[^"]+"\s*:)', r"\1,\2", text)
-    return text
 
 
 def json_result_validator(parser: JsonParser) -> Callable[[str], tuple[bool, str | None]]:
