@@ -1,7 +1,9 @@
-# backend-python/tests/core/usecases/test_agent_stream_event_formatting.py
-from core.usecases.agent.runtime.stream_event_formatting import (
+# backend-python/tests/core/usecases/test_agent_stream_tool_formatting.py
+from core.usecases.agent.runtime.stream_tool_payloads import (
     coerce_tool_output_dict,
     extract_page_switch_filename,
+)
+from core.usecases.agent.runtime.stream_tool_summaries import (
     summarize_tool_output,
 )
 
