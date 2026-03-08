@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.usecases.agent.grounding.turn_state import build_page_state_snapshot
 from core.usecases.agent.tools.jobs_shared import (
     build_auto_idempotency_key,
     normalize_claim_status,
@@ -15,7 +16,6 @@ from core.usecases.agent.tools.shared import (
     list_text_boxes_for_page,
     resolve_active_page_filename,
 )
-from core.usecases.agent.turn_state import get_active_page_revision
 from infra.db.idempotency_store import (
     claim_idempotency_key,
     finalize_idempotency_key,
@@ -24,7 +24,6 @@ from infra.db.idempotency_store import (
 from infra.db.store_volume_page import load_page
 from infra.jobs.job_modes import BOX_DETECTION_JOB_TYPE
 from infra.jobs.operations import BOX_DETECTION_OPERATION, enqueue_persisted_operation
-from infra.jobs.runtime import STORE
 
 
 def detect_text_boxes_tool(
@@ -49,16 +48,18 @@ def detect_text_boxes_tool(
         return error or {"error": "filename resolution failed", "volume_id": volume_id}
 
     selected_profile_id = coerce_filename(profile_id)
-    page_revision = get_active_page_revision(
+    initial_page = load_page(volume_id, resolved_filename)
+    initial_page_state = build_page_state_snapshot(
         volume_id=volume_id,
-        current_filename=resolved_filename,
+        filename=resolved_filename,
+        page=initial_page,
     )
     idempotency_payload = {
         "volume_id": volume_id,
         "filename": resolved_filename,
         "profile_id": selected_profile_id,
         "replace_existing": bool(replace_existing),
-        "page_revision": page_revision,
+        "page_revision": initial_page_state.page_revision,
     }
     idempotency_key, request_hash = build_auto_idempotency_key(
         namespace="agent.detect_text_boxes",
@@ -79,8 +80,7 @@ def detect_text_boxes_tool(
             "idempotency_state": idempotency_state,
         }
     if idempotency_state == "replay":
-        page = load_page(volume_id, resolved_filename)
-        if not list_text_boxes_for_page(page):
+        if not list_text_boxes_for_page(initial_page):
             claim = {}
             idempotency_state = "new"
             idempotency_key = None
@@ -108,7 +108,6 @@ def detect_text_boxes_tool(
                     request_hash=request_hash,
                     resource_id=job_id,
                 )
-            STORE.broadcast_snapshot()
         except Exception as exc:
             if idempotency_key and request_hash:
                 release_idempotency_claim(
@@ -216,6 +215,11 @@ def detect_text_boxes_tool(
         }
 
     page = load_page(volume_id, resolved_filename)
+    page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=resolved_filename,
+        page=page,
+    )
     return {
         "status": "ok",
         "volume_id": volume_id,
@@ -223,14 +227,11 @@ def detect_text_boxes_tool(
         "profile_id": selected_profile_id,
         "replace_existing": bool(replace_existing),
         "detected_count": int(result_json.get("count") or 0),
-        "text_box_count": len(list_text_boxes_for_page(page)),
+        "text_box_count": page_state.text_box_count,
         "job_id": job_id,
         "workflow_run_id": job_id,
         "job_status": workflow_status,
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=resolved_filename,
-        ),
+        "page_revision": page_state.page_revision,
         "idempotency_key": idempotency_key,
         "idempotency_state": idempotency_state,
         "resource_reused": idempotency_state != "new",
@@ -247,6 +248,11 @@ def _build_detection_replay_snapshot(
     idempotency_key: str | None,
 ) -> dict[str, Any]:
     page = load_page(volume_id, filename)
+    page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=filename,
+        page=page,
+    )
     return {
         "status": "ok",
         "volume_id": volume_id,
@@ -254,13 +260,10 @@ def _build_detection_replay_snapshot(
         "profile_id": profile_id,
         "replace_existing": bool(replace_existing),
         "detected_count": 0,
-        "text_box_count": len(list_text_boxes_for_page(page)),
+        "text_box_count": page_state.text_box_count,
         "job_id": job_id,
         "job_status": "missing",
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=filename,
-        ),
+        "page_revision": page_state.page_revision,
         "idempotency_key": idempotency_key,
         "idempotency_state": "replay",
         "resource_reused": True,

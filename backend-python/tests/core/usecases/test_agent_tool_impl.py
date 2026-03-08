@@ -6,6 +6,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from core.usecases.agent.tools import (
+    detect_text_boxes_tool,
+    ocr_text_box_tool,
+    translate_active_page_tool,
+)
 from core.usecases.agent.tools.boxes import (
     list_text_boxes_tool,
     update_text_box_fields_tool,
@@ -14,11 +19,6 @@ from core.usecases.agent.tools.context import (
     get_page_memory_tool,
     get_volume_context_tool,
     update_page_memory_tool,
-)
-from core.usecases.agent.tools.jobs import (
-    detect_text_boxes_tool,
-    ocr_text_box_tool,
-    translate_active_page_tool,
 )
 
 
@@ -126,10 +126,6 @@ def test_update_text_box_fields_defaults_to_active_page() -> None:
             side_effect=[initial_page, updated_page],
         ) as load_page_mock,
         patch("core.usecases.agent.tools.boxes.set_box_note_by_id") as set_note_mock,
-        patch(
-            "core.usecases.agent.tools.boxes.get_active_page_revision",
-            return_value="rev-1",
-        ),
     ):
         result = update_text_box_fields_tool(
             volume_id="vol-a",
@@ -203,10 +199,6 @@ def test_ocr_text_box_defaults_to_active_page() -> None:
                 result_json={"message": "done"},
             ),
         ),
-        patch(
-            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
-            return_value="rev-2",
-        ),
     ):
         result = ocr_text_box_tool(
             volume_id="vol-a",
@@ -253,10 +245,6 @@ def test_ocr_text_box_skips_existing_text_by_default() -> None:
         patch(
             "core.usecases.agent.tools.jobs_ocr.enqueue_persisted_operation",
         ) as create_workflow_mock,
-        patch(
-            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
-            return_value="rev-2",
-        ),
     ):
         result = ocr_text_box_tool(
             volume_id="vol-a",
@@ -331,10 +319,6 @@ def test_ocr_text_box_force_rerun_overrides_existing_text_guard() -> None:
                 status="completed",
                 result_json={"message": "done"},
             ),
-        ),
-        patch(
-            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
-            return_value="rev-2",
         ),
     ):
         result = ocr_text_box_tool(
@@ -447,10 +431,6 @@ def test_update_page_memory_defaults_to_active_page() -> None:
 def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
     with (
         patch(
-            "core.usecases.agent.tools.jobs_detection.get_active_page_revision",
-            return_value="rev-1",
-        ),
-        patch(
             "core.usecases.agent.tools.jobs_detection.claim_idempotency_key",
             return_value={"status": "replay", "resource_id": "job-123"},
         ),
@@ -482,10 +462,6 @@ def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
 
 def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
     with (
-        patch(
-            "core.usecases.agent.tools.jobs_detection.get_active_page_revision",
-            return_value="rev-1",
-        ),
         patch(
             "core.usecases.agent.tools.jobs_detection.claim_idempotency_key",
             return_value={"status": "replay", "resource_id": "job-old"},
@@ -560,10 +536,6 @@ def test_ocr_text_box_claimed_request_finalizes_idempotency() -> None:
         patch(
             "core.usecases.agent.tools.jobs_ocr.load_page",
             side_effect=[initial_page, refreshed_page],
-        ),
-        patch(
-            "core.usecases.agent.tools.jobs_ocr.get_active_page_revision",
-            return_value="rev-2",
         ),
         patch(
             "core.usecases.agent.tools.jobs_ocr.claim_idempotency_key",

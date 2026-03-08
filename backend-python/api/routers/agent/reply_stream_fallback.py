@@ -8,7 +8,7 @@ import time
 from typing import Protocol
 
 from core.usecases.agent.engine import run_agent_chat
-from core.usecases.agent.turn_state import (
+from core.usecases.agent.grounding.turn_state import (
     get_active_page_text_box_count,
     sanitize_agent_reply_text,
     stale_context_warning_message,

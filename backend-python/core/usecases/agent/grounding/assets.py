@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/grounding_assets.py
+# backend-python/core/usecases/agent/grounding/assets.py
 """Helpers for building visual grounding assets for agent turns."""
 
 from __future__ import annotations

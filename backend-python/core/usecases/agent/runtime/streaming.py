@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/streaming.py
+# backend-python/core/usecases/agent/runtime/streaming.py
 """Streaming helpers for the SDK-based agent chat runtime."""
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Any
 
-from core.usecases.agent.mcp_runtime import cleanup_mcp_servers, connect_mcp_servers
-from core.usecases.agent.stream_event_formatting import (
+from core.usecases.agent.runtime.mcp_runtime import cleanup_mcp_servers, connect_mcp_servers
+from core.usecases.agent.runtime.stream_event_formatting import (
     extract_page_switch_filename,
     format_exception_details,
     format_tool_called_message,

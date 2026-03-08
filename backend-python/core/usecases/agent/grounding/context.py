@@ -1,17 +1,17 @@
-# backend-python/core/usecases/agent/grounding_context.py
+# backend-python/core/usecases/agent/grounding/context.py
 """Grounding context helpers for active-page agent turns."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from core.usecases.agent.grounding.turn_state import has_visual_grounding_intent
 from core.usecases.agent.tools.shared import list_text_boxes_for_page
-from core.usecases.agent.turn_state import has_visual_grounding_intent
 from infra.db.store_volume_page import list_page_filenames, load_page
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.text_utils import truncate_text
 
-from .grounding_assets import build_page_overlay_data_url
+from .assets import build_page_overlay_data_url
 
 
 def _normalize_grounding_mode(raw_mode: str | None) -> str:
@@ -35,12 +35,10 @@ def resolve_active_filename(
     *,
     volume_id: str,
     requested_filename: str | None,
-    fallback_filename: str | None,
 ) -> str | None:
-    if requested_filename:
-        return requested_filename
-    if fallback_filename:
-        return fallback_filename
+    resolved_requested = str(requested_filename or "").strip()
+    if resolved_requested:
+        return resolved_requested
     filenames = list_page_filenames(volume_id)
     if filenames:
         return filenames[0]

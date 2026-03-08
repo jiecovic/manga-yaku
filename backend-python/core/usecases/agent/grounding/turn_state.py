@@ -1,4 +1,4 @@
-# backend-python/core/usecases/agent/turn_state.py
+# backend-python/core/usecases/agent/grounding/turn_state.py
 """Per-turn grounding state and response guard helpers for agent chat."""
 
 from __future__ import annotations
@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from infra.db.store_volume_page import load_page
@@ -13,6 +14,15 @@ from infra.images.image_ops import get_page_image_path
 
 _PAGE_FILENAME_RE = re.compile(r"\b(\d+\.(?:jpg|jpeg|png|webp))\b", re.IGNORECASE)
 _TEXT_BOX_COUNT_RE = re.compile(r"\b(\d+)\s+(?:detected\s+)?text\s+boxes?\b", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class PageStateSnapshot:
+    """Normalized page facts used by agent grounding, idempotency, and reply guards."""
+
+    filename: str | None
+    text_box_count: int | None
+    page_revision: str | None
 
 
 def _coerce_filename(value: str | None) -> str | None:
@@ -160,23 +170,69 @@ def _compute_page_revision(
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
 
 
+def build_page_state_snapshot(
+    *,
+    volume_id: str,
+    filename: str | None,
+    page: dict[str, Any] | None,
+) -> PageStateSnapshot:
+    """Build a normalized page snapshot from an already-loaded page record."""
+    resolved = _coerce_filename(filename)
+    if not volume_id or not resolved or not isinstance(page, dict):
+        return PageStateSnapshot(
+            filename=resolved,
+            text_box_count=None,
+            page_revision=None,
+        )
+    return PageStateSnapshot(
+        filename=resolved,
+        text_box_count=_count_text_boxes(page),
+        page_revision=_compute_page_revision(
+            volume_id=volume_id,
+            filename=resolved,
+            page=page,
+        ),
+    )
+
+
+def get_active_page_snapshot(
+    *,
+    volume_id: str,
+    current_filename: str | None,
+) -> PageStateSnapshot:
+    """Load the active page once and return the normalized page snapshot."""
+    resolved = _coerce_filename(current_filename)
+    if not volume_id or not resolved:
+        return PageStateSnapshot(
+            filename=resolved,
+            text_box_count=None,
+            page_revision=None,
+        )
+    try:
+        page = load_page(volume_id, resolved)
+    except Exception:
+        return PageStateSnapshot(
+            filename=resolved,
+            text_box_count=None,
+            page_revision=None,
+        )
+    return build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=current_filename,
+        page=page,
+    )
+
+
 def get_active_page_state(
     *,
     volume_id: str,
     current_filename: str | None,
 ) -> tuple[int | None, str | None]:
-    resolved = _coerce_filename(current_filename)
-    if not volume_id or not resolved:
-        return None, None
-    try:
-        page = load_page(volume_id, resolved)
-    except Exception:
-        return None, None
-    return _count_text_boxes(page), _compute_page_revision(
+    snapshot = get_active_page_snapshot(
         volume_id=volume_id,
-        filename=resolved,
-        page=page,
+        current_filename=current_filename,
     )
+    return snapshot.text_box_count, snapshot.page_revision
 
 
 def get_active_page_text_box_count(
@@ -184,11 +240,11 @@ def get_active_page_text_box_count(
     volume_id: str,
     current_filename: str | None,
 ) -> int | None:
-    count, _ = get_active_page_state(
+    snapshot = get_active_page_snapshot(
         volume_id=volume_id,
         current_filename=current_filename,
     )
-    return count
+    return snapshot.text_box_count
 
 
 def get_active_page_revision(
@@ -196,11 +252,11 @@ def get_active_page_revision(
     volume_id: str,
     current_filename: str | None,
 ) -> str | None:
-    _, revision = get_active_page_state(
+    snapshot = get_active_page_snapshot(
         volume_id=volume_id,
         current_filename=current_filename,
     )
-    return revision
+    return snapshot.page_revision
 
 
 def no_text_boxes_reply(filename: str) -> str:

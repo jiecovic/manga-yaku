@@ -1,5 +1,10 @@
 # backend-python/tests/core/usecases/test_agent_turn_state.py
-from core.usecases.agent.turn_state import sanitize_agent_reply_text
+from unittest.mock import patch
+
+from core.usecases.agent.grounding.turn_state import (
+    get_active_page_snapshot,
+    sanitize_agent_reply_text,
+)
 
 
 def test_cross_page_fact_query_allows_other_page_reference() -> None:
@@ -33,3 +38,26 @@ def test_navigation_query_blocks_wrong_page_reference() -> None:
     )
     assert reason == "stale_context_warning"
     assert response == "You are now on 000.jpg."
+
+
+def test_get_active_page_snapshot_loads_page_once() -> None:
+    with patch(
+        "core.usecases.agent.grounding.turn_state.load_page",
+        return_value={
+            "boxes": [
+                {"id": 1, "type": "text", "orderIndex": 1},
+                {"id": 2, "type": "image", "orderIndex": 2},
+                {"id": 0, "type": "text", "orderIndex": 3},
+            ]
+        },
+    ) as load_page_mock:
+        snapshot = get_active_page_snapshot(
+            volume_id="vol-a",
+            current_filename="001.jpg",
+        )
+
+    assert snapshot.filename == "001.jpg"
+    assert snapshot.text_box_count == 1
+    assert snapshot.page_revision is not None
+    assert len(snapshot.page_revision) == 16
+    load_page_mock.assert_called_once_with("vol-a", "001.jpg")

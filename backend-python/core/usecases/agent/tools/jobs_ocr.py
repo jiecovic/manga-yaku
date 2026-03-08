@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.usecases.agent.grounding.turn_state import build_page_state_snapshot
 from core.usecases.agent.tools.jobs_shared import (
     build_auto_idempotency_key,
     build_box_revision,
@@ -17,7 +18,6 @@ from core.usecases.agent.tools.shared import (
     list_text_boxes_for_page,
     resolve_active_page_filename,
 )
-from core.usecases.agent.turn_state import get_active_page_revision
 from infra.db.idempotency_store import (
     claim_idempotency_key,
     finalize_idempotency_key,
@@ -102,6 +102,11 @@ def ocr_text_box_tool(
         return error or {"error": "filename resolution failed", "volume_id": volume_id}
 
     page = load_page(volume_id, resolved_filename)
+    page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=resolved_filename,
+        page=page,
+    )
     text_boxes = list_text_boxes_for_page(page)
     target_box = find_text_box_by_id(text_boxes, int(box_id))
     if target_box is None:
@@ -119,10 +124,7 @@ def ocr_text_box_tool(
             "box_id": int(box_id),
             "profile_id": None,
             "text": existing_text,
-            "page_revision": get_active_page_revision(
-                volume_id=volume_id,
-                current_filename=resolved_filename,
-            ),
+            "page_revision": page_state.page_revision,
             "box": target_box,
             "resource_reused": True,
             "message": "Skipped OCR because the box already has text; use force_rerun=true to rerun OCR",
@@ -137,10 +139,7 @@ def ocr_text_box_tool(
         "volume_id": volume_id,
         "filename": resolved_filename,
         "profile_id": selected_profile_id,
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=resolved_filename,
-        ),
+        "page_revision": page_state.page_revision,
         "box_revision": build_box_revision(target_box),
     }
     idempotency_key, request_hash = build_auto_idempotency_key(
@@ -301,6 +300,11 @@ def ocr_text_box_tool(
         }
 
     refreshed = load_page(volume_id, resolved_filename)
+    refreshed_page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=resolved_filename,
+        page=refreshed,
+    )
     refreshed_box = find_text_box_by_id(list_text_boxes_for_page(refreshed), int(box_id))
     text_value = str((refreshed_box or {}).get("text") or "").strip()
     return {
@@ -313,10 +317,7 @@ def ocr_text_box_tool(
         "workflow_status": workflow_status,
         "text": text_value,
         "result_message": str(result_json.get("message") or "").strip() or None,
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=resolved_filename,
-        ),
+        "page_revision": refreshed_page_state.page_revision,
         "box": refreshed_box or target_box,
         "idempotency_key": idempotency_key,
         "idempotency_state": idempotency_state,
@@ -335,6 +336,11 @@ def _build_ocr_replay_snapshot(
     target_box: dict[str, Any],
 ) -> dict[str, Any]:
     refreshed = load_page(volume_id, filename)
+    refreshed_page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=filename,
+        page=refreshed,
+    )
     refreshed_box = find_text_box_by_id(list_text_boxes_for_page(refreshed), box_id)
     text_value = str((refreshed_box or target_box).get("text") or "").strip()
     return {
@@ -347,10 +353,7 @@ def _build_ocr_replay_snapshot(
         "workflow_status": "missing",
         "text": text_value,
         "result_message": "Equivalent OCR request already completed; reused current box state",
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=filename,
-        ),
+        "page_revision": refreshed_page_state.page_revision,
         "box": refreshed_box or target_box,
         "idempotency_key": idempotency_key,
         "idempotency_state": "replay",

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tools.shared import coerce_filename, list_text_boxes_for_page
-from core.usecases.agent.turn_state import get_active_page_revision
+from core.usecases.agent.grounding.turn_state import build_page_state_snapshot
+from core.usecases.agent.tools.shared import coerce_filename
 from infra.db.store_volume_page import list_page_filenames, load_page
 
 
@@ -43,18 +43,19 @@ def set_active_page_tool(
         }
 
     page = load_page(volume_id, resolved_filename)
-    text_boxes = list_text_boxes_for_page(page)
+    page_state = build_page_state_snapshot(
+        volume_id=volume_id,
+        filename=resolved_filename,
+        page=page,
+    )
     return {
         "status": "ok",
         "volume_id": volume_id,
         "filename": resolved_filename,
-        "text_box_count": len(text_boxes),
+        "text_box_count": page_state.text_box_count,
         "page_index": int(filenames.index(resolved_filename)) + 1,
         "page_count": len(filenames),
-        "page_revision": get_active_page_revision(
-            volume_id=volume_id,
-            current_filename=resolved_filename,
-        ),
+        "page_revision": page_state.page_revision,
     }
 
 

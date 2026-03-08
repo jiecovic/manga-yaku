@@ -7,23 +7,23 @@ import asyncio
 import io
 from typing import Any
 
+from core.usecases.agent.tools import (
+    detect_text_boxes_tool,
+    list_ocr_profiles_tool,
+    ocr_text_box_tool,
+    translate_active_page_tool,
+)
 from core.usecases.agent.tools.boxes import (
     get_text_box_detail_tool,
     list_text_boxes_tool,
+    search_volume_text_boxes_tool,
     update_text_box_fields_tool,
 )
 from core.usecases.agent.tools.context import (
     get_page_memory_tool,
     get_volume_context_tool,
-    search_volume_text_boxes_tool,
     update_page_memory_tool,
     update_volume_context_tool,
-)
-from core.usecases.agent.tools.jobs import (
-    detect_text_boxes_tool,
-    list_ocr_profiles_tool,
-    ocr_text_box_tool,
-    translate_active_page_tool,
 )
 from core.usecases.agent.tools.pages import (
     list_volume_pages_tool,

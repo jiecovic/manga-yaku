@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any
 
 from core.usecases.agent.tools.shared import (
-    list_text_boxes_for_page,
     resolve_active_page_filename,
     resolve_read_page_filename,
 )
@@ -16,10 +15,6 @@ from infra.db.store_context import (
     get_volume_context,
     upsert_page_context,
     upsert_volume_context,
-)
-from infra.db.store_volume_page import (
-    list_page_filenames,
-    load_page,
 )
 
 
@@ -266,57 +261,4 @@ def update_page_memory_tool(
             "open_threads": open_threads is not None,
             "glossary": glossary is not None,
         },
-    }
-
-
-def search_volume_text_boxes_tool(
-    *,
-    volume_id: str,
-    query: str,
-    limit: int = 40,
-    only_translated: bool = False,
-) -> dict[str, Any]:
-    if not volume_id:
-        return {"error": "No active volume selected"}
-
-    normalized_query = str(query or "").strip().lower()
-    if not normalized_query:
-        return {"error": "query is required"}
-
-    safe_limit = max(1, min(int(limit), 200))
-    results: list[dict[str, Any]] = []
-    for filename in list_page_filenames(volume_id):
-        page = load_page(volume_id, filename)
-        text_boxes = list_text_boxes_for_page(page)
-        for box in text_boxes:
-            text_value = str(box.get("text") or "").strip()
-            translation_value = str(box.get("translation") or "").strip()
-            if only_translated and not translation_value:
-                continue
-            haystack = f"{text_value}\n{translation_value}".lower()
-            if normalized_query not in haystack:
-                continue
-            results.append(
-                {
-                    "filename": filename,
-                    "box_id": int(box.get("id") or 0),
-                    "orderIndex": int(box.get("orderIndex") or 0),
-                    "text": text_value,
-                    "translation": translation_value,
-                }
-            )
-            if len(results) >= safe_limit:
-                return {
-                    "volume_id": volume_id,
-                    "query": query,
-                    "total": len(results),
-                    "results": results,
-                    "truncated": True,
-                }
-    return {
-        "volume_id": volume_id,
-        "query": query,
-        "total": len(results),
-        "results": results,
-        "truncated": False,
     }
