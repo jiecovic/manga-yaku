@@ -36,6 +36,7 @@ from core.usecases.translation.profile_settings import (
     update_translation_profile_settings,
 )
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from infra.llm.model_capabilities import resolve_model_capability_map
 from infra.logging.correlation import append_correlation
 
 router = APIRouter(tags=["settings"])
@@ -61,6 +62,14 @@ def _build_options() -> dict[str, Any]:
         "ocr.parallelism.max_workers": {"min": 1, "max": 64},
         "ocr.parallelism.lease_seconds": {"min": 30, "max": 3600},
         "ocr.parallelism.task_timeout_seconds": {"min": 15, "max": 3600},
+    }
+
+
+def _build_model_options(model_ids: list[str]) -> dict[str, Any]:
+    return {
+        "models": model_ids,
+        "model_capabilities": resolve_model_capability_map(model_ids),
+        "reasoning_effort": list(REASONING_CHOICES),
     }
 
 
@@ -159,10 +168,7 @@ async def get_page_translation_settings() -> PageTranslationSettingsResponse:
     return PageTranslationSettingsResponse(
         value=value.to_payload(),
         defaults=defaults.to_payload(),
-        options={
-            "models": AGENT_MODELS,
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(list(AGENT_MODELS)),
     )
 
 
@@ -182,10 +188,7 @@ async def put_page_translation_settings(
     return PageTranslationSettingsResponse(
         value=value.to_payload(),
         defaults=page_translation_defaults().to_payload(),
-        options={
-            "models": AGENT_MODELS,
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(list(AGENT_MODELS)),
     )
 
 
@@ -203,10 +206,7 @@ async def get_ocr_profile_settings() -> OcrProfileSettingsResponse:
             models.add(str(model_id))
     return OcrProfileSettingsResponse(
         profiles=[profile.to_payload() for profile in profiles],
-        options={
-            "models": sorted(models),
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(sorted(models)),
     )
 
 
@@ -232,10 +232,7 @@ async def put_ocr_profile_settings(
             models.add(str(model_id))
     return OcrProfileSettingsResponse(
         profiles=[profile.to_payload() for profile in profiles],
-        options={
-            "models": sorted(models),
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(sorted(models)),
     )
 
 
@@ -253,10 +250,7 @@ async def get_translation_profile_settings() -> TranslationProfileSettingsRespon
             models.add(str(model_id))
     return TranslationProfileSettingsResponse(
         profiles=[profile.to_payload() for profile in profiles],
-        options={
-            "models": sorted(models),
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(sorted(models)),
     )
 
 
@@ -282,8 +276,5 @@ async def put_translation_profile_settings(
             models.add(str(model_id))
     return TranslationProfileSettingsResponse(
         profiles=[profile.to_payload() for profile in profiles],
-        options={
-            "models": sorted(models),
-            "reasoning_effort": list(REASONING_CHOICES),
-        },
+        options=_build_model_options(sorted(models)),
     )

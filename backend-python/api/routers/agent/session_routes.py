@@ -23,6 +23,7 @@ from infra.db.agent_store import (
     list_agent_sessions,
     update_agent_session,
 )
+from infra.llm.model_capabilities import resolve_model_capability
 
 router = APIRouter(tags=["agent"])
 
@@ -30,7 +31,21 @@ router = APIRouter(tags=["agent"])
 @router.get("/agent/config", response_model=AgentConfigResponse)
 async def get_agent_config() -> AgentConfigResponse:
     """Return agent config."""
-    models = [AgentModelPublic(id=model_id, label=model_id) for model_id in AGENT_MODELS]
+    models = [
+        AgentModelPublic(
+            id=model_id,
+            label=model_id,
+            capability={
+                "appliesTemperature": resolve_model_capability(model_id).applies_temperature,
+                "appliesReasoningEffort": resolve_model_capability(
+                    model_id
+                ).applies_reasoning_effort,
+                "temperatureSupport": resolve_model_capability(model_id).temperature_support,
+                "notes": list(resolve_model_capability(model_id).notes),
+            },
+        )
+        for model_id in AGENT_MODELS
+    ]
     default_model = AGENT_MODEL
     if default_model not in AGENT_MODELS and AGENT_MODELS:
         default_model = AGENT_MODELS[0]

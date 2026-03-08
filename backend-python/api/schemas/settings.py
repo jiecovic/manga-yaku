@@ -8,6 +8,16 @@ from typing import Any
 from pydantic import BaseModel
 
 
+class ModelCapabilityPublic(BaseModel):
+    """Effective runtime-control support for one selectable model."""
+
+    model_id: str
+    applies_temperature: bool
+    applies_reasoning_effort: bool
+    temperature_support: str
+    notes: list[str] = []
+
+
 class SettingsResponse(BaseModel):
     """Resolved settings payload (current values + defaults + options)."""
 

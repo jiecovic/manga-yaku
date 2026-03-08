@@ -6,6 +6,15 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class AgentModelCapabilityPublic(BaseModel):
+    """Effective tuning controls for one chat model option."""
+
+    appliesTemperature: bool
+    appliesReasoningEffort: bool
+    temperatureSupport: str
+    notes: list[str] = []
+
+
 class AgentSessionPublic(BaseModel):
     """Public session metadata returned by agent session endpoints."""
 
@@ -62,6 +71,7 @@ class AgentModelPublic(BaseModel):
 
     id: str
     label: str
+    capability: AgentModelCapabilityPublic
 
 
 class AgentConfigResponse(BaseModel):
