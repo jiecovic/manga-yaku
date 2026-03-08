@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/context.py
+# backend-python/core/workflows/page_translation/orchestration/context.py
 """Workflow context builders for page-translation execution."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from .types import ProgressCallback
+from ..state.types import ProgressCallback
 
 NowFn = Callable[[], float]
 

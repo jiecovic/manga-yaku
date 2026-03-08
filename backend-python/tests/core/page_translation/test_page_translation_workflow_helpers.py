@@ -16,11 +16,11 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from core.workflows.page_translation.payloads import (
+from core.workflows.page_translation.orchestration.resolution import resolve_ocr_profiles
+from core.workflows.page_translation.persistence.payloads import (
     apply_translation_payload,
     build_translation_boxes,
 )
-from core.workflows.page_translation.resolution import resolve_ocr_profiles
 
 
 def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
@@ -35,11 +35,11 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 
     with (
         patch(
-            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.orchestration.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.resolution.get_ocr_profile",
+            "core.workflows.page_translation.orchestration.resolution.get_ocr_profile",
             side_effect=fake_get,
         ),
     ):
@@ -51,11 +51,11 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 def test_resolve_ocr_profiles_uses_fallback_default() -> None:
     with (
         patch(
-            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.orchestration.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.resolution.get_ocr_profile",
+            "core.workflows.page_translation.orchestration.resolution.get_ocr_profile",
             return_value={"enabled": True},
         ),
     ):
@@ -67,11 +67,11 @@ def test_resolve_ocr_profiles_uses_fallback_default() -> None:
 def test_resolve_ocr_profiles_raises_when_none_enabled() -> None:
     with (
         patch(
-            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.orchestration.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.resolution.get_ocr_profile",
+            "core.workflows.page_translation.orchestration.resolution.get_ocr_profile",
             return_value={"enabled": False},
         ),
         pytest.raises(RuntimeError),
@@ -135,16 +135,16 @@ def test_apply_translation_payload_merges_and_deletes_explicit_targets() -> None
 
     with (
         patch(
-            "core.workflows.page_translation.payloads.set_box_ocr_text_by_id",
+            "core.workflows.page_translation.persistence.payloads.set_box_ocr_text_by_id",
         ) as set_ocr,
         patch(
-            "core.workflows.page_translation.payloads.set_box_translation_by_id",
+            "core.workflows.page_translation.persistence.payloads.set_box_translation_by_id",
         ) as set_translation,
         patch(
-            "core.workflows.page_translation.payloads.delete_boxes_by_ids",
+            "core.workflows.page_translation.persistence.payloads.delete_boxes_by_ids",
         ) as delete_boxes,
         patch(
-            "core.workflows.page_translation.payloads.set_box_order_for_type",
+            "core.workflows.page_translation.persistence.payloads.set_box_order_for_type",
             return_value=True,
         ) as set_order,
     ):
@@ -193,16 +193,16 @@ def test_apply_translation_payload_warns_on_missing_coverage() -> None:
 
     with (
         patch(
-            "core.workflows.page_translation.payloads.set_box_ocr_text_by_id",
+            "core.workflows.page_translation.persistence.payloads.set_box_ocr_text_by_id",
         ) as set_ocr,
         patch(
-            "core.workflows.page_translation.payloads.set_box_translation_by_id",
+            "core.workflows.page_translation.persistence.payloads.set_box_translation_by_id",
         ) as set_translation,
         patch(
-            "core.workflows.page_translation.payloads.delete_boxes_by_ids",
+            "core.workflows.page_translation.persistence.payloads.delete_boxes_by_ids",
         ) as delete_boxes,
         patch(
-            "core.workflows.page_translation.payloads.set_box_order_for_type",
+            "core.workflows.page_translation.persistence.payloads.set_box_order_for_type",
             return_value=False,
         ) as set_order,
     ):

@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/state_machine.py
+# backend-python/core/workflows/page_translation/state/state_machine.py
 """State machine transitions and guards for the page-translation workflow."""
 
 from __future__ import annotations

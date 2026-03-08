@@ -9,7 +9,7 @@ from typing import Any
 from infra.db.store_context import upsert_page_context, upsert_volume_context
 from infra.db.store_volume_page import get_page_index
 
-from ..payloads import apply_translation_payload
+from ..persistence.payloads import apply_translation_payload
 
 
 @dataclass(frozen=True)

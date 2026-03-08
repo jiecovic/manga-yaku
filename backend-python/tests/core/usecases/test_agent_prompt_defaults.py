@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from core.usecases.agent.engine import _load_system_prompt
-from core.workflows.page_translation.types import PageTranslationRequest
+from core.workflows.page_translation.state.types import PageTranslationRequest
 
 
 def test_load_system_prompt_renders_shared_language_defaults() -> None:

@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/payloads.py
+# backend-python/core/workflows/page_translation/persistence/payloads.py
 """Payload shaping and persistence helpers for the page-translation workflow."""
 
 from __future__ import annotations

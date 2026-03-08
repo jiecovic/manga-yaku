@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/events.py
+# backend-python/core/workflows/page_translation/persistence/events.py
 """Event payload definitions for the page-translation workflow."""
 
 from __future__ import annotations

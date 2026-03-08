@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/outcomes.py
+# backend-python/core/workflows/page_translation/orchestration/outcomes.py
 """Terminal outcome helpers for the page-translation workflow."""
 
 from __future__ import annotations
@@ -7,10 +7,10 @@ from typing import Any
 
 from infra.db.workflow_store import update_workflow_run
 
+from ..stages.commit import CommitStageResult
+from ..state.types import PageTranslationWorkflowSnapshot, WorkflowState
 from .context import WorkflowRunContext
 from .progress import emit_workflow_progress
-from .stages.commit import CommitStageResult
-from .types import PageTranslationWorkflowSnapshot, WorkflowState
 
 
 def cancel_workflow(

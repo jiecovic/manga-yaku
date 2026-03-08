@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/lifecycle.py
+# backend-python/core/workflows/page_translation/orchestration/lifecycle.py
 """Workflow row lifecycle helpers for page-translation orchestration."""
 
 from __future__ import annotations
@@ -7,8 +7,8 @@ from typing import Any
 
 from infra.db.workflow_store import create_workflow_run, update_workflow_run
 
-from .state_machine import transition
-from .types import WorkflowEvent, WorkflowState
+from ..state.state_machine import transition
+from ..state.types import WorkflowEvent, WorkflowState
 
 
 def ensure_workflow_run(

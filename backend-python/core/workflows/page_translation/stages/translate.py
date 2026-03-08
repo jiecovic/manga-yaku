@@ -10,7 +10,7 @@ from typing import Any
 from config import PAGE_TRANSLATION_TIMEOUT_SECONDS
 from infra.db.workflow_store import create_task_run, update_task_run
 
-from ..events import append_stage_attempt_event
+from ..persistence.events import append_stage_attempt_event
 from .merge import create_merge_task_run, mark_merge_task_canceled
 
 

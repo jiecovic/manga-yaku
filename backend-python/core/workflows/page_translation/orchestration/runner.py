@@ -1,31 +1,31 @@
-# backend-python/core/workflows/page_translation/runner.py
+# backend-python/core/workflows/page_translation/orchestration/runner.py
 """Workflow runner orchestration for the page-translation workflow."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from .context import WorkflowRunContext
-from .helpers import is_canceled as is_cancel_requested
-from .helpers import utc_now_iso
-from .lifecycle import advance_running_state, ensure_workflow_run
-from .outcomes import cancel_workflow, complete_workflow, fail_workflow
-from .payloads import build_ocr_profile_meta, build_translation_boxes
-from .prior_context import load_prior_context
-from .progress import emit_workflow_progress
-from .resolution import resolve_detection_profile_id, resolve_ocr_profiles
-from .stages.commit import run_commit_stage
-from .stages.detect import run_detect_stage
-from .stages.ocr_fanout import run_ocr_fanout_stage
-from .stages.translate import TranslateStageError, run_translate_stage
-from .state_machine import transition
-from .types import (
+from ..persistence.payloads import build_ocr_profile_meta, build_translation_boxes
+from ..stages.commit import run_commit_stage
+from ..stages.detect import run_detect_stage
+from ..stages.ocr_fanout import run_ocr_fanout_stage
+from ..stages.translate import TranslateStageError, run_translate_stage
+from ..state.state_machine import transition
+from ..state.types import (
     CancelCheck,
     PageTranslationRequest,
     ProgressCallback,
     WorkflowEvent,
     WorkflowState,
 )
+from .context import WorkflowRunContext
+from .helpers import is_canceled as is_cancel_requested
+from .helpers import utc_now_iso
+from .lifecycle import advance_running_state, ensure_workflow_run
+from .outcomes import cancel_workflow, complete_workflow, fail_workflow
+from .prior_context import load_prior_context
+from .progress import emit_workflow_progress
+from .resolution import resolve_detection_profile_id, resolve_ocr_profiles
 from .workflow_settings import resolve_page_translation_workflow_settings
 
 

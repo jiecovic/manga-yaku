@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.workflows.page_translation.events import (
+from core.workflows.page_translation.persistence.events import (
     append_ocr_attempt_events,
     append_stage_attempt_event,
     coerce_non_negative_int,
@@ -36,7 +36,7 @@ def test_coerce_non_negative_int_handles_types() -> None:
 
 def test_append_stage_attempt_event_uses_merge_prompt_version() -> None:
     with patch(
-        "core.workflows.page_translation.events.persist_task_attempt_event"
+        "core.workflows.page_translation.persistence.events.persist_task_attempt_event"
     ) as persist_task_attempt_event:
         append_stage_attempt_event(
             task_id="task-1",
@@ -74,7 +74,7 @@ def test_append_ocr_attempt_events_forwards_attempt_payload() -> None:
         }
     ]
     with patch(
-        "core.workflows.page_translation.events.persist_task_attempt_event"
+        "core.workflows.page_translation.persistence.events.persist_task_attempt_event"
     ) as persist_task_attempt_event:
         append_ocr_attempt_events(
             task_id="task-ocr",

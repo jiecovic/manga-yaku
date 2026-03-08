@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/resolution.py
+# backend-python/core/workflows/page_translation/orchestration/resolution.py
 """Profile and parallelism resolution for the page-translation workflow."""
 
 from __future__ import annotations

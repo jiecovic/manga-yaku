@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/workflow_settings.py
+# backend-python/core/workflows/page_translation/orchestration/workflow_settings.py
 """Workflow setting resolution for page-translation orchestration."""
 
 from __future__ import annotations

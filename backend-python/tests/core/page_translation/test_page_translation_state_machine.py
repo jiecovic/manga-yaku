@@ -14,8 +14,11 @@ How it is tested:
 from __future__ import annotations
 
 import pytest
-from core.workflows.page_translation.state_machine import is_terminal, transition
-from core.workflows.page_translation.types import WorkflowEvent, WorkflowState
+from core.workflows.page_translation.state.state_machine import (
+    is_terminal,
+    transition,
+)
+from core.workflows.page_translation.state.types import WorkflowEvent, WorkflowState
 
 
 def test_happy_path_transitions() -> None:

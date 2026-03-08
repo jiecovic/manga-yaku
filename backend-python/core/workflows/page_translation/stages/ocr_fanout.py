@@ -15,11 +15,11 @@ from core.usecases.ocr.tasks.runner import OcrTaskOutcome
 from infra.db.store_boxes import set_box_ocr_text_by_id
 from infra.db.workflow_store import create_task_run, update_task_run
 
-from ..context import WorkflowRunContext
-from ..events import append_ocr_attempt_events
-from ..progress import emit_workflow_progress
-from ..resolution import resolve_parallel_limits
-from ..types import WorkflowState
+from ..orchestration.context import WorkflowRunContext
+from ..orchestration.progress import emit_workflow_progress
+from ..orchestration.resolution import resolve_parallel_limits
+from ..persistence.events import append_ocr_attempt_events
+from ..state.types import WorkflowState
 
 CancelCheck = Callable[[], bool]
 

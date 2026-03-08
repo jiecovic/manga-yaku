@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.workflows.page_translation.runner import run_page_translation_workflow
-from core.workflows.page_translation.types import PageTranslationWorkflowSnapshot
+from core.workflows.page_translation.orchestration.runner import run_page_translation_workflow
+from core.workflows.page_translation.state.types import PageTranslationWorkflowSnapshot
 from infra.jobs.store import Job, JobStatus, JobStore
 
 from .base import JobHandler

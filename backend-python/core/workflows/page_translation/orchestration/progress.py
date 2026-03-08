@@ -1,11 +1,11 @@
-# backend-python/core/workflows/page_translation/progress.py
+# backend-python/core/workflows/page_translation/orchestration/progress.py
 """Progress computation and status formatting for the page-translation workflow."""
 
 from __future__ import annotations
 
+from ..state.types import WorkflowState
 from .context import WorkflowRunContext
 from .helpers import emit_progress
-from .types import WorkflowState
 
 
 def emit_workflow_progress(

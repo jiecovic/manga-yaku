@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/types.py
+# backend-python/core/workflows/page_translation/state/types.py
 """Typed state and payload models for the page-translation workflow."""
 
 from __future__ import annotations

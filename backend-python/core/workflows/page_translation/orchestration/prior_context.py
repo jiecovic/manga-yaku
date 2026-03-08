@@ -1,4 +1,4 @@
-# backend-python/core/workflows/page_translation/prior_context.py
+# backend-python/core/workflows/page_translation/orchestration/prior_context.py
 """Prior context loading for the page-translation workflow."""
 
 from __future__ import annotations
