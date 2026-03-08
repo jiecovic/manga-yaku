@@ -8,6 +8,9 @@ from typing import Any, Literal
 
 TemperatureSupport = Literal["always", "never", "reasoning_none_only"]
 
+# Reference docs:
+# - https://platform.openai.com/docs/models/gpt-5.2
+# - https://platform.openai.com/docs/models/gpt-5.4
 # OpenAI documents a conditional temperature exception for these GPT-5 variants.
 _GPT5_CONDITIONAL_TEMPERATURE = ("gpt-5.1", "gpt-5.2", "gpt-5.4")
 _REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
