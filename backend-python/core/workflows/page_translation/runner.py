@@ -12,11 +12,12 @@ from infra.db.workflow_store import (
 
 from .context import WorkflowRunContext
 from .helpers import is_canceled as is_cancel_requested
-from .helpers import resolve_detection_profile_id, resolve_ocr_profiles, utc_now_iso
+from .helpers import utc_now_iso
 from .outcomes import cancel_workflow, complete_workflow, fail_workflow
 from .payloads import build_ocr_profile_meta, build_translation_boxes
 from .prior_context import load_prior_context
 from .progress import emit_workflow_progress
+from .resolution import resolve_detection_profile_id, resolve_ocr_profiles
 from .stages.commit import run_commit_stage
 from .stages.detect import run_detect_stage
 from .stages.ocr_fanout import run_ocr_fanout_stage

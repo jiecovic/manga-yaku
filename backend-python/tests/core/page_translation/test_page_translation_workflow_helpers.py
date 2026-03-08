@@ -16,11 +16,11 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from core.workflows.page_translation.helpers import (
+from core.workflows.page_translation.payloads import (
     apply_translation_payload,
     build_translation_boxes,
-    resolve_ocr_profiles,
 )
+from core.workflows.page_translation.resolution import resolve_ocr_profiles
 
 
 def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
@@ -35,11 +35,11 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 
     with (
         patch(
-            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.helpers.get_ocr_profile",
+            "core.workflows.page_translation.resolution.get_ocr_profile",
             side_effect=fake_get,
         ),
     ):
@@ -51,11 +51,11 @@ def test_resolve_ocr_profiles_filters_disabled_and_unknown() -> None:
 def test_resolve_ocr_profiles_uses_fallback_default() -> None:
     with (
         patch(
-            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.helpers.get_ocr_profile",
+            "core.workflows.page_translation.resolution.get_ocr_profile",
             return_value={"enabled": True},
         ),
     ):
@@ -67,11 +67,11 @@ def test_resolve_ocr_profiles_uses_fallback_default() -> None:
 def test_resolve_ocr_profiles_raises_when_none_enabled() -> None:
     with (
         patch(
-            "core.workflows.page_translation.helpers.page_translation_enabled_ocr_profiles",
+            "core.workflows.page_translation.resolution.page_translation_enabled_ocr_profiles",
             return_value=[],
         ),
         patch(
-            "core.workflows.page_translation.helpers.get_ocr_profile",
+            "core.workflows.page_translation.resolution.get_ocr_profile",
             return_value={"enabled": False},
         ),
         pytest.raises(RuntimeError),

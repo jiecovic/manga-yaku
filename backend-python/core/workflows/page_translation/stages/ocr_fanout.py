@@ -17,8 +17,8 @@ from infra.db.workflow_store import create_task_run, update_task_run
 
 from ..context import WorkflowRunContext
 from ..events import append_ocr_attempt_events
-from ..helpers import resolve_parallel_limits
 from ..progress import emit_workflow_progress
+from ..resolution import resolve_parallel_limits
 from ..types import WorkflowState
 
 CancelCheck = Callable[[], bool]
