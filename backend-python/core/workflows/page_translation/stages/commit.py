@@ -1,3 +1,4 @@
+# backend-python/core/workflows/page_translation/stages/commit.py
 """Workflow stage handler for page translation: commit."""
 
 from __future__ import annotations

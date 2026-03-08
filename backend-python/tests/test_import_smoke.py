@@ -1,3 +1,4 @@
+# backend-python/tests/test_import_smoke.py
 """Smoke tests for clean module imports in a fresh interpreter.
 
 What this protects:

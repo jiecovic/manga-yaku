@@ -1,3 +1,4 @@
+# backend-python/core/usecases/ocr/__init__.py
 """Public exports for OCR usecases."""
 
 from .profiles import (

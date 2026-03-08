@@ -1,3 +1,4 @@
+# backend-python/tests/core/usecases/box_detection/test_engine.py
 """Pytest coverage for box-detection orchestration behavior."""
 
 from __future__ import annotations

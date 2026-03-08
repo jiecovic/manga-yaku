@@ -1,3 +1,4 @@
+# backend-python/tests/infra/jobs/test_workflow_store.py
 """Pytest coverage for workflow store restart interruption helpers."""
 
 from __future__ import annotations

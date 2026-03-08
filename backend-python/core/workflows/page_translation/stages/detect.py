@@ -1,3 +1,4 @@
+# backend-python/core/workflows/page_translation/stages/detect.py
 """Workflow stage handler for page translation: detect."""
 
 from __future__ import annotations

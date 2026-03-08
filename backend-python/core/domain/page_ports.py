@@ -1,3 +1,4 @@
+# backend-python/core/domain/page_ports.py
 """Core domain models and contracts for page ports."""
 
 from __future__ import annotations

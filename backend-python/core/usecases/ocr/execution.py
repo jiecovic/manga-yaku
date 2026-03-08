@@ -1,3 +1,4 @@
+# backend-python/core/usecases/ocr/execution.py
 """Execution helpers for ocr operations."""
 
 from __future__ import annotations

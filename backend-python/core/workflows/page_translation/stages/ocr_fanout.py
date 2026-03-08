@@ -1,3 +1,4 @@
+# backend-python/core/workflows/page_translation/stages/ocr_fanout.py
 """Workflow stage handler for page translation: ocr fanout."""
 
 from __future__ import annotations

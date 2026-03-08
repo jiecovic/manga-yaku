@@ -1,3 +1,4 @@
+# backend-python/core/usecases/translation/profile_settings.py
 """Settings overlay and persistence mapping for translation profiles."""
 
 from __future__ import annotations
