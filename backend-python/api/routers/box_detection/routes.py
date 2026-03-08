@@ -7,7 +7,7 @@ from api.schemas.box_detection import BoxDetectionProfileInfo
 from core.usecases.box_detection.engine import detect_boxes_for_page
 from core.usecases.box_detection.profiles import list_box_detection_profiles_for_api
 from fastapi import APIRouter, HTTPException, Query
-from infra.db.db_store import load_page
+from infra.db.store_volume_page import load_page
 
 router = APIRouter(tags=["box-detection"])
 

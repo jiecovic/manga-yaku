@@ -46,7 +46,7 @@ export interface ClearVolumeDerivedDataDetails {
     taskAttemptEventsDeleted: number;
     llmCallLogsDeleted: number;
     llmPayloadFilesDeleted: number;
-    agentDebugFilesDeleted: number;
+    pageTranslationDebugFilesDeleted: number;
 }
 
 export interface ClearVolumeDerivedDataResponse {

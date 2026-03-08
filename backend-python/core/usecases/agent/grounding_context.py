@@ -7,7 +7,7 @@ from typing import Any
 
 from core.usecases.agent.tool_shared import list_text_boxes_for_page
 from core.usecases.agent.turn_state import has_visual_grounding_intent
-from infra.db.db_store import list_page_filenames, load_page
+from infra.db.store_volume_page import list_page_filenames, load_page
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.text_utils import truncate_text
 

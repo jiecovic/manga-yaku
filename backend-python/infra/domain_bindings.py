@@ -13,16 +13,16 @@ and keeps adapter selection explicit at application boot.
 from __future__ import annotations
 
 from core.domain.page_ports import PageWritePort, register_page_write_port
-from infra.db.db_store import (
+from infra.db.store_boxes import (
     set_box_ocr_text_by_id as store_set_box_ocr_text_by_id,
 )
-from infra.db.db_store import (
+from infra.db.store_boxes import (
     set_box_translation_by_id as store_set_box_translation_by_id,
 )
 
 
 class DbStorePageWritePort(PageWritePort):
-    """Page write-port adapter backed by the DB store facade."""
+    """Page write-port adapter backed by database store modules."""
 
     def set_box_ocr_text_by_id(
         self,

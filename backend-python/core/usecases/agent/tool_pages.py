@@ -7,7 +7,7 @@ from typing import Any
 
 from core.usecases.agent.tool_shared import coerce_filename, list_text_boxes_for_page
 from core.usecases.agent.turn_state import get_active_page_revision
-from infra.db.db_store import list_page_filenames, load_page
+from infra.db.store_volume_page import list_page_filenames, load_page
 
 
 def list_volume_pages_tool(volume_id: str) -> dict[str, Any]:

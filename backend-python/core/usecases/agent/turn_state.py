@@ -8,7 +8,7 @@ import json
 import re
 from typing import Any
 
-from infra.db.db_store import load_page
+from infra.db.store_volume_page import load_page
 from infra.images.image_ops import get_page_image_path
 
 _PAGE_FILENAME_RE = re.compile(r"\b(\d+\.(?:jpg|jpeg|png|webp))\b", re.IGNORECASE)

@@ -11,13 +11,15 @@ from core.usecases.agent.tool_shared import (
     resolve_active_page_filename,
     resolve_read_page_filename,
 )
-from infra.db.db_store import (
+from infra.db.store_context import (
     get_page_context_snapshot,
     get_volume_context,
-    list_page_filenames,
-    load_page,
     upsert_page_context,
     upsert_volume_context,
+)
+from infra.db.store_volume_page import (
+    list_page_filenames,
+    load_page,
 )
 
 

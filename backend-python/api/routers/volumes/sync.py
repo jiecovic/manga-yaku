@@ -16,10 +16,10 @@ from api.services.volumes_helpers import (
 )
 from config import VOLUMES_ROOT
 from fastapi import APIRouter
-from infra.db.db_store import (
+from infra.db.store_volume_page import (
     create_volume as create_volume_record,
 )
-from infra.db.db_store import (
+from infra.db.store_volume_page import (
     delete_page,
     delete_volume,
     ensure_page,

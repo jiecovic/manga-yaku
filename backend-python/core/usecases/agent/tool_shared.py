@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.usecases.page_boxes import list_text_boxes
+
 
 def coerce_filename(value: str | None) -> str | None:
     text = str(value or "").strip()
@@ -12,16 +14,8 @@ def coerce_filename(value: str | None) -> str | None:
 
 
 def list_text_boxes_for_page(page: dict[str, Any]) -> list[dict[str, Any]]:
-    raw_boxes = page.get("boxes") if isinstance(page, dict) else []
-    if not isinstance(raw_boxes, list):
-        return []
-
     out: list[dict[str, Any]] = []
-    for box in raw_boxes:
-        if not isinstance(box, dict):
-            continue
-        if str(box.get("type") or "").strip().lower() != "text":
-            continue
+    for box in list_text_boxes(page):
         box_id = int(box.get("id") or 0)
         if box_id <= 0:
             continue

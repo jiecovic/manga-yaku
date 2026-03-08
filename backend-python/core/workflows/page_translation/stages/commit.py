@@ -6,7 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from infra.db.db_store import get_page_index, upsert_page_context, upsert_volume_context
+from infra.db.store_context import upsert_page_context, upsert_volume_context
+from infra.db.store_volume_page import get_page_index
 
 from ..helpers import apply_translation_payload
 

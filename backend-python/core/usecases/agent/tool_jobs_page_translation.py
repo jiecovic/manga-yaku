@@ -10,7 +10,7 @@ from core.usecases.agent.tool_shared import (
     list_text_boxes_for_page,
     resolve_active_page_filename,
 )
-from infra.db.db_store import load_page
+from infra.db.store_volume_page import load_page
 from infra.jobs.operations import PAGE_TRANSLATION_OPERATION, enqueue_persisted_operation
 
 

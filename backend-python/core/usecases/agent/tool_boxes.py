@@ -12,12 +12,12 @@ from core.usecases.agent.tool_shared import (
     resolve_read_page_filename,
 )
 from core.usecases.agent.turn_state import get_active_page_revision
-from infra.db.db_store import (
-    load_page,
+from infra.db.store_boxes import (
     set_box_note_by_id,
     set_box_ocr_text_by_id,
     set_box_translation_by_id,
 )
+from infra.db.store_volume_page import load_page
 
 
 def list_text_boxes_tool(

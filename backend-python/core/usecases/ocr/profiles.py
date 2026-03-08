@@ -109,8 +109,7 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
     if profile_id in label_overrides:
         profile["label"] = str(label_overrides[profile_id])
     provider = base.get("provider")
-    # Keep legacy provider id support for older in-memory/profile variants.
-    if provider in {"llm_ocr", "llm_ocr_chat"}:
+    if provider == "llm_ocr":
         from .profile_settings import resolve_ocr_profile_settings
 
         profile_settings = resolve_ocr_profile_settings().get(profile_id, {})

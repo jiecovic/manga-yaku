@@ -7,9 +7,7 @@ from typing import Any
 
 from core.usecases.page_translation.settings import resolve_page_translation_settings
 from core.usecases.settings.service import get_setting_value
-from infra.db.db_store import (
-    get_volume_context,
-)
+from infra.db.store_context import get_volume_context
 from infra.db.workflow_store import (
     create_workflow_run,
     update_workflow_run,

@@ -7,9 +7,8 @@ import asyncio
 from typing import Any
 
 from core.usecases.box_detection.engine import detect_text_boxes_for_page
-from infra.db.db_store import load_page
-
-from ..helpers import list_text_boxes
+from core.usecases.page_boxes import list_text_boxes
+from infra.db.store_volume_page import load_page
 
 
 async def run_detect_stage(

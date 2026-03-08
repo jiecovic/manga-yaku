@@ -308,7 +308,7 @@ def run_ocr_box(
 
     if provider == "manga_ocr":
         text = _run_manga_ocr_box(volume_id, filename, x, y, width, height)
-    elif provider in {"llm_ocr", "llm_ocr_chat"}:
+    elif provider == "llm_ocr":
         text = _run_llm_ocr_box(profile, volume_id, filename, x, y, width, height)
     else:
         raise RuntimeError(f"Unknown OCR provider '{provider}' for '{profile_id}'")

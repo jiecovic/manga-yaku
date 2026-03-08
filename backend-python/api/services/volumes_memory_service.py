@@ -6,15 +6,14 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException
-from infra.db.db_store import (
+from infra.db.store_context import (
     clear_page_context_snapshot,
     clear_volume_context,
-    clear_volume_derived_data,
     get_page_context_snapshot,
-    get_volume,
     get_volume_context,
-    list_page_filenames,
 )
+from infra.db.store_volume_page import get_volume, list_page_filenames
+from infra.db.store_volume_reset import clear_volume_derived_data
 
 
 def _to_iso(value: datetime | None) -> str | None:
@@ -123,6 +122,8 @@ def clear_volume_derived_state_payload(volume_id: str) -> dict:
             "taskAttemptEventsDeleted": int(raw.get("task_attempt_events_deleted") or 0),
             "llmCallLogsDeleted": int(raw.get("llm_call_logs_deleted") or 0),
             "llmPayloadFilesDeleted": int(raw.get("llm_payload_files_deleted") or 0),
-            "agentDebugFilesDeleted": int(raw.get("agent_debug_files_deleted") or 0),
+            "pageTranslationDebugFilesDeleted": int(
+                raw.get("page_translation_debug_files_deleted") or 0
+            ),
         },
     }

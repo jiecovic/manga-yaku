@@ -18,12 +18,12 @@ from core.usecases.agent.tool_shared import (
     resolve_active_page_filename,
 )
 from core.usecases.agent.turn_state import get_active_page_revision
-from infra.db.db_store import load_page
 from infra.db.idempotency_store import (
     claim_idempotency_key,
     finalize_idempotency_key,
     release_idempotency_claim,
 )
+from infra.db.store_volume_page import load_page
 from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE
 from infra.jobs.operations import OCR_BOX_OPERATION, enqueue_persisted_operation
 

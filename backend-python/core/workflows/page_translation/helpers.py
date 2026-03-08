@@ -13,7 +13,7 @@ from core.usecases.settings.service import (
     resolve_detection_settings,
     resolve_ocr_parallelism_settings,
 )
-from infra.db.db_store import (
+from infra.db.store_boxes import (
     delete_boxes_by_ids,
     set_box_ocr_text_by_id,
     set_box_order_for_type,
@@ -36,7 +36,6 @@ __all__ = [
     "build_translation_boxes",
     "emit_progress",
     "is_canceled",
-    "list_text_boxes",
     "resolve_detection_profile_id",
     "resolve_ocr_profiles",
     "resolve_parallel_limits",
@@ -99,19 +98,6 @@ def resolve_parallel_limits() -> tuple[int, int]:
     """Resolve parallel limits."""
     settings = resolve_ocr_parallelism_settings()
     return (settings.local, settings.remote)
-
-
-def list_text_boxes(page: dict[str, Any]) -> list[dict[str, Any]]:
-    """List text boxes."""
-    raw_boxes = page.get("boxes", []) if isinstance(page, dict) else []
-    text_boxes = [box for box in raw_boxes if box.get("type") == "text"]
-    text_boxes.sort(
-        key=lambda box: (
-            int(box.get("orderIndex") or 10**9),
-            int(box.get("id") or 0),
-        )
-    )
-    return text_boxes
 
 
 def emit_progress(

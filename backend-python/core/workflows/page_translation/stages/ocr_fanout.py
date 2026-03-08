@@ -12,7 +12,7 @@ from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.ocr.selection import select_box_ocr_texts
 from core.usecases.ocr.task_runner import OcrTaskOutcome
-from infra.db.db_store import set_box_ocr_text_by_id
+from infra.db.store_boxes import set_box_ocr_text_by_id
 from infra.db.workflow_store import create_task_run, update_task_run
 
 from ..context import WorkflowRunContext
@@ -68,7 +68,7 @@ async def run_ocr_fanout_stage(
             profile = get_ocr_profile(profile_id)
         except Exception:
             continue
-        if profile.get("provider") in {"llm_ocr", "llm_ocr_chat"}:
+        if profile.get("provider") == "llm_ocr":
             llm_profiles.add(profile_id)
 
     specs: list[_OcrTaskSpec] = []
@@ -123,7 +123,7 @@ async def run_ocr_fanout_stage(
             return None
 
         profile = get_ocr_profile(spec.profile_id)
-        sem = remote_sem if profile.get("provider") in {"llm_ocr", "llm_ocr_chat"} else local_sem
+        sem = remote_sem if profile.get("provider") == "llm_ocr" else local_sem
         async with sem:
             if is_canceled():
                 update_task_run(

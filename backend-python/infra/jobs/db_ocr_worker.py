@@ -12,7 +12,7 @@ from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task
 from core.usecases.ocr.profiles import get_ocr_profile
 from core.usecases.ocr.selection import select_box_ocr_texts
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
-from infra.db.db_store import set_box_ocr_text_by_id
+from infra.db.store_boxes import set_box_ocr_text_by_id
 from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE, OCR_PAGE_WORKFLOW_TYPE
 from infra.jobs.workflow_repo import (
     append_task_attempt_event,
@@ -341,8 +341,7 @@ def _claim_next_task(*, lease_seconds: int) -> dict[str, Any] | None:
     }
 
 
-def _requeue_stale_running_tasks(*, lease_seconds: int) -> int:
-    _ = lease_seconds  # retained for call-site compatibility
+def _requeue_stale_running_tasks() -> int:
     return requeue_stale_running_tasks(
         workflow_types=_OCR_WORKFLOW_TYPES,
         stage=_OCR_STAGE,
@@ -377,7 +376,7 @@ async def _run_claimed_task(
         return
 
     provider = str(profile.get("provider") or "")
-    sem = remote_sem if provider in {"llm_ocr", "llm_ocr_chat"} else local_sem
+    sem = remote_sem if provider == "llm_ocr" else local_sem
     prompt_file = resolve_ocr_prompt_version(profile_id)
 
     async with sem:
@@ -470,7 +469,7 @@ async def run_ocr_db_worker(stop_event: Event) -> None:
     remote_sem = asyncio.Semaphore(min(remote_limit, 32))
 
     try:
-        stale = await asyncio.to_thread(_requeue_stale_running_tasks, lease_seconds=lease_seconds)
+        stale = await asyncio.to_thread(_requeue_stale_running_tasks)
     except Exception:
         logger.exception(
             append_correlation(

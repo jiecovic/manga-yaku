@@ -10,12 +10,9 @@ from typing import Any, cast
 
 from config import DEBUG_PROMPTS, OPENAI_API_KEY
 from core.domain.pages import set_box_translation_by_id
-from infra.db.db_store import (
-    get_box_text_by_id,
-    get_page_context_snapshot,
-    get_volume_context,
-    load_page,
-)
+from infra.db.store_boxes import get_box_text_by_id
+from infra.db.store_context import get_page_context_snapshot, get_volume_context
+from infra.db.store_volume_page import load_page
 from infra.llm import (
     build_chat_params,
     build_response_params,

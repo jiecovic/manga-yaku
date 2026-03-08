@@ -87,7 +87,7 @@ class ClearVolumeDerivedDataDetails(BaseModel):
     taskAttemptEventsDeleted: int
     llmCallLogsDeleted: int
     llmPayloadFilesDeleted: int
-    agentDebugFilesDeleted: int
+    pageTranslationDebugFilesDeleted: int
 
 
 class ClearVolumeDerivedDataResponse(BaseModel):

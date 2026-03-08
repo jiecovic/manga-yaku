@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
-from infra.db.db_store import get_max_page_index, list_pages, volume_name_exists
+from infra.db.store_volume_page import get_max_page_index, list_pages, volume_name_exists
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 

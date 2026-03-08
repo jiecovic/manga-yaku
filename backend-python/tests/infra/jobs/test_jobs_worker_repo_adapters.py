@@ -55,7 +55,7 @@ def test_ocr_requeue_adapter_delegates() -> None:
         "infra.jobs.db_ocr_worker.requeue_stale_running_tasks",
         return_value=3,
     ) as requeue_mock:
-        changed = db_ocr_worker._requeue_stale_running_tasks(lease_seconds=180)
+        changed = db_ocr_worker._requeue_stale_running_tasks()
     assert changed == 3
     requeue_mock.assert_called_once()
 
@@ -89,6 +89,6 @@ def test_translate_requeue_adapter_delegates() -> None:
         "infra.jobs.db_translate_worker.requeue_stale_running_tasks",
         return_value=2,
     ) as requeue_mock:
-        changed = db_translate_worker._requeue_stale_running_tasks(lease_seconds=180)
+        changed = db_translate_worker._requeue_stale_running_tasks()
     assert changed == 2
     requeue_mock.assert_called_once()

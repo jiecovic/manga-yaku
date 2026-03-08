@@ -11,7 +11,7 @@ from typing import Any
 
 from config import PROJECT_ROOT, VOLUMES_ROOT, safe_join
 from core.usecases.settings.service import resolve_detection_settings
-from infra.db.db_store import create_detection_run, replace_boxes_for_type
+from infra.db.store_boxes import create_detection_run, replace_boxes_for_type
 from infra.logging.correlation import append_correlation
 from PIL import Image
 

@@ -21,10 +21,10 @@ from config import VOLUMES_ROOT, safe_join
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 from infra.db.db import check_db
-from infra.db.db_store import (
+from infra.db.store_volume_page import (
     create_volume as create_volume_record,
 )
-from infra.db.db_store import (
+from infra.db.store_volume_page import (
     delete_page,
     ensure_page,
     get_volume,

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.domain.pages import set_box_translation_by_id
+from core.usecases.model_metadata import extract_model_metadata
 
 from .profiles import get_translation_profile
 
@@ -49,28 +50,6 @@ def _build_retry_override(base_cfg: dict[str, Any], *, attempt: int) -> dict[str
         elif attempt >= 3:
             out["reasoning"] = {"effort": "high"}
     return out
-
-
-def _extract_model_metadata(config: dict[str, Any]) -> tuple[str | None, int | None, str | None]:
-    model_id = config.get("model")
-    max_tokens = (
-        config.get("max_output_tokens")
-        or config.get("max_completion_tokens")
-        or config.get("max_tokens")
-    )
-    reasoning_effort = None
-    reasoning = config.get("reasoning")
-    if isinstance(reasoning, dict):
-        effort = reasoning.get("effort")
-        if effort:
-            reasoning_effort = str(effort)
-    elif config.get("reasoning_effort"):
-        reasoning_effort = str(config["reasoning_effort"])
-    return (
-        str(model_id) if model_id else None,
-        _to_int(max_tokens),
-        reasoning_effort,
-    )
 
 
 def _normalize_translation_result(result: Any) -> tuple[str, str]:
@@ -137,7 +116,7 @@ def run_translation_task_with_retries(
         override = _build_retry_override(base_cfg, attempt=attempt)
         merged_cfg = dict(base_cfg)
         merged_cfg.update(override)
-        model_id, max_tokens, reasoning_effort = _extract_model_metadata(merged_cfg)
+        model_id, max_tokens, reasoning_effort = extract_model_metadata(merged_cfg)
         started = time.monotonic()
         try:
             result = run_translate_box_with_context_structured(

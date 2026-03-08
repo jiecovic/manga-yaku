@@ -5,13 +5,12 @@ from __future__ import annotations
 
 from api.schemas.boxes import Box, BoxPage, BoxTextPatch
 from fastapi import APIRouter, HTTPException
-from infra.db.db_store import (
-    load_page,
-    save_page,
+from infra.db.store_boxes import (
     set_box_note_by_id,
     set_box_ocr_text_by_id,
     set_box_translation_by_id,
 )
+from infra.db.store_volume_page import load_page, save_page
 
 router = APIRouter()
 

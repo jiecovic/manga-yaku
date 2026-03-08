@@ -6,9 +6,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.usecases.ocr.profiles import get_ocr_profile
-from infra.db.db_store import load_page
+from core.usecases.page_boxes import list_text_boxes
+from infra.db.store_volume_page import load_page
 from infra.db.workflow_store import create_task_runs, create_workflow_run, update_workflow_run
-from infra.jobs.handlers.utils import list_text_boxes
 from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE, OCR_PAGE_WORKFLOW_TYPE
 
 OCR_TASK_STAGE = "ocr"

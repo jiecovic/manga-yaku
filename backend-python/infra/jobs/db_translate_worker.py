@@ -242,8 +242,7 @@ def _claim_next_task(*, lease_seconds: int) -> dict[str, Any] | None:
     }
 
 
-def _requeue_stale_running_tasks(*, lease_seconds: int) -> int:
-    _ = lease_seconds  # retained for call-site compatibility
+def _requeue_stale_running_tasks() -> int:
     return requeue_stale_running_tasks(
         workflow_types=(_TRANSLATE_WORKFLOW_TYPE,),
         stage=_TRANSLATE_STAGE,
@@ -347,7 +346,6 @@ async def run_translate_db_worker(stop_event: Event) -> None:
     try:
         stale = await asyncio.to_thread(
             _requeue_stale_running_tasks,
-            lease_seconds=lease_seconds,
         )
     except Exception:
         logger.exception(
