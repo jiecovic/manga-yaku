@@ -10,7 +10,8 @@ from typing import Any
 
 from config import PROJECT_ROOT
 
-from ..profiles.registry import BoxDetectionProfile, is_git_lfs_pointer_model
+from ..profiles.availability import is_git_lfs_pointer_model
+from ..profiles.catalog import BoxDetectionProfile
 
 try:
     from ultralytics import YOLO  # type: ignore

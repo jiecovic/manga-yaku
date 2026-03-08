@@ -9,7 +9,7 @@ from config import VOLUMES_ROOT, safe_join
 from core.usecases.settings.service import resolve_detection_settings
 from PIL import Image
 
-from ..profiles.registry import BoxDetectionProfile
+from ..profiles.catalog import BoxDetectionProfile
 from .model_runtime import get_yolo_model
 from .postprocess import (
     filter_contained_boxes,

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from core.usecases.settings.service import resolve_detection_settings
 
-from ..profiles.registry import BoxDetectionProfile
+from ..profiles.catalog import BoxDetectionProfile
 
 
 def resolve_containment_threshold(profile: BoxDetectionProfile) -> float:
