@@ -337,7 +337,7 @@ export function usePageBoxes(): UsePageBoxesResult {
                 filename,
                 profileId,
                 task,
-                replaceExisting: true,
+                replaceExisting: false,
             });
         } catch (err) {
             console.error("Auto-detect boxes failed:", err);

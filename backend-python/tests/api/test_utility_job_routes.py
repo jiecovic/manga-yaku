@@ -28,6 +28,11 @@ async def test_box_detection_route_creates_persisted_workflow() -> None:
     create_mock.assert_called_once_with(req)
 
 
+def test_box_detection_request_defaults_to_preserve_existing_boxes() -> None:
+    req = CreateBoxDetectionJobRequest(volumeId="vol-a", filename="001.jpg")
+    assert req.replaceExisting is False
+
+
 @pytest.mark.asyncio
 async def test_prepare_dataset_route_creates_persisted_workflow() -> None:
     req = CreatePrepareDatasetJobRequest(sources=["manga109s:demo"])

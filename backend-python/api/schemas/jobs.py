@@ -76,7 +76,7 @@ class CreateBoxDetectionJobRequest(BaseModel):
     filename: str
     profileId: str | None = None
     task: str | None = None
-    replaceExisting: bool = True
+    replaceExisting: bool = False
 
 
 class CreatePrepareDatasetJobRequest(BaseModel):

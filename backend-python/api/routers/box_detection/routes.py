@@ -46,7 +46,7 @@ def auto_detect_boxes_for_page(
     filename: str,
     profile_id: str | None = Query(None),
     task: str | None = Query(None),
-    replace_existing: bool = Query(True),
+    replace_existing: bool = Query(False),
 ):
     """
     Run YOLO text box detection on a single page.
@@ -54,7 +54,7 @@ def auto_detect_boxes_for_page(
     - volume_id: folder under data/volumes/
     - filename: e.g. "006.png"
     - profile_id: which box-detection profile to use
-    - replace_existing: if True, existing boxes are discarded
+    - replace_existing: if True, existing boxes are discarded; default preserves boxes
     """
     try:
         # This will load image, run YOLO, update page state, and return new boxes
