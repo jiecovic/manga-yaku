@@ -60,6 +60,12 @@ def run_translate_box_with_context(
     persist: bool = True,
     config_override: dict[str, Any] | None = None,
 ) -> str:
+    """Translate one box as plain text using the selected translation profile.
+
+    This is the simplest single-box translation entry point. It prepares the
+    source text plus optional page/series context, runs the provider call, and
+    optionally persists the resulting translation onto the box.
+    """
     _, profile, system_prompt, user_content = _prepare_translate_box_request(
         profile_id=profile_id,
         volume_id=volume_id,
@@ -107,6 +113,12 @@ def run_translate_box_with_context_structured(
     persist: bool = True,
     config_override: dict[str, Any] | None = None,
 ) -> dict[str, str]:
+    """Translate one box using the structured-output translation path.
+
+    This variant is used when the caller wants richer result semantics than raw
+    translated text, for example explicit parse status and structured payload
+    validation before writing back to persistence.
+    """
     _, profile, system_prompt, user_content = _prepare_translate_box_request(
         profile_id=profile_id,
         volume_id=volume_id,
@@ -152,6 +164,15 @@ def _prepare_translate_box_request(
     use_page_context: bool,
     config_override: dict[str, Any] | None,
 ) -> tuple[str, TranslationProfile, str, str]:
+    """Build the effective prompt inputs for a single-box translation request.
+
+    The function centralizes the otherwise-repeated preparation work:
+
+    - load and validate the source OCR text for the target box
+    - collect optional page and series context
+    - resolve the effective translation profile plus runtime overrides
+    - render the configured prompt bundle into provider-ready text
+    """
     box_text = get_box_text_by_id(volume_id, filename, box_id)
     if box_text is None:
         raise RuntimeError(f"Box {box_id} not found in {filename}")

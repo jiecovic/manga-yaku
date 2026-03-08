@@ -57,7 +57,18 @@ async def run_ocr_fanout_stage(
     state: WorkflowState,
     is_canceled: CancelCheck,
 ) -> OcrFanoutResult:
-    """Run ocr fanout stage."""
+    """Run OCR across all `(box, profile)` combinations for the current page.
+
+    This stage fans out persisted OCR task rows, executes them with bounded
+    local/remote concurrency, stores attempt events, and then selects the best
+    OCR text per box for downstream translation.
+
+    It is the bridge between the workflow runner and the single-box OCR
+    usecase/runtime:
+
+    - workflow layer owns task creation, progress, and terminal task state
+    - OCR usecase layer owns the actual recognition call for one box
+    """
     candidates: dict[int, dict[str, str]] = {}
     no_text_candidates: dict[int, set[str]] = {}
     error_candidates: dict[int, set[str]] = {}

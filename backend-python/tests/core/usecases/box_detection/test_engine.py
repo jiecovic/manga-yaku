@@ -73,6 +73,8 @@ def test_detect_boxes_for_page_skips_detections_overlapping_existing_boxes() -> 
             return_value=SimpleNamespace(size=(100, 100)),
         ),
         patch.object(engine, "resolve_allowed_classes", return_value=None),
+        patch.object(engine, "resolve_detection_thresholds", return_value=(0.25, 0.45)),
+        patch.object(engine, "resolve_containment_threshold", return_value=0.9),
         patch.object(
             engine,
             "run_yolo_on_image",

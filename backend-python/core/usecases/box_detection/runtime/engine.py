@@ -45,17 +45,19 @@ def detect_boxes_for_page(
     replace_existing: bool = True,
     is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    Run detection for a single page.
+    """Run persisted box detection for one page and return the created boxes.
 
-    - Loads the page image from VOLUMES_ROOT.
-    - Runs YOLO using the given profile.
-    - Optionally filters detections by task (class name).
-    - Writes detected boxes into the page store.
-    - Returns the list of created box dicts.
+    The function is intentionally the box-detection equivalent of a usecase
+    entry point:
 
-    If `replace_existing` is True, any existing boxes on the page
-    are discarded and replaced by the detected ones.
+    - resolve the effective detection profile
+    - load the page image and run YOLO inference
+    - create a detection-run audit row
+    - either replace existing boxes or append only non-overlapping new boxes
+
+    `replace_existing=False` is the safe/default-preserve mode used by the
+    agent and page-translation flows. `replace_existing=True` remains the
+    explicit rebuild mode when a full refresh is intended.
     """
     if profile_id is None:
         profile_id = pick_default_box_detection_profile_id()
@@ -181,6 +183,7 @@ def detect_text_boxes_for_page(
     replace_existing: bool = True,
     is_canceled: CancelCallback | None = None,
 ) -> list[dict[str, Any]]:
+    """Convenience wrapper for the common `task="text"` detection path."""
     return detect_boxes_for_page(
         volume_id=volume_id,
         filename=filename,

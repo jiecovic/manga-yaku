@@ -46,6 +46,11 @@ def _is_repetitive_ocr(text: str) -> bool:
 
 
 def _validate_ocr_response_text(text: str) -> tuple[bool, str | None]:
+    """Apply lightweight OCR sanity checks before accepting provider output.
+
+    This keeps obviously bad LLM OCR responses out of downstream task/workflow
+    state without trying to be a full semantic validator.
+    """
     cleaned = str(text or "").strip()
     if cleaned.upper() == "NO_TEXT":
         return True, None
@@ -254,6 +259,18 @@ def run_ocr_box(
     persist: bool = True,
     config_override: dict[str, Any] | None = None,
 ) -> str:
+    """Run OCR for one box using either manga-ocr or an LLM-backed profile.
+
+    The function owns the end-to-end box OCR flow for a single box:
+
+    - resolve the effective OCR profile
+    - merge any temporary config override for the current call
+    - dispatch to the correct runtime (local manga-ocr or LLM OCR)
+    - optionally persist the accepted OCR text back onto the page box
+
+    The caller decides whether persistence is wanted. Workflow/task orchestration
+    lives elsewhere; this function is the single-box business operation.
+    """
     profile = get_ocr_profile(profile_id)
     if config_override:
         merged = dict(profile)
