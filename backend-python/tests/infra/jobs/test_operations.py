@@ -7,6 +7,10 @@ from unittest.mock import patch
 
 import pytest
 from infra.jobs.operations import (
+    BOX_DETECTION_OPERATION,
+    OCR_BOX_OPERATION,
+    PAGE_TRANSLATION_OPERATION,
+    TRANSLATE_BOX_OPERATION,
     enqueue_ocr_box_operation,
     enqueue_ocr_page_operation,
     enqueue_translate_box_operation,
@@ -122,3 +126,39 @@ def test_enqueue_translate_box_operation_rejects_disabled_profile() -> None:
         )
 
     assert "disabled" in str(raised.value).lower()
+
+
+def test_persisted_operation_specs_expose_expected_contracts() -> None:
+    assert PAGE_TRANSLATION_OPERATION.operation_id == "translate_active_page"
+    assert PAGE_TRANSLATION_OPERATION.scope == "page"
+    assert PAGE_TRANSLATION_OPERATION.execution_mode == "workflow"
+    assert PAGE_TRANSLATION_OPERATION.idempotency_policy == "optional_key+active_run_dedupe"
+    assert PAGE_TRANSLATION_OPERATION.required_fields == ("volumeId", "filename")
+    assert PAGE_TRANSLATION_OPERATION.agent_wait_timeout_seconds == 45.0
+
+    assert BOX_DETECTION_OPERATION.operation_id == "detect_text_boxes"
+    assert BOX_DETECTION_OPERATION.workflow_type == "box_detection"
+    assert BOX_DETECTION_OPERATION.idempotency_policy == "agent_managed_auto_key"
+    assert BOX_DETECTION_OPERATION.required_fields == ("volumeId", "filename")
+
+    assert OCR_BOX_OPERATION.operation_id == "ocr_text_box"
+    assert OCR_BOX_OPERATION.scope == "box"
+    assert OCR_BOX_OPERATION.required_fields == (
+        "profileId",
+        "volumeId",
+        "filename",
+        "x",
+        "y",
+        "width",
+        "height",
+        "boxId",
+    )
+
+    assert TRANSLATE_BOX_OPERATION.operation_id == "translate_box"
+    assert TRANSLATE_BOX_OPERATION.workflow_type == "translate_box"
+    assert TRANSLATE_BOX_OPERATION.required_fields == (
+        "profileId",
+        "volumeId",
+        "filename",
+        "boxId",
+    )

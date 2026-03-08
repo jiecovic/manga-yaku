@@ -4,17 +4,14 @@
 from __future__ import annotations
 
 from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
+from core.usecases.agent.tool_jobs_shared import wait_for_agent_workflow
 from core.usecases.agent.tool_shared import (
     coerce_filename,
     list_text_boxes_for_page,
     resolve_active_page_filename,
 )
 from infra.db.db_store import load_page
-from infra.jobs.operations import enqueue_page_translation_operation
-from infra.jobs.workflow_runtime import wait_for_workflow_snapshot
-
-_TOOL_AGENT_PAGE_WAIT_TIMEOUT_SECONDS = 45.0
-_TOOL_AGENT_PAGE_WAIT_POLL_SECONDS = 0.2
+from infra.jobs.operations import PAGE_TRANSLATION_OPERATION, enqueue_persisted_operation
 
 
 def translate_active_page_tool(
@@ -64,7 +61,8 @@ def translate_active_page_tool(
             "message": "Page already has translations; use force_rerun=true to overwrite them",
         }
 
-    decision = enqueue_page_translation_operation(
+    decision = enqueue_persisted_operation(
+        PAGE_TRANSLATION_OPERATION,
         {
             "volumeId": volume_id,
             "filename": resolved_filename,
@@ -101,21 +99,21 @@ def translate_active_page_tool(
             "filename": resolved_filename,
         }
 
-    try:
-        snapshot = wait_for_workflow_snapshot(
-            job_id,
-            timeout_seconds=_TOOL_AGENT_PAGE_WAIT_TIMEOUT_SECONDS,
-            poll_seconds=_TOOL_AGENT_PAGE_WAIT_POLL_SECONDS,
-        )
-    except Exception as exc:
+    observation = wait_for_agent_workflow(
+        workflow_run_id=job_id,
+        timeout_seconds=PAGE_TRANSLATION_OPERATION.agent_wait_timeout_seconds or 45.0,
+        poll_seconds=PAGE_TRANSLATION_OPERATION.agent_wait_poll_seconds or 0.2,
+        wait_error_message="Failed while waiting for page-translate workflow",
+    )
+    if observation.wait_error is not None:
         return {
-            "error": str(exc).strip() or "Failed while waiting for page-translate workflow",
+            "error": observation.wait_error,
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
         }
 
-    if not snapshot.found:
+    if not observation.found:
         return {
             "error": "Page translation workflow could not be found",
             "volume_id": volume_id,
@@ -123,10 +121,10 @@ def translate_active_page_tool(
             "job_id": job_id,
         }
 
-    workflow_run_id = snapshot.workflow_run_id or job_id
-    workflow_status = snapshot.status or "queued"
-    result_json = snapshot.result_json
-    if workflow_status in {"queued", "running"}:
+    workflow_run_id = observation.workflow_run_id or job_id
+    workflow_status = observation.workflow_status or "queued"
+    result_json = observation.result_json
+    if observation.active:
         return {
             "status": "queued",
             "volume_id": volume_id,
@@ -144,19 +142,15 @@ def translate_active_page_tool(
             or "Page translation workflow queued/running; check Jobs panel for live progress",
             "resource_reused": status != "queued",
         }
-    if workflow_status == "failed":
+    if observation.failed:
         return {
-            "error": str(
-                result_json.get("error_message")
-                or (snapshot.run or {}).get("error_message")
-                or "Page translation workflow failed"
-            ),
+            "error": observation.error_message or "Page translation workflow failed",
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
             "workflow_run_id": workflow_run_id,
         }
-    if workflow_status == "canceled":
+    if observation.canceled:
         return {
             "error": "Page translation workflow was canceled",
             "volume_id": volume_id,

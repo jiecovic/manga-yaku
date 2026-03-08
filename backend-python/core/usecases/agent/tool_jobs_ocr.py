@@ -9,6 +9,7 @@ from core.usecases.agent.tool_jobs_shared import (
     build_auto_idempotency_key,
     build_box_revision,
     normalize_claim_status,
+    wait_for_agent_workflow,
 )
 from core.usecases.agent.tool_shared import (
     coerce_filename,
@@ -24,11 +25,7 @@ from infra.db.idempotency_store import (
     release_idempotency_claim,
 )
 from infra.jobs.job_modes import OCR_BOX_WORKFLOW_TYPE
-from infra.jobs.operations import enqueue_ocr_box_operation
-from infra.jobs.workflow_runtime import wait_for_workflow_snapshot
-
-_TOOL_WORKFLOW_WAIT_TIMEOUT_SECONDS = 20.0
-_TOOL_WORKFLOW_WAIT_POLL_SECONDS = 0.2
+from infra.jobs.operations import OCR_BOX_OPERATION, enqueue_persisted_operation
 
 
 def list_ocr_profiles_tool() -> dict[str, Any]:
@@ -170,7 +167,8 @@ def ocr_text_box_tool(
     workflow_run_id = str(claim.get("resource_id") or "").strip()
     if idempotency_state == "new":
         try:
-            workflow_run_id = enqueue_ocr_box_operation(
+            workflow_run_id = enqueue_persisted_operation(
+                OCR_BOX_OPERATION,
                 {
                     "profileId": selected_profile_id,
                     "volumeId": volume_id,
@@ -181,7 +179,7 @@ def ocr_text_box_tool(
                     "height": float(target_box["height"]),
                     "boxId": int(target_box["id"]),
                     "boxOrder": int(target_box["orderIndex"]),
-                }
+                },
             )
             workflow_run_id = finalize_idempotency_key(
                 job_type=OCR_BOX_WORKFLOW_TYPE,
@@ -218,15 +216,15 @@ def ocr_text_box_tool(
             "message": "Equivalent OCR workflow is already being created or queued",
         }
 
-    try:
-        snapshot = wait_for_workflow_snapshot(
-            workflow_run_id,
-            timeout_seconds=_TOOL_WORKFLOW_WAIT_TIMEOUT_SECONDS,
-            poll_seconds=_TOOL_WORKFLOW_WAIT_POLL_SECONDS,
-        )
-    except Exception as exc:
+    observation = wait_for_agent_workflow(
+        workflow_run_id=workflow_run_id,
+        timeout_seconds=OCR_BOX_OPERATION.agent_wait_timeout_seconds or 20.0,
+        poll_seconds=OCR_BOX_OPERATION.agent_wait_poll_seconds or 0.2,
+        wait_error_message="Failed while waiting for OCR job",
+    )
+    if observation.wait_error is not None:
         return {
-            "error": str(exc).strip() or "Failed while waiting for OCR job",
+            "error": observation.wait_error,
             "volume_id": volume_id,
             "filename": resolved_filename,
             "box_id": int(box_id),
@@ -236,7 +234,7 @@ def ocr_text_box_tool(
             "idempotency_state": idempotency_state,
         }
 
-    if not snapshot.found:
+    if not observation.found:
         if idempotency_state == "replay":
             return _build_ocr_replay_snapshot(
                 volume_id=volume_id,
@@ -261,13 +259,11 @@ def ocr_text_box_tool(
             "message": "OCR job queued/running; check Jobs panel for live progress",
         }
 
-    workflow_status = snapshot.status
-    result_json = snapshot.result_json
-    if workflow_status == "failed":
+    workflow_status = observation.workflow_status
+    result_json = observation.result_json
+    if observation.failed:
         return {
-            "error": str(
-                (snapshot.run or {}).get("error_message") or "OCR workflow failed"
-            ).strip(),
+            "error": observation.error_message or "OCR workflow failed",
             "volume_id": volume_id,
             "filename": resolved_filename,
             "box_id": int(box_id),
@@ -277,7 +273,7 @@ def ocr_text_box_tool(
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if workflow_status == "canceled":
+    if observation.canceled:
         return {
             "error": "OCR workflow was canceled",
             "volume_id": volume_id,
@@ -289,7 +285,7 @@ def ocr_text_box_tool(
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if workflow_status in {"queued", "running"}:
+    if observation.active:
         return {
             "status": "queued",
             "volume_id": volume_id,

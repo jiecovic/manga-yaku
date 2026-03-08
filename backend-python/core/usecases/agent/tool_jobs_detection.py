@@ -5,7 +5,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.agent.tool_jobs_shared import build_auto_idempotency_key, normalize_claim_status
+from core.usecases.agent.tool_jobs_shared import (
+    build_auto_idempotency_key,
+    normalize_claim_status,
+    wait_for_agent_workflow,
+)
 from core.usecases.agent.tool_shared import (
     coerce_filename,
     list_text_boxes_for_page,
@@ -19,12 +23,8 @@ from infra.db.idempotency_store import (
     release_idempotency_claim,
 )
 from infra.jobs.job_modes import BOX_DETECTION_JOB_TYPE
-from infra.jobs.operations import enqueue_box_detection_operation
+from infra.jobs.operations import BOX_DETECTION_OPERATION, enqueue_persisted_operation
 from infra.jobs.runtime import STORE
-from infra.jobs.workflow_runtime import wait_for_workflow_snapshot
-
-_TOOL_JOB_WAIT_TIMEOUT_SECONDS = 15.0
-_TOOL_WORKFLOW_WAIT_POLL_SECONDS = 0.2
 
 
 def detect_text_boxes_tool(
@@ -96,7 +96,8 @@ def detect_text_boxes_tool(
     job_id = str(claim.get("resource_id") or "").strip()
     if idempotency_state == "new":
         try:
-            job_id = enqueue_box_detection_operation(
+            job_id = enqueue_persisted_operation(
+                BOX_DETECTION_OPERATION,
                 payload,
                 message="Queued (agent tool)",
             )
@@ -136,15 +137,15 @@ def detect_text_boxes_tool(
             "message": "Equivalent detection job is already being created or queued",
         }
 
-    try:
-        snapshot = wait_for_workflow_snapshot(
-            workflow_run_id=job_id,
-            timeout_seconds=_TOOL_JOB_WAIT_TIMEOUT_SECONDS,
-            poll_seconds=_TOOL_WORKFLOW_WAIT_POLL_SECONDS,
-        )
-    except Exception as exc:
+    observation = wait_for_agent_workflow(
+        workflow_run_id=job_id,
+        timeout_seconds=BOX_DETECTION_OPERATION.agent_wait_timeout_seconds or 15.0,
+        poll_seconds=BOX_DETECTION_OPERATION.agent_wait_poll_seconds or 0.2,
+        wait_error_message="Failed while waiting for detection job",
+    )
+    if observation.wait_error is not None:
         return {
-            "error": str(exc).strip() or "Failed while waiting for detection job",
+            "error": observation.wait_error,
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
@@ -153,7 +154,7 @@ def detect_text_boxes_tool(
             "idempotency_state": idempotency_state,
         }
 
-    if not snapshot.found:
+    if not observation.found:
         if idempotency_state == "replay":
             return _build_detection_replay_snapshot(
                 volume_id=volume_id,
@@ -173,11 +174,11 @@ def detect_text_boxes_tool(
             "idempotency_state": idempotency_state,
         }
 
-    workflow_status = snapshot.status
-    result_json = snapshot.result_json
-    if workflow_status == "failed":
+    workflow_status = observation.workflow_status
+    result_json = observation.result_json
+    if observation.failed:
         return {
-            "error": str((snapshot.run or {}).get("error_message") or "Detection job failed"),
+            "error": observation.error_message or "Detection job failed",
             "volume_id": volume_id,
             "filename": resolved_filename,
             "job_id": job_id,
@@ -186,7 +187,7 @@ def detect_text_boxes_tool(
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if workflow_status == "canceled":
+    if observation.canceled:
         return {
             "error": "Detection job was canceled",
             "volume_id": volume_id,
@@ -197,7 +198,7 @@ def detect_text_boxes_tool(
             "idempotency_key": idempotency_key,
             "idempotency_state": idempotency_state,
         }
-    if workflow_status in {"queued", "running"}:
+    if observation.active:
         return {
             "status": "queued",
             "volume_id": volume_id,
