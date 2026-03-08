@@ -1,4 +1,4 @@
-# backend-python/core/usecases/translation/execution.py
+# backend-python/core/usecases/translation/tasks/execution.py
 """Execution helpers for translation operations."""
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from typing import Any
 
 from infra.logging.correlation import append_correlation
 
-from .profiles import get_translation_profile
-from .task_runner import TranslationTaskOutcome, run_translation_task_with_retries
+from ..profiles.registry import get_translation_profile
+from .runner import TranslationTaskOutcome, run_translation_task_with_retries
 
 logger = logging.getLogger(__name__)
 

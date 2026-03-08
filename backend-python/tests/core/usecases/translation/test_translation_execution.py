@@ -17,11 +17,11 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from core.usecases.translation.execution import (
+from core.usecases.translation.tasks.execution import (
     resolve_translation_prompt_version,
     run_translation_task_async,
 )
-from core.usecases.translation.task_runner import TranslationTaskOutcome
+from core.usecases.translation.tasks.runner import TranslationTaskOutcome
 
 
 @pytest.mark.asyncio
@@ -50,10 +50,13 @@ async def test_run_translation_task_async_forwards_attempts_and_result() -> None
 
     with (
         patch(
-            "core.usecases.translation.execution.run_translation_task_with_retries",
+            "core.usecases.translation.tasks.execution.run_translation_task_with_retries",
             side_effect=fake_run,
         ),
-        patch("core.usecases.translation.execution.asyncio.to_thread", side_effect=fake_to_thread),
+        patch(
+            "core.usecases.translation.tasks.execution.asyncio.to_thread",
+            side_effect=fake_to_thread,
+        ),
     ):
         outcome = await run_translation_task_async(
             profile_id="p1",
@@ -83,11 +86,11 @@ async def test_run_translation_task_async_emits_timeout_once() -> None:
 
     with (
         patch(
-            "core.usecases.translation.execution.asyncio.wait_for",
+            "core.usecases.translation.tasks.execution.asyncio.wait_for",
             new=AsyncMock(side_effect=fake_wait_for),
         ),
         patch(
-            "core.usecases.translation.execution.get_translation_profile",
+            "core.usecases.translation.tasks.execution.get_translation_profile",
             return_value={"config": {"model": "m", "max_output_tokens": 256}},
         ),
     ):
@@ -109,7 +112,7 @@ async def test_run_translation_task_async_emits_timeout_once() -> None:
 
 def test_resolve_translation_prompt_version_uses_profile_prompt_file() -> None:
     with patch(
-        "core.usecases.translation.execution.get_translation_profile",
+        "core.usecases.translation.tasks.execution.get_translation_profile",
         return_value={"config": {"prompt_file": "translation/single_box/quality.yml"}},
     ):
         prompt_version = resolve_translation_prompt_version("openai_quality_translate")
@@ -118,7 +121,7 @@ def test_resolve_translation_prompt_version_uses_profile_prompt_file() -> None:
 
 def test_resolve_translation_prompt_version_falls_back_default() -> None:
     with patch(
-        "core.usecases.translation.execution.get_translation_profile",
+        "core.usecases.translation.tasks.execution.get_translation_profile",
         side_effect=RuntimeError("x"),
     ):
         prompt_version = resolve_translation_prompt_version("missing")

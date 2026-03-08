@@ -1,4 +1,4 @@
-# backend-python/core/usecases/translation/profile_settings.py
+# backend-python/core/usecases/translation/profiles/settings.py
 """Settings overlay and persistence mapping for translation profiles."""
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from infra.db.translation_profile_settings_store import (
     upsert_translation_profile_setting,
 )
 
-from .profiles import TRANSLATION_PROFILES, TranslationProfile
+from .registry import TRANSLATION_PROFILES, TranslationProfile
 
 
 def _default_profile_settings(profile: TranslationProfile) -> TranslationProfileRuntimeSettings:

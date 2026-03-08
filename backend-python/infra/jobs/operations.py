@@ -17,7 +17,7 @@ from core.usecases.ocr.tasks.workflow_creation import (
     create_ocr_page_workflow as create_persisted_ocr_page_workflow,
 )
 from core.usecases.settings.service import get_setting_value
-from core.usecases.translation.profiles import get_translation_profile
+from core.usecases.translation.profiles.registry import get_translation_profile
 from infra.jobs.job_modes import (
     BOX_DETECTION_JOB_TYPE,
     OCR_BOX_WORKFLOW_TYPE,

@@ -22,8 +22,8 @@ from core.usecases.settings.models import (
     PageTranslationRuntimeSettings,
     TranslationProfileRuntimeSettings,
 )
-from core.usecases.translation.profile_settings import resolve_translation_profile_settings
-from core.usecases.translation.profiles import get_translation_profile
+from core.usecases.translation.profiles.registry import get_translation_profile
+from core.usecases.translation.profiles.settings import resolve_translation_profile_settings
 
 
 def test_resolve_page_translation_settings_returns_typed_settings() -> None:
@@ -107,7 +107,7 @@ def test_get_ocr_profile_applies_typed_runtime_settings_to_config() -> None:
 
 def test_resolve_translation_profile_settings_returns_typed_mapping() -> None:
     with patch(
-        "core.usecases.translation.profile_settings.list_translation_profile_settings",
+        "core.usecases.translation.profiles.settings.list_translation_profile_settings",
         return_value={"openai_quality_translate": {"temperature": 0.4}},
     ):
         settings = resolve_translation_profile_settings()
@@ -129,7 +129,7 @@ def test_get_translation_profile_applies_typed_runtime_settings_to_config() -> N
         )
     }
     with patch(
-        "core.usecases.translation.profile_settings.resolve_translation_profile_settings",
+        "core.usecases.translation.profiles.settings.resolve_translation_profile_settings",
         return_value=runtime_settings,
     ):
         profile = get_translation_profile("openai_ultra_translate")

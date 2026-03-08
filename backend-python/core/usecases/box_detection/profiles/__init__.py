@@ -1,0 +1,1 @@
+"""Box-detection profile package."""

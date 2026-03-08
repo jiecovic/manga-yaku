@@ -16,10 +16,10 @@ from core.usecases.ocr.tasks.runner import (
     _build_retry_override as build_ocr_retry_override,
 )
 from core.usecases.ocr.tasks.runner import _sanitize_ocr_text
-from core.usecases.translation.task_runner import (
+from core.usecases.translation.tasks.runner import (
     _build_retry_override as build_translation_retry_override,
 )
-from core.usecases.translation.task_runner import _normalize_translation_result
+from core.usecases.translation.tasks.runner import _normalize_translation_result
 
 
 def test_ocr_retry_override_for_gpt5() -> None:

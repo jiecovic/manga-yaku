@@ -1,4 +1,4 @@
-# backend-python/core/usecases/box_detection/profiles.py
+# backend-python/core/usecases/box_detection/profiles/registry.py
 """Default profile definitions for box detection providers."""
 
 from __future__ import annotations

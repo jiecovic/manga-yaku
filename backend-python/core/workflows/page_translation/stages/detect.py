@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from core.usecases.box_detection.engine import detect_text_boxes_for_page
+from core.usecases.box_detection.runtime.engine import detect_text_boxes_for_page
 from core.usecases.page_boxes import list_text_boxes
 from infra.db.store_volume_page import load_page
 

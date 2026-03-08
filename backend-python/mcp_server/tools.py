@@ -31,7 +31,7 @@ from core.usecases.agent.tools.pages import (
     shift_active_page_tool,
 )
 from core.usecases.agent.tools.shared import coerce_filename
-from core.usecases.box_detection.profiles import list_box_detection_profiles_for_api
+from core.usecases.box_detection.profiles.registry import list_box_detection_profiles_for_api
 from infra.images.image_ops import load_volume_image, resize_for_llm
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.utilities.types import Image

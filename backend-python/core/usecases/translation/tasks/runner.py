@@ -1,4 +1,4 @@
-# backend-python/core/usecases/translation/task_runner.py
+# backend-python/core/usecases/translation/tasks/runner.py
 """Queued task-runner logic for translation jobs."""
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from core.domain.pages import set_box_translation_by_id
 from core.usecases.model_metadata import extract_model_metadata
 from infra.llm.model_capabilities import model_applies_reasoning_effort
 
-from .profiles import get_translation_profile
+from ..profiles.registry import get_translation_profile
 
 
 def _to_int(value: Any) -> int | None:
@@ -103,7 +103,7 @@ def run_translation_task_with_retries(
     max_attempts_llm: int = 3,
     on_attempt: Callable[[dict[str, Any]], None] | None = None,
 ) -> TranslationTaskOutcome:
-    from .engine import run_translate_box_with_context_structured
+    from ..runtime.engine import run_translate_box_with_context_structured
 
     profile = get_translation_profile(profile_id)
     provider = str(profile.get("provider") or "")

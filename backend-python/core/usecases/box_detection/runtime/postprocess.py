@@ -1,11 +1,11 @@
-# backend-python/core/usecases/box_detection/postprocess.py
+# backend-python/core/usecases/box_detection/runtime/postprocess.py
 """Use-case helpers for box detection postprocess operations."""
 
 from __future__ import annotations
 
 from core.usecases.settings.service import resolve_detection_settings
 
-from .profiles import BoxDetectionProfile
+from ..profiles.registry import BoxDetectionProfile
 
 
 def resolve_containment_threshold(profile: BoxDetectionProfile) -> float:

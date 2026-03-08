@@ -7,13 +7,15 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
-from core.usecases.box_detection.engine import (
-    detect_boxes_for_page,
-    resolve_detection_thresholds,
-)
-from core.usecases.box_detection.profiles import (
+from core.usecases.box_detection.profiles.registry import (
     get_box_detection_profile,
     pick_default_box_detection_profile_id,
+)
+from core.usecases.box_detection.runtime.engine import (
+    detect_boxes_for_page,
+)
+from core.usecases.box_detection.runtime.inference import (
+    resolve_detection_thresholds,
 )
 from infra.jobs.exceptions import JobCanceled
 from infra.jobs.store import Job, JobStore

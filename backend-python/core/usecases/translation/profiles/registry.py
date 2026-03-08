@@ -1,4 +1,4 @@
-# backend-python/core/usecases/translation/profiles.py
+# backend-python/core/usecases/translation/profiles/registry.py
 """Default profile definitions for translation providers."""
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
 
 def list_translation_profiles_for_api() -> list[dict[str, Any]]:
     """Lightweight view for the API / frontend."""
-    from .profile_settings import list_translation_profiles_with_settings
+    from .settings import list_translation_profiles_with_settings
 
     profiles = list_translation_profiles_with_settings()
     return [
@@ -129,7 +129,7 @@ def get_translation_profile(profile_id: str) -> TranslationProfile:
     profile = cast(TranslationProfile, dict(base))
     cfg = dict(profile.get("config", {}) or {})
 
-    from .profile_settings import resolve_translation_profile_settings
+    from .settings import resolve_translation_profile_settings
 
     profile_settings = resolve_translation_profile_settings()[profile_id]
     runtime_enabled = bool(profile.get("enabled", True))

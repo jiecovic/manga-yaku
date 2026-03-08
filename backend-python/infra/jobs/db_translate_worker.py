@@ -8,11 +8,11 @@ import logging
 from threading import Event
 from typing import Any
 
-from core.usecases.translation.execution import (
+from core.usecases.translation.profiles.registry import get_translation_profile
+from core.usecases.translation.tasks.execution import (
     resolve_translation_prompt_version,
     run_translation_task_async,
 )
-from core.usecases.translation.profiles import get_translation_profile
 from infra.jobs.job_modes import TRANSLATE_BOX_WORKFLOW_TYPE
 from infra.jobs.task_attempt_events import (
     build_reasoning_params_snapshot,

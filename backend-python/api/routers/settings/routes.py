@@ -31,7 +31,7 @@ from core.usecases.page_translation.settings import (
 from core.usecases.settings.definitions import DEFAULT_SETTINGS
 from core.usecases.settings.runtime_validation import REASONING_CHOICES
 from core.usecases.settings.service import resolve_settings, update_settings
-from core.usecases.translation.profile_settings import (
+from core.usecases.translation.profiles.settings import (
     list_translation_profiles_with_settings,
     update_translation_profile_settings,
 )
