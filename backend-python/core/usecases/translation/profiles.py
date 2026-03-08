@@ -108,12 +108,12 @@ def list_translation_profiles_for_api() -> list[dict[str, Any]]:
     profiles = list_translation_profiles_with_settings()
     return [
         {
-            "id": str(profile.get("id") or ""),
-            "label": str(profile.get("label") or ""),
-            "description": str(profile.get("description") or ""),
-            "kind": str(profile.get("kind") or "remote"),
-            "enabled": bool(profile.get("effective_enabled", profile.get("enabled", True))),
-            "single_box_enabled": bool(profile.get("single_box_enabled", True)),
+            "id": profile.id,
+            "label": profile.label,
+            "description": profile.description,
+            "kind": profile.kind,
+            "enabled": profile.effective_enabled,
+            "single_box_enabled": profile.single_box_enabled,
         }
         for profile in profiles
     ]
@@ -131,28 +131,15 @@ def get_translation_profile(profile_id: str) -> TranslationProfile:
 
     from .profile_settings import resolve_translation_profile_settings
 
-    profile_settings = resolve_translation_profile_settings().get(profile_id, {})
+    profile_settings = resolve_translation_profile_settings()[profile_id]
     runtime_enabled = bool(profile.get("enabled", True))
-    single_box_enabled = bool(profile_settings.get("single_box_enabled", True))
+    single_box_enabled = profile_settings.single_box_enabled
     profile["enabled"] = runtime_enabled and single_box_enabled
 
-    model_id = profile_settings.get("model_id")
-    if model_id:
-        cfg["model"] = str(model_id)
-
-    max_output_tokens = profile_settings.get("max_output_tokens")
-    if max_output_tokens is not None:
-        cfg["max_output_tokens"] = int(max_output_tokens)
-
-    temperature = profile_settings.get("temperature")
-    if temperature is not None:
-        cfg["temperature"] = float(temperature)
-
-    reasoning_effort = profile_settings.get("reasoning_effort")
-    if reasoning_effort and str(cfg.get("model", "")).startswith("gpt-5"):
-        cfg["reasoning"] = {"effort": str(reasoning_effort)}
-
-    profile["config"] = cfg
+    profile["config"] = profile_settings.model_settings().apply_to_config(
+        cfg,
+        token_key="max_output_tokens",
+    )
     return profile
 
 

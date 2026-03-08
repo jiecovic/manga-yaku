@@ -1,10 +1,19 @@
 # backend-python/core/usecases/ocr/profile_settings.py
-"""Settings overlay and persistence mapping for ocr profiles."""
+"""Settings overlay and persistence mapping for OCR profiles."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from core.usecases.settings.models import (
+    ModelRuntimeSettings,
+    OcrProfileRuntimeSettings,
+    OcrProfileSettingsView,
+)
+from core.usecases.settings.runtime_validation import (
+    apply_model_runtime_patch,
+    default_model_runtime_settings,
+)
 from core.usecases.settings.service import resolve_ocr_label_overrides
 from infra.db.ocr_profile_settings_store import (
     list_ocr_profile_settings,
@@ -13,62 +22,74 @@ from infra.db.ocr_profile_settings_store import (
 
 from .profiles import OCR_PROFILES, OcrProfile
 
-REASONING_CHOICES = ("low", "medium", "high")
 
-
-def _default_profile_settings(profile: OcrProfile) -> dict[str, Any]:
+def _default_profile_settings(profile: OcrProfile) -> OcrProfileRuntimeSettings:
     cfg = profile.get("config", {}) or {}
-    return {
-        "page_translation_enabled": True,
-        "model_id": cfg.get("model"),
-        "max_output_tokens": cfg.get("max_tokens") or cfg.get("max_completion_tokens"),
-        "reasoning_effort": None,
-        "temperature": cfg.get("temperature"),
-    }
+    defaults = default_model_runtime_settings(cfg)
+    return OcrProfileRuntimeSettings.from_model_settings(
+        defaults,
+        page_translation_enabled=True,
+    )
 
 
-def resolve_ocr_profile_settings() -> dict[str, dict[str, Any]]:
+def _resolve_profile_settings(
+    profile: OcrProfile,
+    stored_values: dict[str, Any],
+) -> OcrProfileRuntimeSettings:
+    current = _default_profile_settings(profile)
+    page_translation_enabled = current.page_translation_enabled
+    if "page_translation_enabled" in stored_values:
+        page_translation_enabled = bool(stored_values["page_translation_enabled"])
+
+    is_remote = str(profile.get("kind") or "local") != "local"
+    if is_remote:
+        current_runtime = apply_model_runtime_patch(
+            current.model_settings(),
+            stored_values,
+            require_model_id=False,
+            min_max_output_tokens=1,
+        )
+    else:
+        current_runtime = ModelRuntimeSettings.empty()
+
+    return OcrProfileRuntimeSettings.from_model_settings(
+        current_runtime,
+        page_translation_enabled=page_translation_enabled,
+    )
+
+
+def resolve_ocr_profile_settings() -> dict[str, OcrProfileRuntimeSettings]:
     stored = list_ocr_profile_settings()
-    resolved: dict[str, dict[str, Any]] = {}
+    resolved: dict[str, OcrProfileRuntimeSettings] = {}
     for pid, profile in OCR_PROFILES.items():
-        defaults = _default_profile_settings(profile)
-        current = dict(defaults)
-        current.update({k: v for k, v in stored.get(pid, {}).items() if v is not None})
-        if "page_translation_enabled" in stored.get(pid, {}):
-            current["page_translation_enabled"] = bool(stored[pid]["page_translation_enabled"])
-        resolved[pid] = current
+        resolved[pid] = _resolve_profile_settings(profile, stored.get(pid, {}))
     return resolved
 
 
-def list_ocr_profiles_with_settings() -> list[dict[str, Any]]:
+def list_ocr_profiles_with_settings() -> list[OcrProfileSettingsView]:
     settings = resolve_ocr_profile_settings()
     label_overrides = resolve_ocr_label_overrides().values
-    results: list[dict[str, Any]] = []
+    results: list[OcrProfileSettingsView] = []
     for pid, profile in OCR_PROFILES.items():
-        cfg = profile.get("config", {}) or {}
-        current = settings.get(pid, {})
+        current = settings[pid]
         results.append(
-            {
-                "id": profile.get("id", pid),
-                "label": label_overrides.get(pid) or profile.get("label", pid),
-                "description": profile.get("description", ""),
-                "kind": profile.get("kind", "local"),
-                "enabled": bool(profile.get("enabled", True)),
-                "page_translation_enabled": bool(current.get("page_translation_enabled", True)),
-                "model_id": current.get("model_id") or cfg.get("model"),
-                "max_output_tokens": current.get("max_output_tokens")
-                if current.get("max_output_tokens") is not None
-                else cfg.get("max_tokens") or cfg.get("max_completion_tokens"),
-                "reasoning_effort": current.get("reasoning_effort"),
-                "temperature": current.get("temperature")
-                if current.get("temperature") is not None
-                else cfg.get("temperature"),
-            }
+            OcrProfileSettingsView(
+                id=str(profile.get("id", pid)),
+                label=str(label_overrides.get(pid) or profile.get("label", pid) or pid),
+                description=str(profile.get("description", "")),
+                kind=str(profile.get("kind", "local")),
+                enabled=bool(profile.get("enabled", True)),
+                page_translation_enabled=current.page_translation_enabled,
+                model_id=current.model_id,
+                max_output_tokens=current.max_output_tokens,
+                reasoning_effort=current.reasoning_effort,
+                temperature=current.temperature,
+            )
         )
     return results
 
 
-def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[OcrProfileSettingsView]:
     if not isinstance(updates, list):
         raise ValueError("profiles must be a list")
 
@@ -83,67 +104,33 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
             raise ValueError(f"Unknown OCR profile: {profile_id}")
 
         current = resolved[profile_id]
+        page_translation_enabled = current.page_translation_enabled
         if "page_translation_enabled" in update:
-            current["page_translation_enabled"] = bool(update["page_translation_enabled"])
+            page_translation_enabled = bool(update["page_translation_enabled"])
 
         profile = OCR_PROFILES[profile_id]
-        is_remote = profile.get("kind") != "local"
+        is_remote = str(profile.get("kind") or "local") != "local"
 
         if is_remote:
-            if "model_id" in update:
-                model_id = update.get("model_id")
-                current["model_id"] = str(model_id).strip() if model_id else None
-
-            if "max_output_tokens" in update:
-                max_output_tokens = update.get("max_output_tokens")
-                if max_output_tokens is None or max_output_tokens == "":
-                    current["max_output_tokens"] = None
-                else:
-                    try:
-                        max_output_tokens = int(max_output_tokens)
-                    except (TypeError, ValueError):
-                        raise ValueError("max_output_tokens must be an integer") from None
-                    if max_output_tokens < 1:
-                        raise ValueError("max_output_tokens must be >= 1")
-                    current["max_output_tokens"] = max_output_tokens
-
-            if "reasoning_effort" in update:
-                effort = update.get("reasoning_effort")
-                if effort is None or effort == "":
-                    current["reasoning_effort"] = None
-                else:
-                    effort = str(effort).strip().lower()
-                    if effort not in REASONING_CHOICES:
-                        raise ValueError(f"reasoning_effort must be one of {REASONING_CHOICES}")
-                    current["reasoning_effort"] = effort
-
-            if "temperature" in update:
-                temperature = update.get("temperature")
-                if temperature is None or temperature == "":
-                    current["temperature"] = None
-                else:
-                    try:
-                        temperature = float(temperature)
-                    except (TypeError, ValueError):
-                        raise ValueError("temperature must be a number") from None
-                    if temperature < 0 or temperature > 2:
-                        raise ValueError("temperature must be between 0 and 2")
-                    current["temperature"] = temperature
+            current_runtime = apply_model_runtime_patch(
+                current.model_settings(),
+                update,
+                require_model_id=False,
+                min_max_output_tokens=1,
+            )
         else:
-            current["model_id"] = None
-            current["max_output_tokens"] = None
-            current["reasoning_effort"] = None
-            current["temperature"] = None
+            current_runtime = ModelRuntimeSettings.empty()
+
+        resolved[profile_id] = OcrProfileRuntimeSettings.from_model_settings(
+            current_runtime,
+            page_translation_enabled=page_translation_enabled,
+        )
 
     available_profiles = [
         pid for pid, profile in OCR_PROFILES.items() if profile.get("enabled", True)
     ]
     if available_profiles:
-        enabled = [
-            pid
-            for pid in available_profiles
-            if resolved.get(pid, {}).get("page_translation_enabled")
-        ]
+        enabled = [pid for pid in available_profiles if resolved[pid].page_translation_enabled]
         if not enabled:
             raise ValueError(
                 "At least one OCR profile must be enabled for the page translation workflow."
@@ -153,11 +140,11 @@ def update_ocr_profile_settings(updates: list[dict[str, Any]]) -> list[dict[str,
         upsert_ocr_profile_setting(
             pid,
             {
-                "page_translation_enabled": settings.get("page_translation_enabled", True),
-                "model_id": settings.get("model_id"),
-                "max_output_tokens": settings.get("max_output_tokens"),
-                "reasoning_effort": settings.get("reasoning_effort"),
-                "temperature": settings.get("temperature"),
+                "page_translation_enabled": settings.page_translation_enabled,
+                "model_id": settings.model_id,
+                "max_output_tokens": settings.max_output_tokens,
+                "reasoning_effort": settings.reasoning_effort,
+                "temperature": settings.temperature,
             },
         )
 
@@ -170,6 +157,6 @@ def page_translation_enabled_ocr_profiles() -> list[str]:
     for pid, profile in OCR_PROFILES.items():
         if not profile.get("enabled", True):
             continue
-        if settings.get(pid, {}).get("page_translation_enabled", True):
+        if settings[pid].page_translation_enabled:
             profile_ids.append(pid)
     return profile_ids

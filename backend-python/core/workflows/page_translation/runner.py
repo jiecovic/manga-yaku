@@ -350,10 +350,10 @@ async def run_page_translation_workflow(
         choices=("low", "medium", "high"),
     )
     page_translation_settings = resolve_page_translation_settings()
-    model_id = request.model_id or page_translation_settings.get("model_id")
-    max_output_tokens = page_translation_settings.get("max_output_tokens")
-    reasoning_effort = page_translation_settings.get("reasoning_effort")
-    temperature = page_translation_settings.get("temperature")
+    model_id = request.model_id or page_translation_settings.model_id
+    max_output_tokens = page_translation_settings.max_output_tokens
+    reasoning_effort = page_translation_settings.reasoning_effort
+    temperature = page_translation_settings.temperature
     ocr_profile_meta = build_ocr_profile_meta(ocr_profiles)
     try:
         translation_payload = await run_translate_stage(

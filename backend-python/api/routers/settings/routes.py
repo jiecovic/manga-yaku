@@ -29,6 +29,7 @@ from core.usecases.page_translation.settings import (
     update_page_translation_settings,
 )
 from core.usecases.settings.definitions import DEFAULT_SETTINGS
+from core.usecases.settings.runtime_validation import REASONING_CHOICES
 from core.usecases.settings.service import resolve_settings, update_settings
 from core.usecases.translation.profile_settings import (
     list_translation_profiles_with_settings,
@@ -156,11 +157,11 @@ async def get_page_translation_settings() -> PageTranslationSettingsResponse:
     value = resolve_page_translation_settings()
     defaults = page_translation_defaults()
     return PageTranslationSettingsResponse(
-        value=value,
-        defaults=defaults,
+        value=value.to_payload(),
+        defaults=defaults.to_payload(),
         options={
             "models": AGENT_MODELS,
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )
 
@@ -179,11 +180,11 @@ async def put_page_translation_settings(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return PageTranslationSettingsResponse(
-        value=value,
-        defaults=page_translation_defaults(),
+        value=value.to_payload(),
+        defaults=page_translation_defaults().to_payload(),
         options={
             "models": AGENT_MODELS,
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )
 
@@ -197,14 +198,14 @@ async def get_ocr_profile_settings() -> OcrProfileSettingsResponse:
     profiles = list_ocr_profiles_with_settings()
     models = set(AGENT_MODELS)
     for profile in profiles:
-        model_id = profile.get("model_id")
+        model_id = profile.model_id
         if model_id:
             models.add(str(model_id))
     return OcrProfileSettingsResponse(
-        profiles=profiles,
+        profiles=[profile.to_payload() for profile in profiles],
         options={
             "models": sorted(models),
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )
 
@@ -226,14 +227,14 @@ async def put_ocr_profile_settings(
 
     models = set(AGENT_MODELS)
     for profile in profiles:
-        model_id = profile.get("model_id")
+        model_id = profile.model_id
         if model_id:
             models.add(str(model_id))
     return OcrProfileSettingsResponse(
-        profiles=profiles,
+        profiles=[profile.to_payload() for profile in profiles],
         options={
             "models": sorted(models),
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )
 
@@ -247,14 +248,14 @@ async def get_translation_profile_settings() -> TranslationProfileSettingsRespon
     profiles = list_translation_profiles_with_settings()
     models = set(AGENT_MODELS)
     for profile in profiles:
-        model_id = profile.get("model_id")
+        model_id = profile.model_id
         if model_id:
             models.add(str(model_id))
     return TranslationProfileSettingsResponse(
-        profiles=profiles,
+        profiles=[profile.to_payload() for profile in profiles],
         options={
             "models": sorted(models),
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )
 
@@ -276,13 +277,13 @@ async def put_translation_profile_settings(
 
     models = set(AGENT_MODELS)
     for profile in profiles:
-        model_id = profile.get("model_id")
+        model_id = profile.model_id
         if model_id:
             models.add(str(model_id))
     return TranslationProfileSettingsResponse(
-        profiles=profiles,
+        profiles=[profile.to_payload() for profile in profiles],
         options={
             "models": sorted(models),
-            "reasoning_effort": ["low", "medium", "high"],
+            "reasoning_effort": list(REASONING_CHOICES),
         },
     )

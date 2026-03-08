@@ -17,24 +17,25 @@ from unittest.mock import patch
 
 from api.routers.ocr.routes import list_ocr_providers
 from core.usecases.ocr.profiles import OCR_PROFILES
+from core.usecases.settings.models import OcrProfileSettingsView
 
 
-def _profiles_snapshot_from_registry() -> list[dict]:
-    snapshot: list[dict] = []
+def _profiles_snapshot_from_registry() -> list[OcrProfileSettingsView]:
+    snapshot: list[OcrProfileSettingsView] = []
     for profile_id, profile in OCR_PROFILES.items():
         snapshot.append(
-            {
-                "id": profile.get("id", profile_id),
-                "label": profile.get("label", profile_id),
-                "description": profile.get("description", ""),
-                "kind": profile.get("kind", "local"),
-                "enabled": bool(profile.get("enabled", True)),
-                "page_translation_enabled": True,
-                "model_id": None,
-                "max_output_tokens": None,
-                "reasoning_effort": None,
-                "temperature": None,
-            }
+            OcrProfileSettingsView(
+                id=str(profile.get("id", profile_id)),
+                label=str(profile.get("label", profile_id) or profile_id),
+                description=str(profile.get("description", "")),
+                kind=str(profile.get("kind", "local")),
+                enabled=bool(profile.get("enabled", True)),
+                page_translation_enabled=True,
+                model_id=None,
+                max_output_tokens=None,
+                reasoning_effort=None,
+                temperature=None,
+            )
         )
     return snapshot
 

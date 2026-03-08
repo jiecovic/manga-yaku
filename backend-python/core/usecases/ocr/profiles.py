@@ -91,7 +91,7 @@ def list_ocr_profiles_for_api() -> list[dict[str, Any]]:
 
     initialize_ocr_runtime()
     profiles = list_ocr_profiles_with_settings()
-    return [profile for profile in profiles if bool(profile.get("enabled", True))]
+    return [profile.to_payload() for profile in profiles if profile.enabled]
 
 
 def get_ocr_profile(profile_id: str) -> OcrProfile:
@@ -112,20 +112,11 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
     if provider == "llm_ocr":
         from .profile_settings import resolve_ocr_profile_settings
 
-        profile_settings = resolve_ocr_profile_settings().get(profile_id, {})
-        cfg = dict(profile.get("config", {}) or {})
-        model_id = profile_settings.get("model_id")
-        if model_id:
-            cfg["model"] = model_id
-        max_output_tokens = profile_settings.get("max_output_tokens")
-        if max_output_tokens is not None:
-            cfg["max_tokens"] = max_output_tokens
-        temperature = profile_settings.get("temperature")
-        if temperature is not None:
-            cfg["temperature"] = temperature
-        reasoning_effort = profile_settings.get("reasoning_effort")
-        if reasoning_effort and str(cfg.get("model", "")).startswith("gpt-5"):
-            cfg["reasoning"] = {"effort": reasoning_effort}
+        profile_settings = resolve_ocr_profile_settings()[profile_id]
+        cfg = profile_settings.model_settings().apply_to_config(
+            dict(profile.get("config", {}) or {}),
+            token_key="max_tokens",
+        )
         profile["config"] = cfg
     return profile
 
