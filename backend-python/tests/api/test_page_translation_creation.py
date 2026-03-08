@@ -13,6 +13,9 @@ from fastapi import HTTPException
 from infra.jobs.page_translation_creation import (
     create_page_translation_job as create_shared_job_record,
 )
+from infra.jobs.page_translation_creation import (
+    normalize_page_translation_payload,
+)
 from starlette.requests import Request
 
 
@@ -49,6 +52,11 @@ def test_reuses_active_persisted_run_for_same_page() -> None:
 
     assert result["job_id"] == "wf-123"
     assert result["queued"] is False
+
+
+def test_normalize_payload_defaults_preserve_existing_boxes_true() -> None:
+    payload = normalize_page_translation_payload({"volumeId": "vol-a", "filename": "001.jpg"})
+    assert payload["preserveExistingBoxes"] is True
 
 
 def test_claimed_idempotency_key_finalizes_new_job() -> None:

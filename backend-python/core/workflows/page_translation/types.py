@@ -40,6 +40,7 @@ class PageTranslationRequest:
     volume_id: str
     filename: str
     detection_profile_id: str | None
+    preserve_existing_boxes: bool
     source_language: str
     target_language: str
     model_id: str | None
@@ -67,6 +68,7 @@ class PageTranslationRequest:
             volume_id=volume_id,
             filename=filename,
             detection_profile_id=detection_profile_id,
+            preserve_existing_boxes=bool(payload.get("preserveExistingBoxes", True)),
             source_language=str(payload.get("sourceLanguage") or TRANSLATION_SOURCE_LANGUAGE),
             target_language=str(payload.get("targetLanguage") or TRANSLATION_TARGET_LANGUAGE),
             model_id=model_id,

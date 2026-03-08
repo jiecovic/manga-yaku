@@ -327,16 +327,31 @@ def _summarize_list_box_detection_profiles(output_dict: dict[str, Any]) -> str |
 def _summarize_detect_text_boxes(output_dict: dict[str, Any]) -> str | None:
     status = _status(output_dict)
     filename = _filename(output_dict)
-    detected_count = output_dict.get("detected_count")
+    new_box_count = output_dict.get("new_box_count")
+    if not isinstance(new_box_count, int):
+        new_box_count = output_dict.get("detected_count")
     text_box_count = output_dict.get("text_box_count")
+    if not isinstance(text_box_count, int):
+        text_box_count = output_dict.get("total_text_box_count")
+    replace_existing = bool(output_dict.get("replace_existing"))
     idempotency_state = str(output_dict.get("idempotency_state") or "").strip().lower()
     if status == "ok":
         if idempotency_state == "replay" and filename:
             return f"reused detection result for {filename}"
-        if isinstance(detected_count, int) and isinstance(text_box_count, int) and filename:
-            return f"detected {detected_count} new text boxes on {filename}; total text boxes now {text_box_count}"
-        if isinstance(detected_count, int):
-            return f"detected {detected_count} text boxes"
+        if (
+            isinstance(new_box_count, int)
+            and new_box_count == 0
+            and filename
+            and not replace_existing
+        ):
+            return f"no new text boxes detected on {filename}; preserved existing boxes"
+        if isinstance(new_box_count, int) and isinstance(text_box_count, int) and filename:
+            return (
+                f"detected {new_box_count} new text boxes on {filename}; "
+                f"total text boxes now {text_box_count}"
+            )
+        if isinstance(new_box_count, int):
+            return f"detected {new_box_count} text boxes"
     if status == "queued":
         job_id = str(output_dict.get("job_id") or "").strip()
         if idempotency_state == "in_progress":

@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import pytest
 from core.workflows.page_translation.stages.commit import run_commit_stage
+from core.workflows.page_translation.stages.detect import run_detect_stage
 from core.workflows.page_translation.stages.translate import (
     TranslateStageError,
     run_translate_stage,
@@ -74,6 +75,34 @@ def test_run_commit_stage_persists_context_and_returns_normalized_result() -> No
 
     upsert_volume_context.assert_called_once()
     upsert_page_context.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_detect_stage_preserves_existing_boxes_by_default() -> None:
+    with (
+        patch(
+            "core.workflows.page_translation.stages.detect.asyncio.to_thread",
+        ) as to_thread_mock,
+        patch(
+            "core.workflows.page_translation.stages.detect.load_page",
+            return_value={"boxes": [{"id": 1, "type": "text", "orderIndex": 1}]},
+        ),
+    ):
+        boxes = await run_detect_stage(
+            volume_id="vol-a",
+            filename="001.jpg",
+            detection_profile_id="detector-a",
+            preserve_existing_boxes=True,
+        )
+
+    to_thread_mock.assert_called_once_with(
+        run_detect_stage.__globals__["detect_text_boxes_for_page"],
+        "vol-a",
+        "001.jpg",
+        "detector-a",
+        replace_existing=False,
+    )
+    assert len(boxes) == 1
 
 
 def test_run_translate_stage_success() -> None:

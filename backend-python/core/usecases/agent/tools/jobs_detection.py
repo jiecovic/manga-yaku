@@ -32,7 +32,7 @@ def detect_text_boxes_tool(
     active_filename: str | None,
     filename: str | None,
     profile_id: str | None = None,
-    replace_existing: bool = True,
+    replace_existing: bool = False,
 ) -> dict[str, Any]:
     """Run page-level text-box detection through the persisted workflow layer."""
     if not volume_id:
@@ -220,14 +220,17 @@ def detect_text_boxes_tool(
         filename=resolved_filename,
         page=page,
     )
+    total_text_box_count = int(page_state.text_box_count or 0)
     return {
         "status": "ok",
         "volume_id": volume_id,
         "filename": resolved_filename,
         "profile_id": selected_profile_id,
         "replace_existing": bool(replace_existing),
+        "new_box_count": int(result_json.get("count") or 0),
         "detected_count": int(result_json.get("count") or 0),
-        "text_box_count": page_state.text_box_count,
+        "total_text_box_count": total_text_box_count,
+        "text_box_count": total_text_box_count,
         "job_id": job_id,
         "workflow_run_id": job_id,
         "job_status": workflow_status,
@@ -235,6 +238,11 @@ def detect_text_boxes_tool(
         "idempotency_key": idempotency_key,
         "idempotency_state": idempotency_state,
         "resource_reused": idempotency_state != "new",
+        "message": _build_detection_result_message(
+            new_box_count=int(result_json.get("count") or 0),
+            total_text_box_count=total_text_box_count,
+            replace_existing=replace_existing,
+        ),
     }
 
 
@@ -253,14 +261,17 @@ def _build_detection_replay_snapshot(
         filename=filename,
         page=page,
     )
+    total_text_box_count = int(page_state.text_box_count or 0)
     return {
         "status": "ok",
         "volume_id": volume_id,
         "filename": filename,
         "profile_id": profile_id,
         "replace_existing": bool(replace_existing),
+        "new_box_count": 0,
         "detected_count": 0,
-        "text_box_count": page_state.text_box_count,
+        "total_text_box_count": total_text_box_count,
+        "text_box_count": total_text_box_count,
         "job_id": job_id,
         "job_status": "missing",
         "page_revision": page_state.page_revision,
@@ -269,3 +280,21 @@ def _build_detection_replay_snapshot(
         "resource_reused": True,
         "message": "Equivalent detection request already completed; reused current page state",
     }
+
+
+def _build_detection_result_message(
+    *,
+    new_box_count: int,
+    total_text_box_count: int,
+    replace_existing: bool,
+) -> str:
+    """Summarize whether detection added anything new to the page."""
+    if new_box_count > 0:
+        if replace_existing:
+            return f"Detected {new_box_count} text boxes"
+        return (
+            f"Added {new_box_count} new text boxes; page now has {total_text_box_count} text boxes"
+        )
+    if replace_existing:
+        return "No text boxes detected"
+    return "No new text boxes detected; existing overlapping boxes were preserved"

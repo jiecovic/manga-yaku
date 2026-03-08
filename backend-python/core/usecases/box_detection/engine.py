@@ -12,10 +12,15 @@ from typing import Any
 from config import PROJECT_ROOT, VOLUMES_ROOT, safe_join
 from core.usecases.settings.service import resolve_detection_settings
 from infra.db.store_boxes import create_detection_run, replace_boxes_for_type
+from infra.db.store_volume_page import load_page
 from infra.logging.correlation import append_correlation
 from PIL import Image
 
-from .postprocess import filter_contained_boxes, resolve_containment_threshold
+from .postprocess import (
+    filter_boxes_overlapping_existing,
+    filter_contained_boxes,
+    resolve_containment_threshold,
+)
 from .profiles import (
     BoxDetectionProfile,
     get_box_detection_profile,
@@ -436,6 +441,26 @@ def detect_boxes_for_page(
     ]
     if _should_abort(is_canceled):
         return []
+
+    if not replace_existing:
+        page = load_page(volume_id, filename)
+        raw_boxes = page.get("boxes", []) if isinstance(page, dict) else []
+        existing_boxes = [
+            {
+                "x": float(box.get("x") or 0.0),
+                "y": float(box.get("y") or 0.0),
+                "width": float(box.get("width") or 0.0),
+                "height": float(box.get("height") or 0.0),
+            }
+            for box in raw_boxes
+            if isinstance(box, dict)
+            and str(box.get("type") or "").strip().lower() == normalized_task
+        ]
+        new_boxes = filter_boxes_overlapping_existing(
+            new_boxes,
+            existing_boxes=existing_boxes,
+            threshold=containment_th,
+        )
 
     if replace_existing:
         return replace_boxes_for_type(

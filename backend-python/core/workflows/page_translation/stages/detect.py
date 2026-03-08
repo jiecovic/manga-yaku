@@ -16,6 +16,7 @@ async def run_detect_stage(
     volume_id: str,
     filename: str,
     detection_profile_id: str | None,
+    preserve_existing_boxes: bool,
 ) -> list[dict[str, Any]]:
     """Run detect stage."""
     await asyncio.to_thread(
@@ -23,7 +24,7 @@ async def run_detect_stage(
         volume_id,
         filename,
         detection_profile_id,
-        replace_existing=True,
+        replace_existing=not preserve_existing_boxes,
     )
     page = load_page(volume_id, filename)
     return list_text_boxes(page)

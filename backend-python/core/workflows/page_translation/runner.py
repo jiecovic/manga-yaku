@@ -170,6 +170,7 @@ async def run_page_translation_workflow(
             volume_id=request.volume_id,
             filename=request.filename,
             detection_profile_id=detection_profile_id,
+            preserve_existing_boxes=request.preserve_existing_boxes,
         )
     except Exception as exc:
         run_ctx.finish_stage("detect")

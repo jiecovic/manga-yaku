@@ -426,12 +426,17 @@ def register_tools(mcp: FastMCP[Any]) -> None:
 
     @mcp.tool(
         name="detect_text_boxes",
-        description="Run text box detection on the active page",
+        description=(
+            "Run text box detection on the active page. By default replace_existing=false "
+            "preserves current boxes and only adds non-overlapping new detections; set "
+            "replace_existing=true only when you explicitly want to rebuild page boxes "
+            "from scratch."
+        ),
     )
     async def detect_text_boxes(
         filename: str | None = None,
         profile_id: str | None = None,
-        replace_existing: bool = True,
+        replace_existing: bool = False,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
         resolved = _resolve_tool_context(ctx)
@@ -446,11 +451,17 @@ def register_tools(mcp: FastMCP[Any]) -> None:
 
     @mcp.tool(
         name="translate_active_page",
-        description="Run the staged page-translation workflow on the active page; use primitive tools afterward for inspection and box-level corrections",
+        description=(
+            "Run the staged page-translation workflow on the active page. By default it "
+            "preserves existing boxes and only adds non-overlapping new detections before "
+            "OCR/translation; set preserve_existing_boxes=false only for an explicit full "
+            "rebuild. Use primitive tools afterward for inspection and box-level corrections."
+        ),
     )
     async def translate_active_page(
         filename: str | None = None,
         detection_profile_id: str | None = None,
+        preserve_existing_boxes: bool = True,
         ocr_profiles: list[str] | None = None,
         source_language: str | None = None,
         target_language: str | None = None,
@@ -465,6 +476,7 @@ def register_tools(mcp: FastMCP[Any]) -> None:
             active_filename=resolved.active_filename,
             filename=filename,
             detection_profile_id=coerce_filename(detection_profile_id),
+            preserve_existing_boxes=preserve_existing_boxes,
             ocr_profiles=ocr_profiles,
             source_language=coerce_filename(source_language),
             target_language=coerce_filename(target_language),

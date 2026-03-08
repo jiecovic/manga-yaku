@@ -70,3 +70,37 @@ def filter_contained_boxes(
         if not drop:
             filtered.append(candidate)
     return filtered
+
+
+def filter_boxes_overlapping_existing(
+    boxes: list[dict[str, float]],
+    *,
+    existing_boxes: list[dict[str, float]],
+    threshold: float,
+) -> list[dict[str, float]]:
+    """Drop new boxes that substantially overlap any existing persisted box."""
+    if threshold <= 0 or not existing_boxes:
+        return boxes
+
+    filtered: list[dict[str, float]] = []
+    for candidate in boxes:
+        cand_area = float(candidate.get("width", 0.0)) * float(candidate.get("height", 0.0))
+        if cand_area <= 0.0:
+            continue
+        overlaps_existing = False
+        for existing in existing_boxes:
+            existing_area = float(existing.get("width", 0.0)) * float(existing.get("height", 0.0))
+            if existing_area <= 0.0:
+                continue
+            inter = _intersection_area(candidate, existing)
+            if inter <= 0.0:
+                continue
+            smaller_area = cand_area if cand_area <= existing_area else existing_area
+            if smaller_area <= 0.0:
+                continue
+            if inter / smaller_area >= threshold:
+                overlaps_existing = True
+                break
+        if not overlaps_existing:
+            filtered.append(candidate)
+    return filtered

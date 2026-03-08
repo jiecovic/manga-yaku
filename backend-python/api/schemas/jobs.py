@@ -61,6 +61,7 @@ class CreatePageTranslationJobRequest(BaseModel):
     volumeId: str
     filename: str
     detectionProfileId: str | None = None
+    preserveExistingBoxes: bool = True
     ocrProfiles: list[str] | None = None
     sourceLanguage: str | None = None
     targetLanguage: str | None = None

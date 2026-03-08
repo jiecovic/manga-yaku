@@ -455,6 +455,8 @@ def test_detect_text_boxes_replay_reuses_equivalent_job() -> None:
         )
 
     assert result["status"] == "ok"
+    assert result["new_box_count"] == 0
+    assert result["total_text_box_count"] == 1
     assert result["idempotency_state"] == "replay"
     assert result["resource_reused"]
     assert result["job_id"] == "job-123"
@@ -482,7 +484,14 @@ def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
             "core.usecases.agent.tools.jobs_detection.load_page",
             side_effect=[
                 {"boxes": []},
-                {"boxes": [{"id": 1, "type": "text"}]},
+                {
+                    "boxes": [
+                        {"id": 1, "type": "text"},
+                        {"id": 2, "type": "text"},
+                        {"id": 3, "type": "text"},
+                        {"id": 4, "type": "text"},
+                    ]
+                },
             ],
         ),
     ):
@@ -493,6 +502,10 @@ def test_detect_text_boxes_bypasses_replayed_zero_box_result() -> None:
         )
 
     assert result["status"] == "ok"
+    assert result["replace_existing"] is False
+    assert result["new_box_count"] == 4
+    assert result["total_text_box_count"] == 4
+    assert result["message"] == "Added 4 new text boxes; page now has 4 text boxes"
     assert result["idempotency_state"] == "new"
     assert not result["resource_reused"]
     assert result["job_id"] == "job-789"
@@ -601,7 +614,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
                 "status": "queued",
                 "detail": None,
             },
-        ),
+        ) as enqueue_mock,
         patch(
             "core.usecases.agent.tools.jobs_page_translation.wait_for_agent_workflow",
             return_value=_snapshot(
@@ -629,6 +642,7 @@ def test_translate_active_page_defaults_to_active_page_and_returns_completed_res
     assert result["workflow_run_id"] == "wf-123"
     assert result["updated"] == 18
     assert not result["resource_reused"]
+    assert enqueue_mock.call_args.args[1]["preserveExistingBoxes"] is True
 
 
 def test_translate_active_page_reuses_active_run_without_requeueing() -> None:

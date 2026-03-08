@@ -25,6 +25,7 @@ def translate_active_page_tool(
     target_language: str | None = None,
     model_id: str | None = None,
     force_rerun: bool = False,
+    preserve_existing_boxes: bool = True,
 ) -> dict[str, object]:
     """Run page translation through the persisted page-translation workflow."""
     if not volume_id:
@@ -67,6 +68,7 @@ def translate_active_page_tool(
             "volumeId": volume_id,
             "filename": resolved_filename,
             "detectionProfileId": coerce_filename(detection_profile_id),
+            "preserveExistingBoxes": bool(preserve_existing_boxes),
             "ocrProfiles": [
                 str(item).strip() for item in (ocr_profiles or []) if str(item).strip()
             ],
@@ -168,6 +170,7 @@ def translate_active_page_tool(
         "status": "completed",
         "volume_id": volume_id,
         "filename": resolved_filename,
+        "preserve_existing_boxes": bool(preserve_existing_boxes),
         "job_id": job_id,
         "workflow_run_id": str(result_json.get("workflowRunId") or "").strip() or workflow_run_id,
         "state": str(result_json.get("state") or "").strip() or "completed",

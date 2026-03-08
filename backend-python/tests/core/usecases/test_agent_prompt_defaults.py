@@ -52,3 +52,5 @@ def test_load_system_prompt_mentions_page_memory_tools_and_verification() -> Non
     assert "detect_missing_boxes" not in prompt
     assert "detection likely missed text" in prompt
     assert "run the page-translation workflow" in prompt
+    assert "preserves existing boxes by default" in prompt
+    assert "new_box_count=0" in prompt

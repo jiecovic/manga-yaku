@@ -112,6 +112,20 @@ def test_summarize_tool_output_detect_text_boxes_replay() -> None:
     assert summary == "reused detection result for 001.jpg"
 
 
+def test_summarize_tool_output_detect_text_boxes_no_new_boxes() -> None:
+    summary = summarize_tool_output(
+        "detect_text_boxes",
+        {
+            "status": "ok",
+            "filename": "001.jpg",
+            "replace_existing": False,
+            "new_box_count": 0,
+            "total_text_box_count": 12,
+        },
+    )
+    assert summary == "no new text boxes detected on 001.jpg; preserved existing boxes"
+
+
 def test_summarize_tool_output_ocr_text_box_skipped_existing() -> None:
     summary = summarize_tool_output(
         "ocr_text_box",

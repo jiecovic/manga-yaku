@@ -36,3 +36,13 @@ def test_update_volume_context_uses_structured_arrays() -> None:
     assert "glossary_json" not in properties
     assert properties["active_characters"]["anyOf"][0]["type"] == "array"
     assert properties["glossary"]["anyOf"][0]["type"] == "array"
+
+
+def test_detection_and_page_translation_tools_expose_safe_defaults() -> None:
+    detection_params = _tool_parameters("detect_text_boxes")
+    detection_properties = detection_params["properties"]
+    assert detection_properties["replace_existing"]["default"] is False
+
+    translate_params = _tool_parameters("translate_active_page")
+    translate_properties = translate_params["properties"]
+    assert translate_properties["preserve_existing_boxes"]["default"] is True
