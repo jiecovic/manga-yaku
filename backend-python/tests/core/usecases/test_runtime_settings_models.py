@@ -9,8 +9,8 @@ from config import (
     AGENT_MODEL,
     PAGE_TRANSLATION_REASONING_EFFORT,
 )
-from core.usecases.ocr.profile_settings import list_ocr_profiles_with_settings
-from core.usecases.ocr.profiles import OCR_PROFILES, get_ocr_profile
+from core.usecases.ocr.profiles.registry import OCR_PROFILES, get_ocr_profile
+from core.usecases.ocr.profiles.settings import list_ocr_profiles_with_settings
 from core.usecases.page_translation.settings import (
     resolve_page_translation_settings,
     update_page_translation_settings,
@@ -85,15 +85,15 @@ def test_get_ocr_profile_applies_typed_runtime_settings_to_config() -> None:
     }
     with (
         patch(
-            "core.usecases.ocr.profile_settings.resolve_ocr_profile_settings",
+            "core.usecases.ocr.profiles.settings.resolve_ocr_profile_settings",
             return_value=runtime_settings,
         ),
         patch(
-            "core.usecases.ocr.profiles.resolve_ocr_label_overrides",
+            "core.usecases.ocr.profiles.registry.resolve_ocr_label_overrides",
             return_value=OcrLabelOverrides(values={}),
         ),
         patch(
-            "core.usecases.ocr.initialize_ocr_runtime",
+            "core.usecases.ocr.runtime.engine.initialize_ocr_runtime",
         ),
     ):
         profile = get_ocr_profile("openai_quality_ocr")
@@ -155,11 +155,11 @@ def test_list_ocr_profiles_with_settings_returns_typed_views() -> None:
     }
     with (
         patch(
-            "core.usecases.ocr.profile_settings.resolve_ocr_profile_settings",
+            "core.usecases.ocr.profiles.settings.resolve_ocr_profile_settings",
             return_value=resolved_profiles,
         ),
         patch(
-            "core.usecases.ocr.profile_settings.resolve_ocr_label_overrides",
+            "core.usecases.ocr.profiles.settings.resolve_ocr_label_overrides",
             return_value=OcrLabelOverrides(values={}),
         ),
     ):

@@ -1,4 +1,4 @@
-# backend-python/core/usecases/ocr/profiles.py
+# backend-python/core/usecases/ocr/profiles/registry.py
 """Default profile definitions for ocr providers."""
 
 from __future__ import annotations
@@ -86,8 +86,8 @@ OCR_PROFILES: dict[str, OcrProfile] = {
 def list_ocr_profiles_for_api() -> list[dict[str, Any]]:
     # Refresh runtime capability flags (manga-ocr import/init, OpenAI key state)
     # before exposing profile availability to API consumers.
-    from . import initialize_ocr_runtime
-    from .profile_settings import list_ocr_profiles_with_settings
+    from ..runtime.engine import initialize_ocr_runtime
+    from .settings import list_ocr_profiles_with_settings
 
     initialize_ocr_runtime()
     profiles = list_ocr_profiles_with_settings()
@@ -96,7 +96,7 @@ def list_ocr_profiles_for_api() -> list[dict[str, Any]]:
 
 def get_ocr_profile(profile_id: str) -> OcrProfile:
     """Lookup with a nice error instead of KeyError."""
-    from . import initialize_ocr_runtime
+    from ..runtime.engine import initialize_ocr_runtime
 
     initialize_ocr_runtime()
     try:
@@ -110,7 +110,7 @@ def get_ocr_profile(profile_id: str) -> OcrProfile:
         profile["label"] = str(label_overrides[profile_id])
     provider = base.get("provider")
     if provider == "llm_ocr":
-        from .profile_settings import resolve_ocr_profile_settings
+        from .settings import resolve_ocr_profile_settings
 
         profile_settings = resolve_ocr_profile_settings()[profile_id]
         cfg = profile_settings.model_settings().apply_to_config(

@@ -1,4 +1,4 @@
-# backend-python/core/usecases/ocr/task_runner.py
+# backend-python/core/usecases/ocr/tasks/runner.py
 """Queued task-runner logic for ocr jobs."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Any
 from core.usecases.model_metadata import extract_model_metadata
 from infra.llm.model_capabilities import model_applies_reasoning_effort
 
-from .profiles import get_ocr_profile
+from ..profiles.registry import get_ocr_profile
 
 
 def _is_blank_ocr_text(value: str) -> bool:
@@ -124,7 +124,7 @@ def run_ocr_task_with_retries(
     max_attempts_llm: int = 3,
     on_attempt: Callable[[dict[str, Any]], None] | None = None,
 ) -> OcrTaskOutcome:
-    from .engine import run_ocr_box
+    from ..runtime.engine import run_ocr_box
 
     profile = get_ocr_profile(profile_id)
     provider = str(profile.get("provider") or "")

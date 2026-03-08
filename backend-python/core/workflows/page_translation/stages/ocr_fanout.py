@@ -8,10 +8,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
-from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.profiles.registry import get_ocr_profile
+from core.usecases.ocr.runtime.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.selection import select_box_ocr_texts
-from core.usecases.ocr.task_runner import OcrTaskOutcome
+from core.usecases.ocr.tasks.runner import OcrTaskOutcome
 from infra.db.store_boxes import set_box_ocr_text_by_id
 from infra.db.workflow_store import create_task_run, update_task_run
 

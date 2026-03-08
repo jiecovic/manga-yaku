@@ -1,4 +1,4 @@
-# backend-python/core/usecases/ocr/profile_settings.py
+# backend-python/core/usecases/ocr/profiles/settings.py
 """Settings overlay and persistence mapping for OCR profiles."""
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from infra.db.ocr_profile_settings_store import (
     upsert_ocr_profile_setting,
 )
 
-from .profiles import OCR_PROFILES, OcrProfile
+from .registry import OCR_PROFILES, OcrProfile
 
 
 def _default_profile_settings(profile: OcrProfile) -> OcrProfileRuntimeSettings:

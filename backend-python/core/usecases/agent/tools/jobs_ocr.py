@@ -30,8 +30,8 @@ from infra.jobs.operations import OCR_BOX_OPERATION, enqueue_persisted_operation
 
 def list_ocr_profiles_tool() -> dict[str, Any]:
     """Return agent-eligible OCR profiles and defaults."""
-    from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
-    from core.usecases.ocr.profiles import get_ocr_profile, list_ocr_profiles_for_api
+    from core.usecases.ocr.profiles.registry import get_ocr_profile, list_ocr_profiles_for_api
+    from core.usecases.ocr.profiles.settings import page_translation_enabled_ocr_profiles
 
     profiles_raw = list_ocr_profiles_for_api()
     page_translation_enabled = set(page_translation_enabled_ocr_profiles())
@@ -85,7 +85,7 @@ def ocr_text_box_tool(
     force_rerun: bool = False,
 ) -> dict[str, Any]:
     """Run OCR for a single box through the persisted workflow layer."""
-    from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
+    from core.usecases.ocr.profiles.settings import page_translation_enabled_ocr_profiles
 
     if not volume_id:
         return {"error": "No active volume selected"}

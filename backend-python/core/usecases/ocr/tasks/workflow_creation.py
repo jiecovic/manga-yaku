@@ -1,11 +1,11 @@
-# backend-python/core/usecases/ocr/workflow_creation.py
+# backend-python/core/usecases/ocr/tasks/workflow_creation.py
 """Creation helpers for persisted OCR workflows."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.profiles.registry import get_ocr_profile
 from core.usecases.page_boxes import list_text_boxes
 from infra.db.store_volume_page import load_page
 from infra.db.workflow_store import create_task_runs, create_workflow_run, update_workflow_run

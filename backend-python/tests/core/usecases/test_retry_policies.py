@@ -12,10 +12,10 @@ How it is tested:
 
 from __future__ import annotations
 
-from core.usecases.ocr.task_runner import (
+from core.usecases.ocr.tasks.runner import (
     _build_retry_override as build_ocr_retry_override,
 )
-from core.usecases.ocr.task_runner import _sanitize_ocr_text
+from core.usecases.ocr.tasks.runner import _sanitize_ocr_text
 from core.usecases.translation.task_runner import (
     _build_retry_override as build_translation_retry_override,
 )

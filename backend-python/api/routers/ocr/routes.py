@@ -2,7 +2,7 @@
 """HTTP routes for ocr endpoints."""
 
 from api.schemas.providers import OcrProvider
-from core.usecases.ocr.profiles import list_ocr_profiles_for_api
+from core.usecases.ocr.profiles.registry import list_ocr_profiles_for_api
 from fastapi import APIRouter
 
 router = APIRouter(tags=["ocr"])
@@ -12,7 +12,7 @@ router = APIRouter(tags=["ocr"])
 async def list_ocr_providers():
     """
     Returns the list of configured OCR profiles.
-    The data comes from core/usecases/ocr/profiles.py.
+    The data comes from the OCR profile registry and settings overlay.
     """
     providers_raw = list_ocr_profiles_for_api()
     return [OcrProvider(**p) for p in providers_raw]

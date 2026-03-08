@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from core.usecases.ocr.workflow_creation import OCR_TASK_STAGE
+from core.usecases.ocr.tasks.workflow_creation import OCR_TASK_STAGE
 from infra.db.workflow_store import (
     list_task_runs,
     list_workflow_runs,

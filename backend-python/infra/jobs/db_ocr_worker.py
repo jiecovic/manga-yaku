@@ -8,8 +8,8 @@ import logging
 from threading import Event
 from typing import Any
 
-from core.usecases.ocr.execution import resolve_ocr_prompt_version, run_ocr_task_async
-from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.profiles.registry import get_ocr_profile
+from core.usecases.ocr.runtime.execution import resolve_ocr_prompt_version, run_ocr_task_async
 from core.usecases.ocr.selection import select_box_ocr_texts
 from core.usecases.settings.service import resolve_ocr_parallelism_settings
 from infra.db.store_boxes import set_box_ocr_text_by_id

@@ -7,8 +7,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from core.usecases.ocr.profile_settings import page_translation_enabled_ocr_profiles
-from core.usecases.ocr.profiles import get_ocr_profile
+from core.usecases.ocr.profiles.registry import get_ocr_profile
+from core.usecases.ocr.profiles.settings import page_translation_enabled_ocr_profiles
 from core.usecases.settings.service import (
     resolve_detection_settings,
     resolve_ocr_parallelism_settings,

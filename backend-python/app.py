@@ -18,7 +18,7 @@ from api.routers.translation import routes as translation
 from api.routers.volumes import memory as volumes_memory
 from api.routers.volumes import routes as volumes
 from api.routers.volumes import sync as volumes_sync
-from core.usecases.ocr import initialize_ocr_runtime
+from core.usecases.ocr.runtime.engine import initialize_ocr_runtime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from infra.db.db import init_db

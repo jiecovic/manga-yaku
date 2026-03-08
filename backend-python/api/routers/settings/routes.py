@@ -19,7 +19,7 @@ from api.schemas.settings import (
     UpdateTranslationProfileSettingsRequest,
 )
 from config import AGENT_MODELS
-from core.usecases.ocr.profile_settings import (
+from core.usecases.ocr.profiles.settings import (
     list_ocr_profiles_with_settings,
     update_ocr_profile_settings,
 )

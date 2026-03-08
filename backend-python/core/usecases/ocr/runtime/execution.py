@@ -1,4 +1,4 @@
-# backend-python/core/usecases/ocr/execution.py
+# backend-python/core/usecases/ocr/runtime/execution.py
 """Execution helpers for ocr operations."""
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from typing import Any
 
 from infra.logging.correlation import append_correlation
 
-from .profiles import get_ocr_profile
-from .task_runner import OcrTaskOutcome, run_ocr_task_with_retries
+from ..profiles.registry import get_ocr_profile
+from ..tasks.runner import OcrTaskOutcome, run_ocr_task_with_retries
 
 logger = logging.getLogger(__name__)
 

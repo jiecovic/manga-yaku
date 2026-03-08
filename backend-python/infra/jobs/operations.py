@@ -6,14 +6,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from core.usecases.ocr.workflow_creation import (
+from core.usecases.ocr.tasks.workflow_creation import (
     OcrBoxWorkflowInput,
     OcrPageWorkflowInput,
 )
-from core.usecases.ocr.workflow_creation import (
+from core.usecases.ocr.tasks.workflow_creation import (
     create_ocr_box_workflow as create_persisted_ocr_box_workflow,
 )
-from core.usecases.ocr.workflow_creation import (
+from core.usecases.ocr.tasks.workflow_creation import (
     create_ocr_page_workflow as create_persisted_ocr_page_workflow,
 )
 from core.usecases.settings.service import get_setting_value

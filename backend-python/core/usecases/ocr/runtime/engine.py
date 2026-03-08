@@ -1,4 +1,4 @@
-# backend-python/core/usecases/ocr/engine.py
+# backend-python/core/usecases/ocr/runtime/engine.py
 """Primary orchestration logic for ocr operations."""
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from infra.llm import (
 from infra.logging.correlation import append_correlation
 from infra.prompts import PromptBundle, load_prompt_bundle
 
-from .profiles import (
+from ..profiles.registry import (
     OcrProfile,
     get_ocr_profile,
     mark_ocr_availability,
@@ -322,3 +322,7 @@ def run_ocr_box(
         )
 
     return text
+
+
+def initialize_ocr_runtime() -> None:
+    """Ensure OCR runtime side effects are initialized before profile reads."""
