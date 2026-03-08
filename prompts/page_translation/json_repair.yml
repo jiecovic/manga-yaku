@@ -1,0 +1,7 @@
+system: |
+  Fix the following JSON to match the required schema.
+  Return only valid JSON.
+  Do not add commentary.
+
+user_template: |
+  {{RAW_TEXT}}

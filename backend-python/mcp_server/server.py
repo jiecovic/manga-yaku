@@ -5,17 +5,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from infra.prompts import load_prompt_bundle
 from mcp.server.fastmcp import FastMCP
 
 from .tools import register_tools
 
 
+def _load_server_instructions() -> str:
+    return load_prompt_bundle("mcp/server.yml")["system"]
+
+
 def create_server() -> FastMCP[Any]:
     mcp = FastMCP(
         name="mangayaku-tools",
-        instructions=(
-            "Tools for MangaYaku volume/page grounding, page switching, text box detection, OCR, visual box inspection, and OCR/translation/note updates."
-        ),
+        instructions=_load_server_instructions(),
         streamable_http_path="/",
     )
     register_tools(mcp)

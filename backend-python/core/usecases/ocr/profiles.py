@@ -32,7 +32,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
         "kind": "local",
         "enabled": True,
         "config": {
-            "prompt_file": "ocr_default.yml",
+            "prompt_file": "ocr/single_box/default.yml",
         },
     },
     "openai_fast_ocr": {
@@ -47,7 +47,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "model": "gpt-5-mini",
             "max_tokens": 256,
             "temperature": 0.0,
-            "prompt_file": "ocr_default.yml",
+            "prompt_file": "ocr/single_box/default.yml",
         },
     },
     "openai_quality_ocr": {
@@ -62,7 +62,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "model": "gpt-5.2",
             "max_tokens": 512,
             "temperature": 0.0,
-            "prompt_file": "ocr_default.yml",
+            "prompt_file": "ocr/single_box/default.yml",
         },
     },
     "openai_ultra_ocr": {
@@ -77,7 +77,7 @@ OCR_PROFILES: dict[str, OcrProfile] = {
             "model": "gpt-5.2-pro",
             "max_completion_tokens": 512,
             "temperature": 0.0,
-            "prompt_file": "ocr_default.yml",
+            "prompt_file": "ocr/single_box/default.yml",
         },
     },
 }

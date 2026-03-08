@@ -43,10 +43,10 @@ def resolve_translation_prompt_version(profile_id: str) -> str:
     try:
         profile = get_translation_profile(profile_id)
     except Exception:
-        return "translation_default.yml"
+        return "translation/single_box/fast.yml"
     cfg = dict(profile.get("config", {}) or {})
     prompt_file = str(cfg.get("prompt_file") or "").strip()
-    return prompt_file or "translation_default.yml"
+    return prompt_file or "translation/single_box/fast.yml"
 
 
 async def run_translation_task_async(

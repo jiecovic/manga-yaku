@@ -22,6 +22,7 @@ from infra.llm import (
     openai_responses_create,
 )
 from infra.logging.correlation import append_correlation
+from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
 from . import schema as _schema
 
@@ -75,18 +76,19 @@ def repair_with_llm(
     if not raw_text.strip():
         return raw_text
 
-    repair_prompt = (
-        "Fix the following JSON to match the required schema. "
-        "Return only valid JSON. Do not add commentary."
+    bundle = render_prompt_bundle(
+        load_prompt_bundle("page_translation/json_repair.yml"),
+        system_context={},
+        user_context={"RAW_TEXT": raw_text},
     )
     input_payload = [
         {
             "role": "system",
-            "content": [{"type": "input_text", "text": repair_prompt}],
+            "content": [{"type": "input_text", "text": bundle["system"]}],
         },
         {
             "role": "user",
-            "content": [{"type": "input_text", "text": raw_text}],
+            "content": [{"type": "input_text", "text": bundle["user_template"]}],
         },
     ]
 

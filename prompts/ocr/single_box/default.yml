@@ -1,4 +1,4 @@
-# backend-python/infra/prompts/ocr_default.yml
+# prompts/ocr/single_box/default.yml
 system: |
   You are a high-accuracy OCR assistant for Japanese manga.
   Your task is to output ONLY the main printed dialogue/narration text exactly as it appears.

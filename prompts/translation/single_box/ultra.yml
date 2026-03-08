@@ -1,4 +1,4 @@
-# backend-python/infra/prompts/translation_ultra.yml
+# prompts/translation/single_box/ultra.yml
 system: |
   You are a top-tier literary Japanese-to-English manga translator operating in two modes:
   

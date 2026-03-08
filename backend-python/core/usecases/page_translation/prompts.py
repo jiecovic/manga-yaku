@@ -178,7 +178,7 @@ def build_translate_stage_prompt_payload(
     prior_open_threads: list[str] | None,
     prior_glossary: list[dict[str, Any]] | None,
 ) -> tuple[str, str]:
-    bundle = load_prompt_bundle("page_translation.yml")
+    bundle = load_prompt_bundle("page_translation/translate.yml")
     input_yaml = yaml.safe_dump(
         {"boxes": boxes},
         allow_unicode=True,
@@ -217,7 +217,7 @@ def build_state_merge_prompt_payload(
     prior_glossary: list[dict[str, Any]] | None,
     stage1_result: dict[str, Any],
 ) -> tuple[str, str]:
-    bundle = load_prompt_bundle("page_translation_merge.yml")
+    bundle = load_prompt_bundle("page_translation/merge.yml")
     compact_stage1_result = _compact_stage1_for_merge(stage1_result)
     page_result_json = json.dumps(compact_stage1_result, ensure_ascii=False, indent=2)
     rendered = render_prompt_bundle(

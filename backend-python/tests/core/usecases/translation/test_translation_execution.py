@@ -110,10 +110,10 @@ async def test_run_translation_task_async_emits_timeout_once() -> None:
 def test_resolve_translation_prompt_version_uses_profile_prompt_file() -> None:
     with patch(
         "core.usecases.translation.execution.get_translation_profile",
-        return_value={"config": {"prompt_file": "translation_quality.yml"}},
+        return_value={"config": {"prompt_file": "translation/single_box/quality.yml"}},
     ):
         prompt_version = resolve_translation_prompt_version("openai_quality_translate")
-    assert prompt_version == "translation_quality.yml"
+    assert prompt_version == "translation/single_box/quality.yml"
 
 
 def test_resolve_translation_prompt_version_falls_back_default() -> None:
@@ -122,4 +122,4 @@ def test_resolve_translation_prompt_version_falls_back_default() -> None:
         side_effect=RuntimeError("x"),
     ):
         prompt_version = resolve_translation_prompt_version("missing")
-    assert prompt_version == "translation_default.yml"
+    assert prompt_version == "translation/single_box/fast.yml"

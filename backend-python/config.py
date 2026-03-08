@@ -50,7 +50,7 @@ PAGE_TRANSLATION_REASONING_EFFORT = (
     os.getenv("PAGE_TRANSLATION_REASONING_EFFORT", "low").strip().lower()
 )
 PAGE_TRANSLATION_TIMEOUT_SECONDS = int(os.getenv("PAGE_TRANSLATION_TIMEOUT_SECONDS", "300"))
-AGENT_PROMPT_FILE = os.getenv("AGENT_PROMPT_FILE", "agent_default.yml")
+AGENT_PROMPT_FILE = os.getenv("AGENT_PROMPT_FILE", "agent/chat/default.yml")
 TRANSLATION_SOURCE_LANGUAGE = (
     os.getenv("TRANSLATION_SOURCE_LANGUAGE", "Japanese").strip() or "Japanese"
 )

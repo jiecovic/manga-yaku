@@ -164,10 +164,10 @@ def _get_openai_client_for_ocr_profile(profile: OcrProfile):
 def _load_ocr_prompt_bundle(profile: OcrProfile) -> PromptBundle:
     """
     Load the YAML prompt bundle referenced by this OCR profile.
-    Falls back to 'ocr_default.yml' if prompt_file is missing.
+    Falls back to 'ocr/single_box/default.yml' if prompt_file is missing.
     """
     cfg = profile.get("config", {}) or {}
-    prompt_file = cfg.get("prompt_file", "ocr_default.yml")
+    prompt_file = cfg.get("prompt_file", "ocr/single_box/default.yml")
     return load_prompt_bundle(prompt_file)
 
 

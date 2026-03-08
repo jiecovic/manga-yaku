@@ -260,8 +260,13 @@ def _load_profile_prompt_bundle(profile: TranslationProfile) -> PromptBundle:
     Reads profile.config["prompt_file"].
     """
     cfg = profile.get("config", {}) or {}
-    prompt_file = cfg.get("prompt_file", "translation_fast.yml")
+    prompt_file = cfg.get("prompt_file", "translation/single_box/fast.yml")
     return load_prompt_bundle(prompt_file)
+
+
+def _load_structured_output_prompt_bundle() -> PromptBundle:
+    """Load the structured-output addendum for single-box translation calls."""
+    return load_prompt_bundle("translation/single_box/structured_output.yml")
 
 
 # =====================================================================
@@ -298,16 +303,13 @@ def _run_openai_translate(
     base_url = cfg.get("base_url")
 
     if expect_json:
-        system_prompt = (
-            f"{system_prompt}\n\n"
-            "Return only valid JSON with keys: "
-            '{"status":"ok"|"no_text","translation":"..."}.\n'
-            "Do not include markdown or extra text."
+        structured_bundle = render_prompt_bundle(
+            _load_structured_output_prompt_bundle(),
+            system_context={},
+            user_context={},
         )
-        user_content = (
-            f"{user_content}\n\n"
-            "If the source has no translatable text, return status='no_text' and translation=''."
-        )
+        system_prompt = f"{system_prompt}\n\n{structured_bundle['system']}"
+        user_content = f"{user_content}\n\n{structured_bundle['user_template']}"
 
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},

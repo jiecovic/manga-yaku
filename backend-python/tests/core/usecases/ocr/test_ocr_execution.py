@@ -110,13 +110,13 @@ async def test_run_ocr_task_async_emits_timeout_once() -> None:
 def test_resolve_ocr_prompt_version_uses_profile_prompt_file() -> None:
     with patch(
         "core.usecases.ocr.execution.get_ocr_profile",
-        return_value={"config": {"prompt_file": "ocr_quality.yml"}},
+        return_value={"config": {"prompt_file": "ocr/single_box/default.yml"}},
     ):
         prompt_version = resolve_ocr_prompt_version("openai_quality_ocr")
-    assert prompt_version == "ocr_quality.yml"
+    assert prompt_version == "ocr/single_box/default.yml"
 
 
 def test_resolve_ocr_prompt_version_falls_back_default() -> None:
     with patch("core.usecases.ocr.execution.get_ocr_profile", side_effect=RuntimeError("x")):
         prompt_version = resolve_ocr_prompt_version("missing")
-    assert prompt_version == "ocr_default.yml"
+    assert prompt_version == "ocr/single_box/default.yml"

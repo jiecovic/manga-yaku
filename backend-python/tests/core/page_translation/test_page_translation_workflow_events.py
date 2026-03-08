@@ -56,7 +56,7 @@ def test_append_stage_attempt_event_uses_merge_prompt_version() -> None:
     kwargs = persist_task_attempt_event.call_args.kwargs
     assert kwargs["task_id"] == "task-1"
     assert kwargs["tool_name"] == "merge_state"
-    assert kwargs["prompt_version"] == "page_translation_merge.yml"
+    assert kwargs["prompt_version"] == "page_translation/merge.yml"
     assert kwargs["attempt_event"]["attempt_count"] == 2
     assert kwargs["attempt_event"]["latency_ms"] == "14"
 

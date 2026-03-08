@@ -43,10 +43,10 @@ def resolve_ocr_prompt_version(profile_id: str) -> str:
     try:
         profile = get_ocr_profile(profile_id)
     except Exception:
-        return "ocr_default.yml"
+        return "ocr/single_box/default.yml"
     cfg = dict(profile.get("config", {}) or {})
     prompt_file = str(cfg.get("prompt_file") or "").strip()
-    return prompt_file or "ocr_default.yml"
+    return prompt_file or "ocr/single_box/default.yml"
 
 
 async def run_ocr_task_async(

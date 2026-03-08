@@ -1,0 +1,5 @@
+system: |
+  Tools for MangaYaku volume/page grounding, page switching, text box detection,
+  OCR, visual box inspection, and OCR/translation/note updates.
+
+user_template: ""

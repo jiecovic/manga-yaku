@@ -87,6 +87,32 @@ def _load_system_prompt() -> str:
     return rendered["system"]
 
 
+def _build_repair_prompt_payload(
+    *,
+    conversation_excerpt: str,
+    action_excerpt: str,
+) -> list[dict[str, Any]]:
+    bundle = load_prompt_bundle("agent/chat/repair.yml")
+    rendered = render_prompt_bundle(
+        bundle,
+        system_context={},
+        user_context={
+            "CONVERSATION_EXCERPT": conversation_excerpt or "(empty)",
+            "ACTION_EXCERPT": action_excerpt or "(none)",
+        },
+    )
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "input_text", "text": rendered["system"]}],
+        },
+        {
+            "role": "user",
+            "content": [{"type": "input_text", "text": rendered["user_template"]}],
+        },
+    ]
+
+
 def _sdk_use_sqlite_session() -> bool:
     return _sdk_use_sqlite_session_impl()
 
@@ -158,40 +184,10 @@ def run_agent_chat_repair(
 
     conversation_excerpt = _build_repair_conversation_excerpt(messages)
     action_excerpt = _build_repair_action_excerpt(action_events)
-    input_payload: list[dict[str, Any]] = [
-        {
-            "role": "system",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": (
-                        "You are MangaYaku's text-only repair fallback. "
-                        "A tool-using agent run produced no final answer. "
-                        "Answer the user's last request directly using only the provided "
-                        "conversation excerpt and tool observations. "
-                        "Do not mention internal failures unless the observations are insufficient. "
-                        "Do not claim writes or actions that are not explicitly present in the observations. "
-                        "If the request is a wording or translation question, answer it directly and concisely."
-                    ),
-                }
-            ],
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": (
-                        "Conversation excerpt:\n"
-                        f"{conversation_excerpt or '(empty)'}\n\n"
-                        "Tool observations:\n"
-                        f"{action_excerpt or '(none)'}\n\n"
-                        "Answer the last user request directly in plain text."
-                    ),
-                }
-            ],
-        },
-    ]
+    input_payload = _build_repair_prompt_payload(
+        conversation_excerpt=conversation_excerpt,
+        action_excerpt=action_excerpt,
+    )
 
     client = create_openai_client({})
     params = build_response_params(cfg, input_payload)

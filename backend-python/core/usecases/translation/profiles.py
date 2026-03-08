@@ -35,7 +35,7 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
             "model": "gpt-4o-mini",
             "max_tokens": 256,
             "temperature": 0.2,
-            "prompt_file": "translation_fast.yml",
+            "prompt_file": "translation/single_box/fast.yml",
         },
     },
     # ------------------------------------------------------------------
@@ -52,7 +52,7 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
             "model": "gpt-4.1-mini",
             "max_tokens": 512,
             "temperature": 0.2,
-            "prompt_file": "translation_quality.yml",
+            "prompt_file": "translation/single_box/quality.yml",
         },
     },
     # ------------------------------------------------------------------
@@ -69,7 +69,7 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
             "model": "gpt-5.1",  # or "gpt-5.1-preview"
             "max_completion_tokens": 1024,
             "temperature": 0.15,
-            "prompt_file": "translation_ultra.yml",
+            "prompt_file": "translation/single_box/ultra.yml",
         },
     },
     # ------------------------------------------------------------------
@@ -90,7 +90,7 @@ TRANSLATION_PROFILES: dict[str, TranslationProfile] = {
             "model": os.getenv("LOCAL_OPENAI_MODEL", "local-model"),
             "max_tokens": 512,
             "temperature": 0.3,
-            "prompt_file": "translation_local.yml",
+            "prompt_file": "translation/single_box/local.yml",
         },
     },
 }

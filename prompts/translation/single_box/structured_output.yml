@@ -1,0 +1,7 @@
+system: |
+  Return only valid JSON with keys:
+  {"status":"ok"|"no_text","translation":"..."}.
+  Do not include markdown or extra text.
+
+user_template: |
+  If the source has no translatable text, return status='no_text' and translation=''.
