@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/runtime_merge.py
+# backend-python/core/usecases/page_translation/runtime/merge.py
 """Merge-stage helpers for the page-translation runtime."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from typing import Any
 
 from infra.llm.model_capabilities import model_applies_reasoning_effort
 
-from .schema import coerce_positive_int
+from ..schema.normalization import coerce_positive_int
 
 
 def build_merge_model_cfg(

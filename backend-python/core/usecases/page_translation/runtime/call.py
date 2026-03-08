@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/call.py
+# backend-python/core/usecases/page_translation/runtime/call.py
 """Use-case helpers for page-translation LLM call operations."""
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from infra.llm.model_capabilities import (
 from infra.logging.correlation import append_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
-from .schema import coerce_positive_int
-from .schema_json import JsonParser, extract_json, json_result_validator, should_retry
+from ..schema.json_tools import JsonParser, extract_json, json_result_validator, should_retry
+from ..schema.normalization import coerce_positive_int
 
 logger = logging.getLogger(__name__)
 

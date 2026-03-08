@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/runtime_events.py
+# backend-python/core/usecases/page_translation/runtime/events.py
 """Stage event and debug artifact helpers for page-translation runtime."""
 
 from __future__ import annotations

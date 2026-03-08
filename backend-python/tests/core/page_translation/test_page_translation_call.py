@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.usecases.page_translation.call import run_structured_call
+from core.usecases.page_translation.runtime.call import run_structured_call
 
 
 class _DummyResponse:
@@ -42,15 +42,15 @@ def test_retry_max_output_tokens_is_capped() -> None:
 
     with (
         patch(
-            "core.usecases.page_translation.call.build_response_params",
+            "core.usecases.page_translation.runtime.call.build_response_params",
             side_effect=lambda cfg, _payload: dict(cfg),
         ),
         patch(
-            "core.usecases.page_translation.call.openai_responses_create",
+            "core.usecases.page_translation.runtime.call.openai_responses_create",
             side_effect=[first, second],
         ) as create_call,
         patch(
-            "core.usecases.page_translation.call.extract_response_text",
+            "core.usecases.page_translation.runtime.call.extract_response_text",
             side_effect=['{"ok": true}', '{"ok": true}'],
         ),
     ):

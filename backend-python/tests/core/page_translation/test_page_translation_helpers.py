@@ -12,9 +12,11 @@ How it is tested:
 
 from __future__ import annotations
 
-from core.usecases.page_translation.schema import (
-    apply_no_text_consensus_guard,
+from core.usecases.page_translation.schema.normalization import (
     normalize_translate_stage_result,
+)
+from core.usecases.page_translation.schema.stage_outputs import (
+    apply_no_text_consensus_guard,
     summarize_translate_stage_coverage,
 )
 

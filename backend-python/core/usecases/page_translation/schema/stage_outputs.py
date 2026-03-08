@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/stage_outputs.py
+# backend-python/core/usecases/page_translation/schema/stage_outputs.py
 """Post-processing helpers for page-translation stage outputs."""
 
 from __future__ import annotations

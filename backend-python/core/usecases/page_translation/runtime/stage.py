@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/runtime.py
+# backend-python/core/usecases/page_translation/runtime/stage.py
 """Use-case helpers for page-translation runtime operations."""
 
 from __future__ import annotations
@@ -12,26 +12,31 @@ from infra.images.image_ops import encode_image_data_url, load_volume_image, res
 from infra.llm import create_openai_client, has_openai_sdk
 from infra.logging.correlation import append_correlation
 
-from .call import build_model_cfg, run_structured_call
-from .prompts import (
-    build_state_merge_prompt_payload,
-    build_translate_stage_prompt_payload,
+from ..schema.formats import (
+    build_state_merge_text_format,
+    build_translate_stage_text_format,
 )
-from .runtime_diagnostics import build_debug_payload, build_translate_stage_warnings
-from .runtime_events import (
+from ..schema.normalization import (
+    normalize_state_merge_result,
+    normalize_translate_stage_result,
+)
+from ..schema.stage_outputs import (
+    apply_no_text_consensus_guard,
+    summarize_translate_stage_coverage,
+)
+from .call import build_model_cfg, run_structured_call
+from .diagnostics import build_debug_payload, build_translate_stage_warnings
+from .events import (
     StageEventCallback,
     build_stage_event_payload,
     emit_stage_event,
     write_debug_snapshot,
 )
-from .runtime_merge import build_merge_fallback_result, build_merge_model_cfg
-from .schema import (
-    build_state_merge_text_format,
-    build_translate_stage_text_format,
-    normalize_state_merge_result,
-    normalize_translate_stage_result,
+from .merge import build_merge_fallback_result, build_merge_model_cfg
+from .prompts import (
+    build_state_merge_prompt_payload,
+    build_translate_stage_prompt_payload,
 )
-from .stage_outputs import apply_no_text_consensus_guard, summarize_translate_stage_coverage
 
 logger = logging.getLogger(__name__)
 

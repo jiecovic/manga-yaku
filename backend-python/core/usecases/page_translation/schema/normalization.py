@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/schema_normalization.py
+# backend-python/core/usecases/page_translation/schema/normalization.py
 """Result normalization helpers for page-translation stages."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/schema_json.py
+# backend-python/core/usecases/page_translation/schema/json_tools.py
 """JSON extraction and response validation helpers for page translation."""
 
 from __future__ import annotations

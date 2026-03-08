@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/prompts.py
+# backend-python/core/usecases/page_translation/runtime/prompts.py
 """Prompt payload helpers for the page-translation workflow."""
 
 from __future__ import annotations

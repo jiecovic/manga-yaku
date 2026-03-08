@@ -39,7 +39,7 @@ async def run_translate_stage(
     merge_reasoning_effort: str | None,
 ) -> dict[str, Any]:
     """Run translate stage."""
-    from core.usecases.page_translation.runtime import run_page_translation_stage
+    from core.usecases.page_translation.runtime.stage import run_page_translation_stage
 
     resolved_model_id = str(model_id).strip() if isinstance(model_id, str) else ""
     if not resolved_model_id:

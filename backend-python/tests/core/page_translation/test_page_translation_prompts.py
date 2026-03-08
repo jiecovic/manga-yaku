@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 
-from core.usecases.page_translation.prompts import build_state_merge_prompt_payload
+from core.usecases.page_translation.runtime.prompts import build_state_merge_prompt_payload
 
 
 def test_build_state_merge_prompt_payload_trims_large_inputs() -> None:

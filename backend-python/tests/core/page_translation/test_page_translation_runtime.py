@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from core.usecases.page_translation.runtime import run_page_translation_stage
+from core.usecases.page_translation.runtime.stage import run_page_translation_stage
 
 
 class _DummyImage:
@@ -55,32 +55,36 @@ def test_run_page_translation_stage_warns_on_missing_box_coverage() -> None:
     }
 
     with (
-        patch("core.usecases.page_translation.runtime.has_openai_sdk", return_value=True),
+        patch("core.usecases.page_translation.runtime.stage.has_openai_sdk", return_value=True),
         patch(
-            "core.usecases.page_translation.runtime.build_translate_stage_prompt_payload",
+            "core.usecases.page_translation.runtime.stage.build_translate_stage_prompt_payload",
             return_value=("sys", "user"),
         ),
         patch(
-            "core.usecases.page_translation.runtime.build_state_merge_prompt_payload",
+            "core.usecases.page_translation.runtime.stage.build_state_merge_prompt_payload",
             return_value=("merge-sys", "merge-user"),
         ),
         patch(
-            "core.usecases.page_translation.runtime.load_volume_image", return_value=_DummyImage()
+            "core.usecases.page_translation.runtime.stage.load_volume_image",
+            return_value=_DummyImage(),
         ),
         patch(
-            "core.usecases.page_translation.runtime.resize_for_llm",
+            "core.usecases.page_translation.runtime.stage.resize_for_llm",
             side_effect=lambda image: image,
         ),
         patch(
-            "core.usecases.page_translation.runtime.encode_image_data_url",
+            "core.usecases.page_translation.runtime.stage.encode_image_data_url",
             return_value="data:image/png;base64,abc",
         ),
-        patch("core.usecases.page_translation.runtime.create_openai_client", return_value=object()),
         patch(
-            "core.usecases.page_translation.runtime.run_structured_call",
+            "core.usecases.page_translation.runtime.stage.create_openai_client",
+            return_value=object(),
+        ),
+        patch(
+            "core.usecases.page_translation.runtime.stage.run_structured_call",
             side_effect=[(stage1_result, stage1_debug), (stage2_result, stage2_debug)],
         ),
-        patch("core.usecases.page_translation.runtime.logger.warning") as logger_warning,
+        patch("core.usecases.page_translation.runtime.stage.logger.warning") as logger_warning,
     ):
         result = run_page_translation_stage(
             volume_id="vol",

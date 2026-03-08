@@ -1,4 +1,4 @@
-# backend-python/core/usecases/page_translation/runtime_diagnostics.py
+# backend-python/core/usecases/page_translation/runtime/diagnostics.py
 """Diagnostics helpers for page-translation runtime stages."""
 
 from __future__ import annotations
