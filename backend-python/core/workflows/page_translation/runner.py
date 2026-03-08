@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.usecases.page_translation.settings import resolve_page_translation_settings
-from core.usecases.settings.service import get_setting_value
 from infra.db.store_context import get_volume_context
 from infra.db.workflow_store import (
     create_workflow_run,
@@ -14,16 +12,9 @@ from infra.db.workflow_store import (
 )
 
 from .context import WorkflowRunContext
-from .helpers import (
-    build_ocr_profile_meta,
-    build_translation_boxes,
-    resolve_detection_profile_id,
-    resolve_ocr_profiles,
-    utc_now_iso,
-)
-from .helpers import (
-    is_canceled as is_cancel_requested,
-)
+from .helpers import is_canceled as is_cancel_requested
+from .helpers import resolve_detection_profile_id, resolve_ocr_profiles, utc_now_iso
+from .payloads import build_ocr_profile_meta, build_translation_boxes
 from .progress import emit_workflow_progress
 from .stages.commit import run_commit_stage
 from .stages.detect import run_detect_stage
@@ -38,44 +29,7 @@ from .types import (
     WorkflowEvent,
     WorkflowState,
 )
-
-
-def _get_bool_setting(key: str, *, default: bool) -> bool:
-    raw = get_setting_value(key)
-    return bool(raw) if isinstance(raw, bool) else default
-
-
-def _get_int_setting(
-    key: str,
-    *,
-    default: int,
-    min_value: int | None = None,
-    max_value: int | None = None,
-) -> int:
-    raw = get_setting_value(key)
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        value = default
-    if min_value is not None and value < min_value:
-        value = min_value
-    if max_value is not None and value > max_value:
-        value = max_value
-    return value
-
-
-def _get_str_choice_setting(
-    key: str,
-    *,
-    default: str,
-    choices: tuple[str, ...],
-) -> str:
-    raw = get_setting_value(key)
-    if isinstance(raw, str):
-        normalized = raw.strip().lower()
-        if normalized in choices:
-            return normalized
-    return default
+from .workflow_settings import resolve_page_translation_workflow_settings
 
 
 async def run_page_translation_workflow(
@@ -323,38 +277,9 @@ async def run_page_translation_workflow(
     if not isinstance(prior_glossary, list):
         prior_glossary = []
 
-    include_prior_summary = _get_bool_setting(
-        "page_translation.include_prior_context_summary",
-        default=True,
+    workflow_settings = resolve_page_translation_workflow_settings(
+        request_model_id=request.model_id
     )
-    include_prior_characters = _get_bool_setting(
-        "page_translation.include_prior_characters",
-        default=True,
-    )
-    include_prior_open_threads = _get_bool_setting(
-        "page_translation.include_prior_open_threads",
-        default=True,
-    )
-    include_prior_glossary = _get_bool_setting(
-        "page_translation.include_prior_glossary",
-        default=True,
-    )
-    merge_max_output_tokens = _get_int_setting(
-        "page_translation.merge.max_output_tokens",
-        default=768,
-        min_value=128,
-        max_value=4096,
-    )
-    merge_reasoning_effort = _get_str_choice_setting(
-        "page_translation.merge.reasoning_effort",
-        default="low",
-        choices=("low", "medium", "high"),
-    )
-    page_translation_settings = resolve_page_translation_settings()
-    model_id = request.model_id or page_translation_settings.model_id
-    max_output_tokens = page_translation_settings.max_output_tokens
-    reasoning_effort = page_translation_settings.reasoning_effort
-    temperature = page_translation_settings.temperature
     ocr_profile_meta = build_ocr_profile_meta(ocr_profiles)
     try:
         translation_payload = await run_translate_stage(
@@ -365,18 +290,32 @@ async def run_page_translation_workflow(
             target_language=request.target_language,
             boxes=payload_boxes,
             ocr_profiles=ocr_profile_meta,
-            prior_context_summary=prior_summary if include_prior_summary else "",
-            prior_characters=prior_characters if include_prior_characters else [],
-            prior_open_threads=prior_open_threads if include_prior_open_threads else [],
-            prior_glossary=prior_glossary if include_prior_glossary else [],
-            model_id=model_id,
-            max_output_tokens=max_output_tokens
-            if isinstance(max_output_tokens, int | float)
+            prior_context_summary=(
+                prior_summary if workflow_settings.include_prior_summary else ""
+            ),
+            prior_characters=(
+                prior_characters if workflow_settings.include_prior_characters else []
+            ),
+            prior_open_threads=(
+                prior_open_threads if workflow_settings.include_prior_open_threads else []
+            ),
+            prior_glossary=(prior_glossary if workflow_settings.include_prior_glossary else []),
+            model_id=workflow_settings.model_id,
+            max_output_tokens=workflow_settings.max_output_tokens
+            if isinstance(workflow_settings.max_output_tokens, int | float)
             else None,
-            reasoning_effort=str(reasoning_effort) if isinstance(reasoning_effort, str) else None,
-            temperature=float(temperature) if isinstance(temperature, int | float) else None,
-            merge_max_output_tokens=merge_max_output_tokens,
-            merge_reasoning_effort=merge_reasoning_effort,
+            reasoning_effort=(
+                str(workflow_settings.reasoning_effort)
+                if isinstance(workflow_settings.reasoning_effort, str)
+                else None
+            ),
+            temperature=(
+                float(workflow_settings.temperature)
+                if isinstance(workflow_settings.temperature, int | float)
+                else None
+            ),
+            merge_max_output_tokens=workflow_settings.merge_max_output_tokens,
+            merge_reasoning_effort=workflow_settings.merge_reasoning_effort,
         )
     except TranslateStageError as exc:
         run_ctx.finish_stage("translate")

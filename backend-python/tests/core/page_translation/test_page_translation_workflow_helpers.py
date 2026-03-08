@@ -135,16 +135,16 @@ def test_apply_translation_payload_merges_and_deletes_explicit_targets() -> None
 
     with (
         patch(
-            "core.workflows.page_translation.helpers.set_box_ocr_text_by_id",
+            "core.workflows.page_translation.payloads.set_box_ocr_text_by_id",
         ) as set_ocr,
         patch(
-            "core.workflows.page_translation.helpers.set_box_translation_by_id",
+            "core.workflows.page_translation.payloads.set_box_translation_by_id",
         ) as set_translation,
         patch(
-            "core.workflows.page_translation.helpers.delete_boxes_by_ids",
+            "core.workflows.page_translation.payloads.delete_boxes_by_ids",
         ) as delete_boxes,
         patch(
-            "core.workflows.page_translation.helpers.set_box_order_for_type",
+            "core.workflows.page_translation.payloads.set_box_order_for_type",
             return_value=True,
         ) as set_order,
     ):
@@ -193,16 +193,16 @@ def test_apply_translation_payload_warns_on_missing_coverage() -> None:
 
     with (
         patch(
-            "core.workflows.page_translation.helpers.set_box_ocr_text_by_id",
+            "core.workflows.page_translation.payloads.set_box_ocr_text_by_id",
         ) as set_ocr,
         patch(
-            "core.workflows.page_translation.helpers.set_box_translation_by_id",
+            "core.workflows.page_translation.payloads.set_box_translation_by_id",
         ) as set_translation,
         patch(
-            "core.workflows.page_translation.helpers.delete_boxes_by_ids",
+            "core.workflows.page_translation.payloads.delete_boxes_by_ids",
         ) as delete_boxes,
         patch(
-            "core.workflows.page_translation.helpers.set_box_order_for_type",
+            "core.workflows.page_translation.payloads.set_box_order_for_type",
             return_value=False,
         ) as set_order,
     ):

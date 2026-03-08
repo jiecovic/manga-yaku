@@ -10,7 +10,6 @@ from typing import Any
 from config import TRANSLATION_SOURCE_LANGUAGE, TRANSLATION_TARGET_LANGUAGE
 from infra.images.image_ops import encode_image_data_url, load_volume_image, resize_for_llm
 from infra.llm import create_openai_client, has_openai_sdk
-from infra.llm.model_capabilities import model_applies_reasoning_effort
 from infra.logging.correlation import append_correlation
 
 from .call import build_model_cfg, run_structured_call
@@ -18,16 +17,17 @@ from .prompts import (
     build_state_merge_prompt_payload,
     build_translate_stage_prompt_payload,
 )
+from .runtime_diagnostics import build_debug_payload, build_translate_stage_warnings
 from .runtime_events import (
     StageEventCallback,
     build_stage_event_payload,
     emit_stage_event,
     write_debug_snapshot,
 )
+from .runtime_merge import build_merge_fallback_result, build_merge_model_cfg
 from .schema import (
     build_state_merge_text_format,
     build_translate_stage_text_format,
-    coerce_positive_int,
     normalize_state_merge_result,
     normalize_translate_stage_result,
 )
@@ -165,29 +165,7 @@ def run_page_translation_stage(
     coverage = summarize_translate_stage_coverage(stage1_result=stage1_result, input_boxes=boxes)
     stage1_debug["coverage"] = coverage
     if not coverage["is_complete"]:
-        warnings: list[str] = []
-        missing_box_ids = coverage["missing_box_ids"]
-        if missing_box_ids:
-            warning = (
-                f"Translate stage output omitted {len(missing_box_ids)} input boxes: "
-                f"{missing_box_ids}."
-            )
-            if (
-                str(stage1_debug.get("finish_reason") or "").strip()
-                == "incomplete:max_output_tokens"
-            ):
-                warning += " The model output was truncated; consider increasing page-translation max_output_tokens."
-            warnings.append(warning)
-        if coverage["duplicate_box_ids"]:
-            warnings.append(
-                "Translate stage output covered some boxes multiple times: "
-                f"{coverage['duplicate_box_ids']}."
-            )
-        if coverage["unexpected_box_ids"]:
-            warnings.append(
-                "Translate stage output referenced unexpected box indices: "
-                f"{coverage['unexpected_box_ids']}."
-            )
+        warnings = build_translate_stage_warnings(stage1_debug=stage1_debug, coverage=coverage)
         if warnings:
             stage1_debug["warnings"] = warnings
             for warning in warnings:
@@ -233,24 +211,11 @@ def run_page_translation_stage(
         },
     ]
 
-    merge_cfg = dict(base_cfg)
-    stage2_max_output = coerce_positive_int(merge_max_output_tokens)
-    if stage2_max_output is None:
-        stage2_max_output = coerce_positive_int(merge_cfg.get("max_output_tokens"))
-    if stage2_max_output is None:
-        stage2_max_output = 768
-    merge_cfg["max_output_tokens"] = max(128, min(stage2_max_output, 4096))
-
-    # Merge is bookkeeping; keep a dedicated setting so users can trade off speed/quality.
-    if model_applies_reasoning_effort(merge_cfg.get("model")):
-        requested_effort = (
-            str(merge_reasoning_effort).strip().lower()
-            if isinstance(merge_reasoning_effort, str)
-            else ""
-        )
-        if requested_effort not in {"low", "medium", "high"}:
-            requested_effort = "low"
-        merge_cfg["reasoning"] = {"effort": requested_effort}
+    merge_cfg = build_merge_model_cfg(
+        base_cfg=base_cfg,
+        merge_max_output_tokens=merge_max_output_tokens,
+        merge_reasoning_effort=merge_reasoning_effort,
+    )
 
     stage2_log_context = {
         "volume_id": volume_id,
@@ -325,16 +290,13 @@ def run_page_translation_stage(
             status="succeeded",
             payload=stage2_event,
         )
-        stage2_result = {
-            "characters": list(prior_characters) if isinstance(prior_characters, list) else [],
-            "open_threads": list(prior_open_threads)
-            if isinstance(prior_open_threads, list)
-            else [],
-            "glossary": list(prior_glossary) if isinstance(prior_glossary, list) else [],
-            "story_summary": str(prior_context_summary or "").strip(),
-        }
-        if not stage2_result["story_summary"] and stage1_result["page_events"]:
-            stage2_result["story_summary"] = " ".join(stage1_result["page_events"][:3]).strip()
+        stage2_result = build_merge_fallback_result(
+            prior_context_summary=prior_context_summary,
+            prior_characters=prior_characters,
+            prior_open_threads=prior_open_threads,
+            prior_glossary=prior_glossary,
+            stage1_result=stage1_result,
+        )
 
     result = {
         "boxes": stage1_result["boxes"],
@@ -354,35 +316,23 @@ def run_page_translation_stage(
         "merge_state": stage2_event,
     }
 
-    debug_payload = {
-        "job_id": debug_id,
-        "volume_id": volume_id,
-        "filename": filename,
-        "correlation": {
-            "component": "page_translation",
-            "job_id": debug_id,
-            "volume_id": volume_id,
-            "filename": filename,
-        },
-        "image": image_debug,
-        "ocr_profiles": ocr_profiles,
-        "boxes": boxes,
-        "calls": {
-            "translate": {
-                **stage1_debug,
-                "system_prompt": system_prompt,
-                "user_prompt": user_content,
-                "result": stage1_result,
-            },
-            "merge": {
-                **stage2_debug,
-                "system_prompt": merge_system_prompt,
-                "user_prompt": merge_user_content,
-                "result": stage2_result,
-                "error": stage2_error,
-            },
-        },
-        "result": result,
-    }
+    debug_payload = build_debug_payload(
+        debug_id=debug_id,
+        volume_id=volume_id,
+        filename=filename,
+        image_debug=image_debug,
+        ocr_profiles=ocr_profiles,
+        boxes=boxes,
+        system_prompt=system_prompt,
+        user_content=user_content,
+        stage1_debug=stage1_debug,
+        stage1_result=stage1_result,
+        merge_system_prompt=merge_system_prompt,
+        merge_user_content=merge_user_content,
+        stage2_debug=stage2_debug,
+        stage2_result=stage2_result,
+        stage2_error=stage2_error,
+        result=result,
+    )
     write_debug_snapshot(debug_id=debug_id, payload=debug_payload)
     return result
