@@ -1,19 +1,17 @@
 // src/context/JobsContext.ts
-import { createContext } from "react";
-import type { Job, JobCapabilities } from "../api";
+import { createContext } from 'react';
+import type { Job, JobCapabilities } from '../api';
 
 export interface JobsContextValue {
-    jobs: Job[];
-    jobCapabilities: JobCapabilities;
-    jobCapabilitiesError: string | null;
-    jobsError: string | null;
-    jobsLoading: boolean;
-    clearFinished: () => Promise<void>;
-    cancelJob: (jobId: string) => Promise<void>;
-    resumeJob: (jobId: string) => Promise<void>;
-    deleteJob: (jobId: string) => Promise<void>;
+  jobs: Job[];
+  jobCapabilities: JobCapabilities;
+  jobCapabilitiesError: string | null;
+  jobsError: string | null;
+  jobsLoading: boolean;
+  clearFinished: () => Promise<void>;
+  cancelJob: (jobId: string) => Promise<void>;
+  resumeJob: (jobId: string) => Promise<void>;
+  deleteJob: (jobId: string) => Promise<void>;
 }
 
-export const JobsContext = createContext<JobsContextValue | undefined>(
-    undefined,
-);
+export const JobsContext = createContext<JobsContextValue | undefined>(undefined);

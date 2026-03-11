@@ -2,7 +2,9 @@
 @import "tailwindcss";
 
 /* Optional: make body & root fill the viewport */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
 }

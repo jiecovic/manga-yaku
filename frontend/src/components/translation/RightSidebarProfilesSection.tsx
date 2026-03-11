@@ -1,122 +1,96 @@
 // src/components/translation/RightSidebarProfilesSection.tsx
-import type { OcrProvider, TranslationProvider } from "../../types";
-import { CollapsibleSection } from "./CollapsibleSection";
-import { ui } from "../../ui/tokens";
-import { Field, Select } from "../../ui/primitives";
+import type { OcrProvider, TranslationProvider } from '../../types';
+import { Field, Select } from '../../ui/primitives';
+import { ui } from '../../ui/tokens';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface ProfilesSectionProps {
-    ocrProviders: OcrProvider[];
-    translationProviders: TranslationProvider[];
-    ocrEngineId: string;
-    translationProfileId: string;
-    onChangeOcrEngine: (id: string) => void;
-    onChangeTranslationProfile: (id: string) => void;
-
+  ocrProviders: OcrProvider[];
+  translationProviders: TranslationProvider[];
+  ocrEngineId: string;
+  translationProfileId: string;
+  onChangeOcrEngine: (id: string) => void;
+  onChangeTranslationProfile: (id: string) => void;
 }
 
 export function RightSidebarProfilesSection({
-    ocrProviders,
-    translationProviders,
-    ocrEngineId,
-    translationProfileId,
-    onChangeOcrEngine,
-    onChangeTranslationProfile,
+  ocrProviders,
+  translationProviders,
+  ocrEngineId,
+  translationProfileId,
+  onChangeOcrEngine,
+  onChangeTranslationProfile,
 }: ProfilesSectionProps) {
-    const loadingOcrProviders = ocrProviders.length === 0;
-    const enabledOcrProviders = ocrProviders.filter((p) => p.enabled);
+  const loadingOcrProviders = ocrProviders.length === 0;
+  const enabledOcrProviders = ocrProviders.filter((p) => p.enabled);
 
-    const loadingTranslationProviders = translationProviders.length === 0;
-    const enabledTranslationProviders = translationProviders.filter(
-        (p) => p.enabled,
-    );
+  const loadingTranslationProviders = translationProviders.length === 0;
+  const enabledTranslationProviders = translationProviders.filter((p) => p.enabled);
 
-    const shortTranslationLabel = (provider: TranslationProvider): string => {
-        const raw = String(provider.label || provider.id || "").trim();
-        const stripped = raw.replace(/^single-box\s+translate\s*-\s*/i, "").trim();
-        if (stripped) {
-            return stripped;
-        }
-        switch (provider.id) {
-            case "openai_fast_translate":
-                return "Fast";
-            case "openai_quality_translate":
-                return "Quality";
-            case "openai_ultra_translate":
-                return "Max";
-            case "local_llm_default":
-                return "Local";
-            default:
-                return raw || provider.id;
-        }
-    };
+  const shortTranslationLabel = (provider: TranslationProvider): string => {
+    const raw = String(provider.label || provider.id || '').trim();
+    const stripped = raw.replace(/^single-box\s+translate\s*-\s*/i, '').trim();
+    if (stripped) {
+      return stripped;
+    }
+    switch (provider.id) {
+      case 'openai_fast_translate':
+        return 'Fast';
+      case 'openai_quality_translate':
+        return 'Quality';
+      case 'openai_ultra_translate':
+        return 'Max';
+      case 'local_llm_default':
+        return 'Local';
+      default:
+        return raw || provider.id;
+    }
+  };
 
-    return (
-        <CollapsibleSection title="Profiles & Options" defaultOpen>
-            <div className="space-y-3">
-                {/* OCR */}
-                <Field label="OCR Profile" layout="row" labelClassName={ui.label}>
-                    {loadingOcrProviders && (
-                        <div className={ui.mutedTextXs}>Loading...</div>
-                    )}
+  return (
+    <CollapsibleSection title="Profiles & Options" defaultOpen>
+      <div className="space-y-3">
+        {/* OCR */}
+        <Field label="OCR Profile" layout="row" labelClassName={ui.label}>
+          {loadingOcrProviders && <div className={ui.mutedTextXs}>Loading...</div>}
 
-                    {!loadingOcrProviders &&
-                        enabledOcrProviders.length === 0 && (
-                            <div className={ui.mutedTextXs}>
-                                None available.
-                            </div>
-                        )}
+          {!loadingOcrProviders && enabledOcrProviders.length === 0 && (
+            <div className={ui.mutedTextXs}>None available.</div>
+          )}
 
-                    {!loadingOcrProviders &&
-                        enabledOcrProviders.length > 0 && (
-                            <Select
-                                value={ocrEngineId}
-                                onChange={(e) =>
-                                    onChangeOcrEngine(e.target.value)
-                                }
-                            >
-                                {ocrProviders.map((p) => (
-                                    <option key={p.id} value={p.id} disabled={!p.enabled}>
-                                        {p.enabled ? p.label : `${p.label} (unavailable)`}
-                                    </option>
-                                ))}
-                            </Select>
-                        )}
-                </Field>
+          {!loadingOcrProviders && enabledOcrProviders.length > 0 && (
+            <Select value={ocrEngineId} onChange={(e) => onChangeOcrEngine(e.target.value)}>
+              {ocrProviders.map((p) => (
+                <option key={p.id} value={p.id} disabled={!p.enabled}>
+                  {p.enabled ? p.label : `${p.label} (unavailable)`}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
 
-                {/* Translation */}
-                <Field
-                    label="Single-box LLM"
-                    layout="row"
-                    labelClassName={ui.label}
-                >
-                    {loadingTranslationProviders && (
-                        <div className={ui.mutedTextXs}>Loading...</div>
-                    )}
+        {/* Translation */}
+        <Field label="Single-box LLM" layout="row" labelClassName={ui.label}>
+          {loadingTranslationProviders && <div className={ui.mutedTextXs}>Loading...</div>}
 
-                    {!loadingTranslationProviders &&
-                        enabledTranslationProviders.length === 0 && (
-                            <div className={ui.mutedTextXs}>
-                                None available.
-                            </div>
-                        )}
+          {!loadingTranslationProviders && enabledTranslationProviders.length === 0 && (
+            <div className={ui.mutedTextXs}>None available.</div>
+          )}
 
-                    {!loadingTranslationProviders &&
-                        enabledTranslationProviders.length > 0 && (
-                            <Select
-                                value={translationProfileId}
-                                onChange={(e) =>
-                                    onChangeTranslationProfile(e.target.value)
-                                }
-                            >
-                                {enabledTranslationProviders.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {shortTranslationLabel(p)}
-                                    </option>
-                                ))}
-                            </Select>
-                        )}
-                </Field>
-            </div>
-        </CollapsibleSection>
-    );
+          {!loadingTranslationProviders && enabledTranslationProviders.length > 0 && (
+            <Select
+              value={translationProfileId}
+              onChange={(e) => onChangeTranslationProfile(e.target.value)}
+            >
+              {enabledTranslationProviders.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {shortTranslationLabel(p)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+    </CollapsibleSection>
+  );
 }
