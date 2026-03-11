@@ -157,6 +157,7 @@ npm run lint
 npm run lint:backend
 npm run lint:frontend
 npm run format:backend:check
+npm run format:frontend:check
 ```
 
 ## Pre-commit
@@ -165,7 +166,7 @@ This repo includes a `.pre-commit-config.yaml` that runs:
 - `ruff` (backend)
 - `pyright` (backend types)
 - `tsc --noEmit` (frontend types)
-- `eslint` (frontend)
+- `biome check` (frontend lint + format + import sorting)
 
 Setup:
 

@@ -26,8 +26,8 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/.*\.[tj]sx?$
-      - id: eslint-frontend
-        name: eslint (frontend)
+      - id: biome-frontend
+        name: biome (frontend)
         entry: npm --prefix frontend run lint
         language: system
         pass_filenames: false
