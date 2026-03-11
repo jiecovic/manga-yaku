@@ -2,9 +2,9 @@
 
 This document describes how MangaYaku works today.
 
-It is intentionally code-oriented: it reflects the current implementation in
-`backend-python/`, the mounted MCP server, the persisted workflow runtime, and
-the current database model.
+It is code-oriented and intentionally practical. It describes the current
+implementation in `backend-python/`, the mounted MCP server, the workflow
+runtime, and the database model as they exist today.
 
 ## System Overview
 
@@ -16,18 +16,18 @@ At a high level the system is:
 - filesystem: page images, model weights, prepared datasets, training runs, and
   debug/log artifacts on disk under `data/`, `models/`, and `training-data/`
 
-The backend starts a single process that contains:
+The backend process contains:
 
 - the main FastAPI API surface
 - the mounted MCP server at `/api/mcp`
 - the in-process jobs runtime
 - DB-backed workers for OCR, translation, utility jobs, and page translation
 
-The backend process is therefore both:
+So the backend is one process that does three jobs:
 
-- the HTTP/API server
-- the MCP server
-- the worker supervisor
+- serves the HTTP API
+- hosts the MCP server
+- supervises the worker/runtime layer
 
 It is not split into separate deployable services today.
 
@@ -40,7 +40,7 @@ The important backend boundaries are:
 - `backend-python/core/`
   - business logic
   - `usecases/` contains reusable capabilities and runtime helpers
-  - `workflows/` contains long-running orchestration built on those capabilities
+  - `workflows/` contains longer-running orchestration built from those capabilities
 - `backend-python/infra/`
   - database access
   - worker/runtime plumbing
@@ -49,12 +49,12 @@ The important backend boundaries are:
 - `backend-python/mcp_server/`
   - MCP server construction, MCP request context, and MCP tool registration
 
-The most important conceptual distinction is:
+The most important distinction is:
 
 - `usecases` answer: "How does one capability work?"
-- `workflows` answer: "How do multiple capabilities run together as one job?"
+- `workflows` answer: "How do several capabilities run together as one job?"
 
-That is why `page_translation` exists in both:
+That is why `page_translation` appears in both places:
 
 - `core/usecases/page_translation/`
   - prompt construction
@@ -70,7 +70,7 @@ That is why `page_translation` exists in both:
 
 The main application entrypoint is `backend-python/app.py`.
 
-On startup it does the following:
+On startup it:
 
 1. configures logging
 2. binds domain ports
@@ -116,7 +116,7 @@ This is the persisted source of truth for page state in the editor.
 - `page_context`
   - page summary, image summary, manual notes, per-page character/thread/glossary snapshot
 
-These are what the UI and agent refer to as persisted "memory" or context.
+These are the persisted "memory" or context rows used by the UI and agent.
 
 ### Agent Chat
 
@@ -182,7 +182,7 @@ The merge happens in `backend-python/api/services/jobs_workflow_helpers.py`.
 
 What jobs are:
 
-- a unified user-facing snapshot of work in progress and recent work
+- a user-facing snapshot of in-progress and recent work
 - backed mostly by persisted workflow rows
 - streamed to the UI over SSE from `/api/jobs/stream`
 
@@ -193,7 +193,7 @@ What jobs are not:
 - a `LISTEN/NOTIFY` event stream
 
 `JobStore` still exists in `backend-python/infra/jobs/store.py`, but today it is
-primarily:
+mainly:
 
 - an in-process registry for any memory jobs
 - a signal/broadcast layer for SSE updates
@@ -256,8 +256,8 @@ Recovery rules:
 - startup recovery can move interrupted tasks back to `queued`
 - canceled workflows cause pending tasks to be canceled instead of requeued
 
-This is how the workers avoid double-claiming while still recovering from
-crashes or restarts.
+This is how workers avoid double-claiming while still recovering from crashes
+or restarts.
 
 ## Idempotency
 
@@ -323,14 +323,14 @@ Current policy examples:
 - utility workflows
   - no idempotency
 
-The important architectural point is:
+The important point is:
 
-- idempotency is a persistence concern and is enforced with durable DB rows
-- the agent and HTTP layers are thin adapters around that persisted policy
+- idempotency is a persistence concern enforced with durable DB rows
+- the agent and HTTP layers are thin adapters around that policy
 
 ## Page Translation Workflow
 
-This is the most important long-running workflow in the system.
+This is the main long-running workflow in the system.
 
 ### Packages
 
@@ -368,7 +368,7 @@ Events:
 - `commit_succeeded` / `commit_failed`
 - `cancel_requested`
 
-The runner uses this state machine to update durable workflow state rather than
+The runner uses this state machine to update durable workflow state instead of
 encoding transitions ad hoc.
 
 ### Stage Order
@@ -421,8 +421,8 @@ Concurrency is bounded by settings resolved from
 - lease seconds
 - task timeout seconds
 
-Within page translation specifically, OCR fanout runs inside the workflow
-runner with `asyncio.gather(...)` and separate semaphores for:
+Within page translation, OCR fanout runs inside the workflow runner with
+`asyncio.gather(...)` and separate semaphores for:
 
 - local OCR providers
 - remote LLM OCR providers
@@ -557,7 +557,7 @@ Current architecture:
 - `context.py` resolves run-scoped context from request headers
 - `app.py` mounts the MCP app at `/api/mcp`
 
-The backend therefore hosts its own MCP server locally.
+So the backend hosts its own MCP server locally.
 
 ### MCP Context Model
 
@@ -606,8 +606,8 @@ Representative tools:
   - `detect_text_boxes`
   - `translate_active_page`
 
-Tool behavior is described primarily in the MCP tool descriptions rather than
-in the system prompt alone.
+Tool behavior is described mainly in MCP tool descriptions rather than only in
+the system prompt.
 
 ## Prompts and Model Settings
 
@@ -622,7 +622,7 @@ Current prompt organization is capability-based, for example:
 - `prompts/translation/...`
 - `prompts/page_translation/...`
 
-Important architectural distinction:
+Important distinction:
 
 - prompt files define text
 - model selection comes from settings/session/profile resolution in code
@@ -677,7 +677,7 @@ Page-translation-specific debug artifacts are also written under:
 
 ## What Is Deliberately Not True Today
 
-To avoid confusion, these are common assumptions that do not match the current
+To avoid confusion, these common assumptions do not match the current
 implementation:
 
 - jobs are not an append-only event log
@@ -686,9 +686,9 @@ implementation:
 - JSON repair is not a substitute for truncated-output recovery
   - truncation is treated as a generation-budget problem first
 
-## Current Architectural Shape In One Sentence
+## In One Sentence
 
-Today MangaYaku is a single FastAPI-based backend that owns page state,
-chat-agent runtime, a mounted MCP tool server, and a Postgres-backed durable
-workflow system for OCR, translation, box detection, training utilities, and
-the multi-stage page-translation pipeline.
+Today MangaYaku is a single FastAPI backend that owns page state, chat-agent
+runtime, a mounted MCP tool server, and a Postgres-backed workflow system for
+OCR, translation, box detection, training utilities, and the multi-stage
+page-translation pipeline.

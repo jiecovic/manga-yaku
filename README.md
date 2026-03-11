@@ -1,40 +1,37 @@
 # MangaYaku
 
-MangaYaku is an experimental sandbox for manga translation workflows.
+MangaYaku is an experimental sandbox for manga translation using AI.
 
-The repo is a place to explore different ways of doing things like:
+It is where I experiment with text-box detection, OCR, LLM-based translation,
+and workflow orchestration.
 
-- page and text-box detection
-- OCR with local or model-backed pipelines
-- translation with different model/runtime setups
-- agent tooling and tool protocols such as MCP
-- persisted jobs, workflows, and orchestration
-- training and dataset-prep loops for improving detection quality
+It also includes a simple chat agent built on the OpenAI Agents SDK and a
+custom MCP server. The agent can inspect the active page image, discuss
+translation choices, and call tools for things like page navigation, box
+detection with a pretrained YOLO model, OCR with different profiles, and the
+page-translation workflow.
 
-It is not a polished product. The point is to iterate on workflow design,
-model/runtime choices, and supporting tooling in one local-first environment.
-OpenAI-backed paths are the main supported LLM integration today, but part of
-the reason the project uses MCP and a clearer tool/runtime split is to keep room
-for experimenting with other providers later.
+It is not a polished product. The goal is to iterate on workflows, models, and
+tooling in one local-first environment.
 
 ## What Works Today
 
 Current supported paths:
 
 - manual box editing in the browser
-- box detection with persisted YOLO profiles
-- OCR for a page or a single box
+- building up a local volume from page images, including creating one from the
+  frontend via clipboard paste
+- box detection with persisted YOLO profiles; the frontend also exposes dataset
+  preparation and training flows so you can train your own detectors locally
+  (for example against Manga109-s, see [Datasets And Training](#datasets-and-training))
+- OCR for a page or a single box, using `manga-ocr` or LLM-backed OCR profiles
 - single-box translation
-- full `page_translation` workflow:
-  - detect
-  - OCR fanout
-  - page-level translation
-  - continuity merge
-  - commit back to page state + context
+- full `page_translation` workflow: detect, OCR fanout, page translation,
+  continuity merge, commit back to page state + context
 - chat agent with MCP tools for page navigation, box inspection/editing, OCR,
   box detection, and page translation
-- persisted jobs/workflows in Postgres
-- dataset preparation and model training for box-detection workflows
+- persisted page state, jobs, workflows, chat sessions, and settings in
+  Postgres
 
 Important current behavior:
 
@@ -43,7 +40,7 @@ Important current behavior:
 
 ## Stack
 
-- frontend: React + Vite + TypeScript
+- frontend: React + Vite + TypeScript + Tailwind CSS
 - backend: FastAPI (Python)
 - database: Postgres + pgvector
 - models/runtime:
@@ -129,31 +126,25 @@ Optional dev overrides:
 
 ## Data Layout
 
-Runtime data lives in a few main places:
+Runtime data lives in:
 
-- `data/volumes/<volume-id>/...`
-  - page images
-- Postgres
-  - volumes, pages, boxes, OCR text, translations, memory/context, jobs, workflows
-- `data/logs/`
-  - debug artifacts and LLM call payload captures
-- `training-data/`
-  - prepared datasets and training runs
-- `models/`
-  - published model weights and manifests
+- `data/volumes/<volume-id>/...` for page images
+- Postgres for volumes, pages, boxes, OCR text, translations, memory/context, jobs, and workflows
+- `data/logs/` for debug artifacts and LLM call payload captures
+- `training-data/` for prepared datasets and training runs
+- `models/` for published model weights and manifests
 
 ## Datasets And Training
 
 The published text-box detector `yolo26s-text-v1` was trained on Manga109-s.
-Dataset images are not redistributed in this repo.
+Dataset images are not redistributed here, but you can still prepare datasets,
+train your own detection models, and publish model manifests/weights locally.
+See [docs/DATASETS.md](docs/DATASETS.md) for dataset notes and references,
+including:
 
-You can still use this repo to:
-
-- prepare datasets
-- train your own detection models
-- publish model manifests/weights locally
-
-See [docs/DATASETS.md](/home/thomas/projects/manga-yaku/docs/DATASETS.md) for the dataset notes.
+- Aizawa et al. (2020), *Building a Manga Dataset "Manga109" with Annotations
+  for Multimedia Applications*
+- Matsui et al. (2017), *Sketch-based Manga Retrieval using Manga109 Dataset*
 
 ## Development
 
@@ -161,22 +152,29 @@ Main developer commands:
 
 ```text
 npm run lint
+npm run lint:fix
 npm run test:backend
 ```
 
-Deeper contributor/setup guidance lives in:
+`npm run lint` is the main repo quality gate. It runs:
 
-- [CONTRIBUTING.md](/home/thomas/projects/manga-yaku/CONTRIBUTING.md)
+- backend Ruff lint
+- backend Ruff format check
+- backend Pyright
+- frontend TypeScript typecheck
+- frontend Biome lint/format/import checks
+
+Deeper contributor/setup guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Docs
 
 Start here depending on what you need:
 
-- [ARCHITECTURE.md](/home/thomas/projects/manga-yaku/ARCHITECTURE.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
   - current system architecture, boundaries, workflows, jobs, idempotency, MCP
-- [backend-python/README.md](/home/thomas/projects/manga-yaku/backend-python/README.md)
+- [backend-python/README.md](backend-python/README.md)
   - backend-specific notes
-- [CONTRIBUTING.md](/home/thomas/projects/manga-yaku/CONTRIBUTING.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
   - setup, linting, testing, repo conventions
 
 Backend API docs when running locally:
