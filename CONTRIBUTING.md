@@ -11,7 +11,7 @@ Requirements:
 - Python 3.10+
 - Node.js 20.20.x
 - npm 11.10.x
-- Docker (for Postgres)
+- Docker (for Postgres or the full Docker dev stack)
 - Git LFS (for published model weights under `models/`)
 - `OPENAI_API_KEY` if you want to use the OpenAI-backed OCR, translation, or chat-agent paths
 
@@ -27,6 +27,17 @@ git lfs pull
 ```
 
 Common commands:
+
+```text
+npm run setup
+npm run dev
+npm run dev:backend
+npm run dev:backend:noreload
+npm run dev:frontend
+docker compose up --build
+```
+
+Host-based dev:
 
 ```text
 npm run setup

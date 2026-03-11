@@ -69,7 +69,6 @@ From repo root:
 git lfs install
 git lfs pull
 
-docker compose up -d
 npm run setup
 npm run dev
 ```
@@ -85,7 +84,17 @@ Useful alternatives:
 npm run dev:backend
 npm run dev:frontend
 npm run dev:backend:noreload
+docker compose up --build
 ```
+
+`docker compose up --build` now starts the full dev stack:
+
+- frontend: http://localhost:5174
+- backend: http://localhost:8101
+- postgres: localhost:5433
+
+The host-based path (`npm run dev`) is still useful when you already have local
+Python/Node tooling set up and only want Postgres in Docker.
 
 ## Configuration
 
