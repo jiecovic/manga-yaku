@@ -24,11 +24,13 @@ services:
       db:
         condition: service_healthy
     environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DATABASE_URL: postgresql+psycopg://mangayaku:mangayaku@db:5432/mangayaku
       CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
       MANGAYAKU_BACKEND_HOST: 0.0.0.0
       MANGAYAKU_BACKEND_PORT: "8101"
       AGENT_MCP_SERVER_URL: http://127.0.0.1:8101/api/mcp/
+      YOLO_CONFIG_DIR: /workspace/training-data/ultralytics
       WATCHFILES_FORCE_POLLING: "1"
     ports:
       - "8101:8101"
