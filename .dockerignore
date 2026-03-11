@@ -1,0 +1,14 @@
+node_modules
+frontend/node_modules
+frontend/dist
+backend-python/.venv
+backend-python/.pytest_cache
+backend-python/.mypy_cache
+backend-python/__pycache__
+backend-python/**/*.pyc
+data
+training-data
+models
+tmp
+.git
+.github

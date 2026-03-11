@@ -16,6 +16,45 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.dev.Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://mangayaku:mangayaku@db:5432/mangayaku
+      CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
+      MANGAYAKU_BACKEND_HOST: 0.0.0.0
+      MANGAYAKU_BACKEND_PORT: "8101"
+      AGENT_MCP_SERVER_URL: http://127.0.0.1:8101/api/mcp/
+      WATCHFILES_FORCE_POLLING: "1"
+    ports:
+      - "8101:8101"
+    volumes:
+      - ./backend-python:/workspace/backend-python
+      - ./data:/workspace/data
+      - ./training-data:/workspace/training-data
+      - ./models:/workspace/models
+      - ./prompts:/workspace/prompts
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.dev.Dockerfile
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      VITE_API_BASE: http://127.0.0.1:8101
+      CHOKIDAR_USEPOLLING: "1"
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - frontend_node_modules:/workspace/frontend/node_modules
+
 volumes:
   pgdata:
-
+  frontend_node_modules:

@@ -1,4 +1,4 @@
-.PHONY: help setup dev dev-raw dev-with-db backend backend-noreload frontend db-up db-down db-logs db-ps lint test-backend typecheck-frontend lint-frontend
+.PHONY: help setup dev dev-raw dev-with-db dev-docker docker-down docker-logs backend backend-noreload frontend db-up db-down db-logs db-ps lint test-backend typecheck-frontend lint-frontend
 
 help:
 	@echo "Available targets:"
@@ -6,6 +6,9 @@ help:
 	@echo "  make dev                - start backend + frontend (managed launcher)"
 	@echo "  make dev-raw            - start backend + frontend (concurrently)"
 	@echo "  make dev-with-db        - start postgres, then backend + frontend"
+	@echo "  make dev-docker         - start frontend + backend + postgres in Docker"
+	@echo "  make docker-down        - stop the Docker dev stack"
+	@echo "  make docker-logs        - tail Docker dev stack logs"
 	@echo "  make backend            - start backend with reload"
 	@echo "  make backend-noreload   - start backend without reload"
 	@echo "  make frontend           - start frontend dev server"
@@ -27,6 +30,15 @@ dev-raw:
 
 dev-with-db: db-up
 	npm run dev
+
+dev-docker:
+	docker compose up --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f
 
 backend:
 	npm run dev:backend
