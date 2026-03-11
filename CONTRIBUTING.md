@@ -34,7 +34,9 @@ npm run dev
 npm run dev:backend
 npm run dev:backend:noreload
 npm run dev:frontend
-docker compose up --build
+docker compose up --build -d
+docker compose logs -f
+docker compose down
 ```
 
 Host-based dev:
@@ -76,6 +78,8 @@ Backend layout:
 
 - `backend-python/api/` — FastAPI routers + schemas (HTTP surface area).
 - `backend-python/core/` — business logic and workflow orchestration.
+  - `usecases/` contains reusable capabilities such as OCR, translation, box detection, settings, and chat-agent runtime helpers.
+  - `workflows/` contains longer-running orchestration such as the multi-stage `page_translation` pipeline.
 - `backend-python/infra/` — DB, LLM clients, jobs, IO adapters.
 - `backend-python/app.py` — app wiring and router registration.
 
@@ -93,8 +97,11 @@ For the current runtime and data model, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```text
 npm run lint
+npm run lint:fix
 npm run lint:backend
 npm run lint:frontend
+npm run lint:types
+npm run typecheck:frontend
 npm run format:backend:check
 npm run format:frontend:check
 ```
@@ -105,7 +112,7 @@ This repo includes a `.pre-commit-config.yaml` that runs:
 
 - `ruff` (backend)
 - `pyright` (backend types)
-- `tsc --noEmit` (frontend types)
+- `npm run typecheck:frontend` (frontend TypeScript build/typecheck)
 - `biome check` (frontend lint + format + import sorting)
 
 Setup:
@@ -150,6 +157,9 @@ Notes:
 
 - `LOCAL_OPENAI_BASE_URL` and `LOCAL_OPENAI_MODEL` are optional.
 - The local translation profile is enabled only when the base URL is reachable.
+- If you use Docker and want OpenAI-backed OCR, translation, or chat-agent
+  paths without editing `backend-python/.env`, export `OPENAI_API_KEY` in your
+  shell before starting `docker compose`.
 
 ## Frontend UI Tokens
 
@@ -174,3 +184,6 @@ training-data/
   prepared/
   runs/
 ```
+
+See [docs/DATASETS.md](docs/DATASETS.md) for the current Manga109-s notes and
+references used by the box-detection training flow.
