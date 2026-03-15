@@ -47,6 +47,12 @@ def _build_text_box_crop_jpeg_bytes(
     padding_px: int,
     max_side: int,
 ) -> bytes:
+    """Build a bounded JPEG crop for one text box image payload.
+
+    MCP tool calls can return images, but we keep crops small and padded so the
+    agent gets readable local context without shipping the whole page image each
+    time.
+    """
     image = load_volume_image(volume_id, filename)
     width, height = image.size
     pad = max(0, int(padding_px))
@@ -78,9 +84,11 @@ def register_tools(mcp: FastMCP[Any]) -> None:
     """Register all agent MCP tools with stable names used by the chat prompt."""
 
     def _resolve_tool_context(ctx: Context | None) -> Any:
+        """Resolve the current volume/page context for one MCP tool call."""
         return get_tool_context_from_request(ctx)
 
     async def _run_in_thread(fn: Any, /, *args: Any, **kwargs: Any) -> Any:
+        """Run sync tool adapters off the event loop to keep MCP handlers responsive."""
         return await asyncio.to_thread(fn, *args, **kwargs)
 
     @mcp.tool(

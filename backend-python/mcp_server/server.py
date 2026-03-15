@@ -12,10 +12,12 @@ from .tools import register_tools
 
 
 def _load_server_instructions() -> str:
+    """Load the MCP server instruction text from the prompt bundle."""
     return load_prompt_bundle("mcp/server.yml")["system"]
 
 
 def create_server() -> FastMCP[Any]:
+    """Create the FastMCP server with the stable tool set used by the chat agent."""
     mcp = FastMCP(
         name="mangayaku-tools",
         instructions=_load_server_instructions(),
@@ -26,6 +28,7 @@ def create_server() -> FastMCP[Any]:
 
 
 def main() -> None:
+    """Run the MCP server over stdio for standalone/local MCP usage."""
     server = create_server()
     server.run(transport="stdio")
 

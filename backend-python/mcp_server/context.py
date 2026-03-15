@@ -22,12 +22,15 @@ _ACTIVE_FILENAME_LOCK = threading.Lock()
 
 @dataclass(frozen=True)
 class McpToolContext:
+    """Resolved MCP tool context for one request or one agent run."""
+
     volume_id: str
     active_filename: str | None
     agent_run_id: str | None
 
 
 def set_runtime_active_filename(agent_run_id: str, filename: str | None) -> None:
+    """Persist the active page for one agent run so later tool calls can omit it."""
     run_id = str(agent_run_id or "").strip()
     if not run_id:
         return
@@ -41,6 +44,7 @@ def set_runtime_active_filename(agent_run_id: str, filename: str | None) -> None
 
 
 def get_runtime_active_filename(agent_run_id: str | None) -> str | None:
+    """Return the run-scoped active filename remembered for an agent run."""
     run_id = str(agent_run_id or "").strip()
     if not run_id:
         return None
@@ -49,6 +53,7 @@ def get_runtime_active_filename(agent_run_id: str | None) -> str | None:
 
 
 def clear_runtime_active_filename(agent_run_id: str | None) -> None:
+    """Drop any remembered active page when the run is cleaned up."""
     run_id = str(agent_run_id or "").strip()
     if not run_id:
         return
@@ -57,6 +62,7 @@ def clear_runtime_active_filename(agent_run_id: str | None) -> None:
 
 
 def get_tool_context() -> McpToolContext:
+    """Resolve fallback MCP context from process env when no request is available."""
     volume_id = str(os.getenv(MCP_ENV_VOLUME_ID, "") or "").strip()
     active_filename = coerce_filename(os.getenv(MCP_ENV_ACTIVE_FILENAME))
     return McpToolContext(
@@ -67,7 +73,13 @@ def get_tool_context() -> McpToolContext:
 
 
 def get_tool_context_from_request(ctx: Any | None) -> McpToolContext:
-    """Resolve context from MCP request headers, falling back to process env."""
+    """Resolve MCP context from request headers, then fall back to process env.
+
+    The important detail is that the active filename can come from two places:
+    the current request headers or the run-scoped in-memory cache keyed by
+    `agent_run_id`. The cache wins so page navigation tools can set a new active
+    page once and later tool calls in the same run inherit it automatically.
+    """
     request_context = getattr(ctx, "request_context", None)
     request = getattr(request_context, "request", None)
     headers = getattr(request, "headers", None)
