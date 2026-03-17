@@ -1,5 +1,23 @@
 # backend-python/core/usecases/agent/engine.py
-"""Primary orchestration logic for agent operations."""
+"""Public entrypoints for the chat agent runtime.
+
+This module is intentionally thin.
+
+`engine.py` is the app-facing facade that wires stable MangaYaku concerns into
+the lower-level Agents SDK runtime helpers:
+
+- prompt loading
+- chat runtime settings
+- optional SDK session support
+- direct OpenAI repair fallback for bad/missing final text
+
+The heavier SDK orchestration lives in `runtime/engine_sdk_runtime.py`. Keeping
+this file small makes the main call graph easier to explain in review:
+
+- API/router layer calls `run_agent_chat(...)` or `run_agent_chat_stream(...)`
+- this module injects app-specific builders and settings
+- the runtime module performs the actual SDK run
+"""
 
 from __future__ import annotations
 
@@ -45,7 +63,9 @@ from infra.llm import (
 from infra.logging.correlation import normalize_correlation
 from infra.prompts import load_prompt_bundle, render_prompt_bundle
 
-# Optional Agents SDK imports.
+# The dependency is installed in this repo, but we still guard the import so the
+# backend fails at agent-run time with a clear error instead of crashing at
+# module import time if the SDK install is broken.
 try:
     from agents import (
         Agent,
@@ -67,14 +87,17 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_agent_chat_max_turns() -> int:
+    """Resolve the effective max-turn budget for one SDK run."""
     return resolve_agent_chat_max_turns()
 
 
 def _resolve_agent_chat_max_output_tokens() -> int:
+    """Resolve the effective output-token budget for one assistant turn."""
     return resolve_agent_chat_max_output_tokens()
 
 
 def _load_system_prompt() -> str:
+    """Render the chat system prompt with the current translation context."""
     bundle = load_prompt_bundle(AGENT_PROMPT_FILE)
     rendered = render_prompt_bundle(
         bundle,
@@ -92,6 +115,13 @@ def _build_repair_prompt_payload(
     conversation_excerpt: str,
     action_excerpt: str,
 ) -> list[dict[str, Any]]:
+    """Build the compact fallback prompt used after a failed SDK turn.
+
+    The repair path is intentionally small: it does not rerun the full MCP tool
+    flow, and it does not replay the whole chat history. It asks a plain model
+    call to recover a user-facing assistant reply from the recent conversation
+    plus emitted tool/activity events.
+    """
     bundle = load_prompt_bundle("agent/chat/repair.yml")
     rendered = render_prompt_bundle(
         bundle,
@@ -114,14 +144,17 @@ def _build_repair_prompt_payload(
 
 
 def _sdk_use_sqlite_session() -> bool:
+    """Return whether the optional SDK-side SQLite session helper is enabled."""
     return _sdk_use_sqlite_session_impl()
 
 
 def _build_sdk_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize persisted chat rows into the Agents SDK input shape."""
     return _build_sdk_input_impl(messages)
 
 
 def _build_repair_conversation_excerpt(messages: list[dict[str, Any]]) -> str:
+    """Summarize the most recent chat turns for the repair fallback."""
     lines: list[str] = []
     for msg in messages[-6:]:
         role = str(msg.get("role") or "user").strip().lower()
@@ -133,6 +166,7 @@ def _build_repair_conversation_excerpt(messages: list[dict[str, Any]]) -> str:
 
 
 def _build_repair_action_excerpt(action_events: list[dict[str, str]]) -> str:
+    """Summarize recent tool/activity events for the repair fallback."""
     lines: list[str] = []
     for event in action_events[-12:]:
         event_type = str(event.get("type") or "").strip().lower()
@@ -145,6 +179,12 @@ def _build_repair_action_excerpt(action_events: list[dict[str, str]]) -> str:
 
 
 def _build_sdk_agent(model_id: str, *, mcp_servers: list[Any]) -> Any:
+    """Build the configured Agents SDK `Agent` for one run.
+
+    This wrapper keeps the runtime module decoupled from global config and
+    prompt-loading details. The runtime only needs builders; this module owns
+    which model, prompt, and token settings MangaYaku wants to expose.
+    """
     return _build_sdk_agent_impl(
         model_id,
         mcp_servers=mcp_servers,
@@ -157,6 +197,7 @@ def _build_sdk_agent(model_id: str, *, mcp_servers: list[Any]) -> Any:
 
 
 def _build_sdk_session(session_id: str | None) -> Any:
+    """Build the optional SDK session object for one chat session id."""
     return _build_sdk_session_impl(
         session_id,
         use_sqlite_session=_sdk_use_sqlite_session(),
@@ -173,6 +214,12 @@ def run_agent_chat_repair(
     current_filename: str | None = None,
     session_id: str | None = None,
 ) -> str:
+    """Fallback reply generation when the main SDK path produced no final text.
+
+    This deliberately bypasses the Agents SDK and uses a direct Responses API
+    call instead. The goal is not to run tools again; it is to salvage a short,
+    human-readable reply from the recent conversation and action trace.
+    """
     if not has_openai_sdk():
         raise RuntimeError("OpenAI SDK is not available")
 
@@ -216,6 +263,7 @@ def _run_agent_chat_sdk(
     current_filename: str | None,
     session_id: str | None,
 ) -> str:
+    """Run one synchronous chat turn through the SDK-backed agent runtime."""
     return _run_agent_chat_sdk_impl(
         messages,
         model_id=model_id,
@@ -240,6 +288,7 @@ def run_agent_chat(
     current_filename: str | None = None,
     session_id: str | None = None,
 ) -> str:
+    """Public synchronous entrypoint used by the HTTP reply route."""
     return _run_agent_chat_sdk(
         messages,
         model_id=model_id,
@@ -258,6 +307,7 @@ def _run_agent_chat_stream_sdk(
     session_id: str | None,
     stop_event: Event | None = None,
 ):
+    """Run one streaming chat turn through the SDK-backed agent runtime."""
     yield from _run_agent_chat_stream_sdk_impl(
         messages,
         model_id=model_id,
@@ -283,6 +333,7 @@ def run_agent_chat_stream(
     session_id: str | None = None,
     stop_event: Event | None = None,
 ):
+    """Public streaming entrypoint used by the SSE reply route."""
     yield from _run_agent_chat_stream_sdk(
         messages,
         model_id=model_id,

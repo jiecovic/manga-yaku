@@ -546,6 +546,33 @@ Important pieces:
 
 The chat session model choice is stored in `agent_sessions.model_id`.
 
+### Chat History and Prompt Caching
+
+The app owns chat history itself.
+
+Each reply turn:
+
+- loads recent messages from `agent_messages`
+- rebuilds the SDK input payload from those rows
+- appends current page state and optional grounding for the active page
+- sends that rebuilt input into the Agents SDK run
+
+So today the main chat path does not rely on OpenAI server-managed conversation
+continuation as its primary memory model. It does not increment a stored
+`previous_response_id` per turn in app code. The durable source of truth is
+still Postgres chat history plus the current page state.
+
+There is optional SDK-side `SQLiteSession` support, but it is a local SDK
+memory helper, not the app's main persisted chat store, and it is disabled by
+default.
+
+Practical consequence:
+
+- prompt caching can still help, because repeated prefixes are resent each turn
+- the most stable cacheable parts are the system prompt, tool schema, and older
+  unchanged chat turns
+- dynamic turn-state and page-grounding messages reduce cache hit quality
+
 ### MCP Server
 
 The MCP server is defined in `backend-python/mcp_server/`.
